@@ -30,7 +30,7 @@ export function PostCard({ post, isAuthenticated = false }: PostCardProps) {
         <div className="flex items-start gap-3 mb-3">
           <Link href={`/profile/${author.username}`}>
             <Avatar className="h-10 w-10">
-              <AvatarImage src={author.avatar_url} />
+              <AvatarImage src={author.avatar_url ?? undefined} />
               <AvatarFallback className="bg-accent text-sm">
                 {author.full_name.charAt(0)}
               </AvatarFallback>

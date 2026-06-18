@@ -37,19 +37,27 @@ export function CommentSection({ postId }: CommentSectionProps) {
     setSubmitting(true);
     // Mock add comment
     setTimeout(() => {
+      const fallbackAuthor = {
+        id: user?.profile.id || "",
+        phone: user?.profile.phone || "",
+        username: user?.profile.username || "",
+        full_name: user?.profile.full_name || "You",
+        role: user?.profile.role || "general_user",
+        avatar_url: null,
+        cover_url: null,
+        bio: null,
+        region_id: 15,
+        township_id: 1,
+        market_status_id: null,
+        phone_verified: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
       const comment: Comment = {
         id: `comment-${Date.now()}`,
         post_id: postId,
-        author_id: user?.id || "",
-        author: user || {
-          id: "",
-          phone: "",
-          username: "",
-          full_name: "You",
-          role: "general_user",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
+        author_id: user?.profile.id || "",
+        author: user?.profile || fallbackAuthor,
         content: newComment.trim(),
         created_at: new Date().toISOString(),
       };
@@ -96,7 +104,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <Avatar className="h-7 w-7 shrink-0">
           <AvatarFallback className="text-[10px] bg-accent">
-            {user?.full_name?.charAt(0) || "?"}
+            {user?.profile.full_name?.charAt(0) || "?"}
           </AvatarFallback>
         </Avatar>
         <Input

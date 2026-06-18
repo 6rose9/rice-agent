@@ -95,13 +95,13 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
       <div className="flex items-center gap-3 px-4 py-3 border-b">
         <Avatar className="h-8 w-8">
           <AvatarFallback className="text-xs bg-accent">
-            {user?.full_name?.charAt(0) || "?"}
+            {user?.profile.full_name?.charAt(0) || "?"}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <p className="text-sm font-medium">{user?.full_name || "You"}</p>
+          <p className="text-sm font-medium">{user?.profile.full_name || "You"}</p>
           <p className="text-[10px] text-muted-foreground">
-            Posting as {user?.role || "General User"}
+            Posting as {user?.profile.role || "General User"}
           </p>
         </div>
         <Badge

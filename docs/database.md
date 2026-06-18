@@ -2,7 +2,7 @@
 
 ## Overview
 
-Six tables on Supabase PostgreSQL. Two reference tables (`regions`, `townships`) seeded by migration and read-only at runtime. Four application tables (`profiles`, `posts`, `post_images`, `follows`) with full Row-Level Security.
+Seven tables on Supabase PostgreSQL. Three reference tables (`market_status`, `regions`, `townships`) seeded by migration and read-only at runtime. Four application tables (`profiles`, `posts`, `post_images`, `follows`) with full Row-Level Security.
 
 `profiles` extends `auth.users` (Supabase-managed identity) via a 1:1 FK relationship. All policies reference `auth.uid()` for row-level access control.
 
@@ -16,12 +16,12 @@ Six tables on Supabase PostgreSQL. Two reference tables (`regions`, `townships`)
 │  (15 rows)│       │ (~200 rows)│       │ (0...*)  │
 └──────────┘       └──────────┘       └──────────┘
                                              │
-                         ┌───────────────────┤
-                   1:many│             1:many│
-                    ┌──────────┐       ┌──────────┐
-                    │  posts   │       │ follows  │
-                    │ (0...*)  │       │ (0...*)  │
-                    └──────────┘       └──────────┘
+                         ┌───────────────────┼───────────────────┐
+                   1:many│             1:many│             1:many│
+                    ┌──────────┐       ┌──────────┐       ┌─────────────┐
+                    │  posts   │       │ follows  │       │market_status │
+                    │ (0...*)  │       │ (0...*)  │       │  (6 rows)    │
+                    └──────────┘       └──────────┘       └─────────────┘
                          │
                    1:many│
                     ┌──────────┐
@@ -30,6 +30,7 @@ Six tables on Supabase PostgreSQL. Two reference tables (`regions`, `townships`)
                     └──────────┘
 
 auth.users (Supabase) ──1:1── profiles (id REFERENCES auth.users.id)
+profiles.market_status_id ──many:1── market_status(id)
 ```
 
 ---
@@ -98,7 +99,7 @@ create table regions (
 | Constraint | Type | Column | Detail |
 |---|---|---|---|
 | `regions_pkey` | PK | `id` | `generated always as identity` |
-| `regions_name_check` | CHECK | `name` | `jsonb_typeof(name) = 'object'` (optional; can be enforced at app layer) |
+| `regions_name_check` | CHECK | `name` | `jsonb_typeof(name) = 'object'` (enforced at app layer) |
 
 ### Indexes
 
@@ -154,7 +155,8 @@ create table townships (
     id          smallint generated always as identity primary key,
     region_id   smallint  not null references regions(id),
     name        jsonb     not null,                     -- {"en": "Hlaingthaya", "my": "လှိုင်သာယာ"}
-    sort_order  smallint  not null default 0
+    sort_order  smallint  not null default 0,
+    unique(name, region_id)
 );
 ```
 
@@ -164,6 +166,7 @@ create table townships (
 |---|---|---|---|
 | `townships_pkey` | PK | `id` | `generated always as identity` |
 | `townships_region_id_fkey` | FK | `region_id` | → `regions(id)`. No cascade — reference data is never deleted |
+| `townships_name_region_id_key` | UNIQUE | `(name, region_id)` | Same township name may exist in different regions but not the same one |
 
 ### Indexes
 
@@ -211,26 +214,74 @@ No INSERT/UPDATE/DELETE policies. Seed data loaded by migration.
 
 ---
 
-## Table 3: `profiles`
+## Table 3: `market_status`
+
+**Purpose:** Reference table for the 6 market/availability statuses a user can set on their profile.  
+**Access:** Read-only at runtime. Seeded by migration.  
+**Key design:** Bilingual `name` field with `en` and `my` keys. Users reference statuses by `id` via `profiles.market_status_id` FK (nullable — new users have no status).
+
+### DDL
+
+```sql
+create table market_status (
+    id          smallint generated always as identity primary key,
+    name        jsonb     not null,   -- {"en": "Looking for Buyers", "my": "ဝယ်သူရှာနေသည်"}
+    sort_order  smallint  not null default 0
+);
+```
+
+### Seed Data (6 rows)
+
+| id | name | sort_order |
+|---|---|---|
+| 1 | `{"en":"Looking for Buyers", "my":"ဝယ်သူရှာနေသည်"}` | 1 |
+| 2 | `{"en":"Looking for Suppliers", "my":"ရောင်းသူရှာနေသည်"}` | 2 |
+| 3 | `{"en":"Buying Rice", "my":"စပါးဝယ်မည်"}` | 3 |
+| 4 | `{"en":"Selling Rice", "my":"စပါးရောင်းမည်"}` | 4 |
+| 5 | `{"en":"Available as Agent", "my":"အကျိုးဆောင်ရနိုင်သည်"}` | 5 |
+| 6 | `{"en":"Open for Partnership", "my":"လုပ်ငန်းဖက်စပ်ရှာနေသည်"}` | 6 |
+
+### RLS
+
+```sql
+alter table market_status enable row level security;
+
+-- All authenticated users can read
+create policy "Market status viewable by authenticated users"
+    on market_status for select
+    to authenticated
+    using (true);
+```
+
+---
+
+## Table 4: `profiles`
 
 **Purpose:** Public identity per registered user. Extends `auth.users` 1:1.  
 **Access:** Users can read all profiles; can only write their own.  
-**Key design decision:** `township_id` is NOT NULL — location is required at profile creation. Region is resolved via join (`townships.region_id`).
+**Key design decisions:**
+- `region_id` and `township_id` are NOT NULL — location is required at profile creation.
+- `market_status_id` is nullable — NULL by default at signup. Users set their status later from the `market_status` reference table.
 
 ### DDL
 
 ```sql
 create table profiles (
-    id          uuid        primary key references auth.users(id) on delete cascade,
-    username    text        not null unique,
-    full_name   text        not null,
-    role        text        not null,
-    about       text,
-    township_id smallint    not null references townships(id),
-    avatar_url  text,
-    status      text,
-    created_at  timestamptz not null default now(),
-    updated_at  timestamptz not null default now()
+    id               uuid        primary key references auth.users(id) on delete cascade,
+    phone            text        not null unique,
+    email            text,
+    username         text        not null unique,
+    full_name        text        not null,
+    role             text        not null,
+    avatar_url       text,
+    cover_url        text,
+    bio              text,
+    region_id        smallint    not null references regions(id),
+    township_id      smallint    not null references townships(id),
+    website          text,
+    market_status_id smallint    references market_status(id),
+    created_at       timestamptz not null default now(),
+    updated_at       timestamptz not null default now()
 );
 ```
 
@@ -239,20 +290,23 @@ create table profiles (
 | Constraint | Type | Column | Detail |
 |---|---|---|---|
 | `profiles_pkey` | PK | `id` | FK → `auth.users(id)` ON DELETE CASCADE |
+| `profiles_phone_key` | UNIQUE | `phone` | Myanmar phone format |
 | `profiles_username_key` | UNIQUE | `username` | URL-safe, 3–30 chars, `^[a-z0-9_]+$` (enforced at app + CHECK) |
 | `profiles_username_check` | CHECK | `username` | `username ~ '^[a-z0-9_]{3,30}$'` |
 | `profiles_role_check` | CHECK | `role` | `role in ('farmer', 'trader', 'agent', 'general')` |
-| `profiles_status_check` | CHECK | `status` | `status in ('Looking for Buyers', 'Looking for Suppliers', 'Buying Rice', 'Selling Rice', 'Available as Agent', 'Open for Partnership')` |
-| `profiles_about_check` | CHECK | `about` | `char_length(about) <= 500` |
-| `profiles_township_id_fkey` | FK | `township_id` | → `townships(id)`. No cascade — township is required, and reference data is never deleted |
+| `profiles_bio_check` | CHECK | `bio` | `char_length(bio) <= 500` |
+| `profiles_region_id_fkey` | FK | `region_id` | → `regions(id)`. No cascade — reference data |
+| `profiles_township_id_fkey` | FK | `township_id` | → `townships(id)`. No cascade — reference data |
+| `profiles_market_status_id_fkey` | FK | `market_status_id` | → `market_status(id)`. Nullable — user sets later |
 
 ### Indexes
 
 | Index | Columns | Type | Rationale |
 |---|---|---|---|
 | `idx_profiles_username` | `username` | BTREE UNIQUE | Profile route resolution: `/profile/[username]` → `select * from profiles where username = $1` |
-| `idx_profiles_role_township` | `(role, township_id)` | BTREE | Most common search filter combo: "find all farmers in this township" |
-| `idx_profiles_township_id` | `township_id` | BTREE | Join performance when resolving profile location |
+| `idx_profiles_role_region` | `(role, region_id)` | BTREE | Most common search filter combo: "find all farmers in this region" |
+| `idx_profiles_township_id` | `township_id` | BTREE | Join performance when resolving profile township |
+| `idx_profiles_region_id` | `region_id` | BTREE | Join performance when resolving profile region |
 
 **No full-text index on `full_name` in V1.** User search by name uses `ilike` with a leading-wildcard pattern (`%query%`), which BTREE cannot accelerate. This is acceptable at MVP scale. V2 adds a `pg_trgm` GIN index for fast `ilike` search.
 
@@ -300,7 +354,7 @@ create policy "Users can delete their own profile"
 
 Supabase Auth creates the `auth.users` row on registration. The application inserts the `profiles` row during onboarding.
 
-**Option A (recommended for V1): Application-layer.** After Supabase sign-up returns successfully, the client redirects to `/profile/create`. The onboarding form collects `username`, `full_name`, `role`, `township_id`, and `status`, then inserts into `profiles`.
+**Option A (recommended for V1): Application-layer.** After Supabase sign-up returns successfully, the client redirects to `/profile/create`. The onboarding form collects `username`, `full_name`, `role`, `region_id`, and `township_id`, then inserts into `profiles`. `market_status_id` is left NULL — the user can set it later from their profile settings page.
 
 **Option B (V2 alternative): Database trigger.** A function on `auth.users` insert auto-creates a stub `profiles` row, which the user completes later. This eliminates the "registered but no profile" gap but adds trigger complexity.
 
@@ -308,7 +362,7 @@ V1 uses Option A.
 
 ---
 
-## Table 4: `posts`
+## Table 5: `posts`
 
 **Purpose:** Buying and selling listings — the marketplace core.  
 **Key design decisions:**
@@ -428,7 +482,7 @@ create policy "Users can delete their own posts"
 
 ---
 
-## Table 5: `post_images`
+## Table 6: `post_images`
 
 **Purpose:** Multi-image support per post. V2 feature — table defined now in schema but unused until image upload ships post-MVP.  
 **Key design:** Max 5 images per post (enforced at application layer; trigger enforcement optional in V2).
@@ -505,7 +559,7 @@ No UPDATE policy — images are immutable after insert (only URL and sort_order 
 
 ---
 
-## Table 6: `follows`
+## Table 7: `follows`
 
 **Purpose:** Social-graph junction table. User A follows User B.  
 **Key design:** UNIQUE(follower, following) + CHECK(self-follow prevention).
@@ -580,8 +634,9 @@ No UPDATE policy — a follow row has no mutable state beyond insert/delete.
 |---|---|---|---|
 | `townships` | `idx_townships_region_id` | `region_id` | Cascading region → township dropdown |
 | `profiles` | `idx_profiles_username` | `username` (unique) | Route lookup: `/profile/[username]` |
-| `profiles` | `idx_profiles_role_township` | `(role, township_id)` | Search: filter by role + location |
-| `profiles` | `idx_profiles_township_id` | `township_id` | Join: resolve profile location |
+| `profiles` | `idx_profiles_role_region` | `(role, region_id)` | Search: filter by role + region |
+| `profiles` | `idx_profiles_township_id` | `township_id` | Join: resolve profile township |
+| `profiles` | `idx_profiles_region_id` | `region_id` | Join: resolve profile region |
 | `posts` | `idx_posts_active_feed` | `created_at DESC` WHERE `is_active = true` | Global feed (partial index) |
 | `posts` | `idx_posts_user_created` | `(user_id, created_at DESC)` | User's own posts on profile |
 | `posts` | `idx_posts_type_township` | `(type, township_id, created_at DESC)` | Filtered feed by type + location |
@@ -590,7 +645,7 @@ No UPDATE policy — a follow row has no mutable state beyond insert/delete.
 | `follows` | (unique constraint) | `(follower_id, following_id)` | Uniqueness + "am I following?" lookup |
 | `follows` | `idx_follows_following` | `following_id` | "Who follows me?" lookup |
 
-**Total: 10 indexes on 6 tables.**
+**Total: 10 indexes on 7 tables.**
 
 ---
 
@@ -601,23 +656,25 @@ No UPDATE policy — a follow row has no mutable state beyond insert/delete.
 select p.*, t.name as township_name, r.name as region_name
 from profiles p
 join townships t on t.id = p.township_id
-join regions r on r.id = t.region_id
+join regions r on r.id = p.region_id
 where p.username = $1;
 ```
 **Indexes hit:** `idx_profiles_username`, `townships_pkey`, `regions_pkey`. Single-row lookup. ✓
 
-### User Search (by name, role, township)
+Note: `region_id` is resolved directly from profiles (not via townships) for best performance on this 1:1 path.
+
+### User Search (by name, role, region)
 ```sql
 select p.*, t.name as township_name, r.name as region_name
 from profiles p
 join townships t on t.id = p.township_id
-join regions r on r.id = t.region_id
+join regions r on r.id = p.region_id
 where p.full_name ilike '%' || $1 || '%'
   and p.role = $2
-  and p.township_id = $3
+  and p.region_id = $3
 limit 20;
 ```
-**Indexes hit:** `idx_profiles_role_township` for the role+township filter; name `ilike` does a sequential scan over the filtered set — acceptable at MVP scale. V2 adds `pg_trgm` GIN on `full_name`. ✓
+**Indexes hit:** `idx_profiles_role_region` for the role+region filter; name `ilike` does a sequential scan over the filtered set — acceptable at MVP scale. V2 adds `pg_trgm` GIN on `full_name`. ✓
 
 ### Global Feed
 ```sql
@@ -702,16 +759,19 @@ agent
 general
 ```
 
-### `profiles.status`
-```
-Looking for Buyers
-Looking for Suppliers
-Buying Rice
-Selling Rice
-Available as Agent
-Open for Partnership
-```
-Nullable — a user may not set a status. Default UI: no badge shown.
+### `market_status` (reference table)
+Statuses are stored as rows with bilingual names, referenced by `profiles.market_status_id` (FK, nullable).
+
+| id | en | my |
+|---|---|---|
+| 1 | Looking for Buyers | ဝယ်သူရှာနေသည် |
+| 2 | Looking for Suppliers | ရောင်းသူရှာနေသည် |
+| 3 | Buying Rice | စပါးဝယ်မည် |
+| 4 | Selling Rice | စပါးရောင်းမည် |
+| 5 | Available as Agent | အကျိုးဆောင်ရနိုင်သည် |
+| 6 | Open for Partnership | လုပ်ငန်းဖက်စပ်ရှာနေသည် |
+
+`market_status_id` is NULL by default at user creation — the user chooses a status later. No badge is shown when NULL.
 
 ### `posts.type`
 ```
@@ -747,12 +807,13 @@ Single migration file containing, in order:
 
 1. `create extension if not exists "pgcrypto"`
 2. `create or replace function update_updated_at_column()`
-3. `create table regions` + seed data + RLS
-4. `create table townships` + seed data + RLS + index
-5. `create table profiles` + constraints + RLS + indexes + trigger
-6. `create table posts` + constraints + RLS + indexes + trigger
-7. `create table post_images` + constraints + RLS + index
-8. `create table follows` + constraints + RLS
+3. `create table market_status` + seed data + RLS
+4. `create table regions` + seed data + RLS
+5. `create table townships` + seed data + RLS + index
+6. `create table profiles` + constraints + RLS + indexes + trigger
+7. `create table posts` + constraints + RLS + indexes + trigger
+8. `create table post_images` + constraints + RLS + index
+9. `create table follows` + constraints + RLS
 
 ---
 

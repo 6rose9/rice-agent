@@ -47,9 +47,9 @@ create table public.profiles (
   avatar_url text,
   cover_url text,
   bio text,
-  location text,
-  website text,
-  market_status text,
+  region_id smallint not null references public.regions(id),
+  township_id smallint not null references public.townships(id),
+  market_status_id smallint references public.market_status(id),  -- null by default, user can set later
   phone_verified boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -59,14 +59,16 @@ create table public.profiles (
 create function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, phone, email, username, full_name, role)
+  insert into public.profiles (id, phone, email, username, full_name, role, region_id, township_id)
   values (
     new.id,
     new.raw_user_meta_data->>'phone',
     new.raw_user_meta_data->>'email',
     new.raw_user_meta_data->>'username',
     new.raw_user_meta_data->>'full_name',
-    coalesce(new.raw_user_meta_data->>'role', 'general_user')
+    coalesce(new.raw_user_meta_data->>'role', 'general_user'),
+    (new.raw_user_meta_data->>'region_id')::smallint,
+    (new.raw_user_meta_data->>'township_id')::smallint
   );
   return new;
 end;

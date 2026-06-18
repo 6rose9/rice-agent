@@ -15,6 +15,8 @@ import {
   mockSuggestions,
   roleLabels,
   networkStats,
+  getLocationLabel,
+  marketStatusShort,
 } from "@/lib/mock-data";
 import {
   Users,
@@ -224,11 +226,11 @@ function NetworkContent() {
                             </Link>
                             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
                               <span>{roleLabels[inv.from.role]}</span>
-                              {inv.from.location && (
+                              {getLocationLabel(inv.from) && (
                                 <>
                                   <span>·</span>
                                   <MapPin className="h-2.5 w-2.5" />
-                                  <span>{inv.from.location.split(",")[0]}</span>
+                                  <span>{getLocationLabel(inv.from).split(",")[0]}</span>
                                 </>
                               )}
                             </p>
@@ -365,27 +367,15 @@ function SuggestionCard({ profile }: { profile: (typeof mockSuggestions)[number]
           <p className="text-xs text-muted-foreground mt-0.5">
             {roleLabels[profile.role]}
           </p>
-          {profile.location && (
+          {getLocationLabel(profile) && (
             <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center justify-center gap-0.5">
               <MapPin className="h-2.5 w-2.5" />
-              {profile.location.split(",")[0]}
+              {getLocationLabel(profile).split(",")[0]}
             </p>
           )}
-          {profile.market_status && (
+          {profile.market_status_id != null && (
             <Badge variant="outline" className="mt-1.5 text-[10px] h-5">
-              {profile.market_status === "looking_for_suppliers"
-                ? "LFS"
-                : profile.market_status === "buying_rice"
-                ? "B.R."
-                : profile.market_status === "selling_rice"
-                ? "S.R."
-                : profile.market_status === "available_as_agent"
-                ? "Avail"
-                : profile.market_status === "open_for_partnership"
-                ? "OFP"
-                : profile.market_status === "looking_for_buyers"
-                ? "LFB"
-                : profile.market_status}
+              {marketStatusShort[profile.market_status_id] ?? ""}
             </Badge>
           )}
         </div>

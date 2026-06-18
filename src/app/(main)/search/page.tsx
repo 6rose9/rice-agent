@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { mockProfiles, mockPosts, roleLabels } from "@/lib/mock-data";
+import { mockProfiles, mockPosts, roleLabels, getLocationLabel, mockRegions, mockTownships } from "@/lib/mock-data";
 import { Search, X, Clock, User, MessageCircle } from "lucide-react";
 import Link from "next/link";
 
@@ -36,7 +36,7 @@ function SearchContent() {
         (activeFilter === "all" || p.role === activeFilter) &&
         (p.full_name.toLowerCase().includes(q) ||
           p.username.toLowerCase().includes(q) ||
-          p.location?.toLowerCase().includes(q))
+          getLocationLabel(p).toLowerCase().includes(q))
     );
 
     const posts = mockPosts.filter(
@@ -153,7 +153,7 @@ function SearchContent() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{profile.full_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {roleLabels[profile.role]} · {profile.location}
+                      {roleLabels[profile.role]} · {getLocationLabel(profile)}
                     </p>
                   </div>
                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -219,7 +219,7 @@ function SearchContent() {
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
                           {roleLabels[profile.role]}
-                          {profile.location && ` · ${profile.location.split(",")[0]}`}
+                          {getLocationLabel(profile) && ` · ${getLocationLabel(profile).split(",")[0]}`}
                         </p>
                       </div>
                       <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">

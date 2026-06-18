@@ -6,7 +6,13 @@
       "Bash(npx next *)",
       "Bash(npx tsc *)",
       "WebSearch",
-      "Bash(pnpm install *)"
+      "Bash(pnpm install *)",
+      "Bash(pnpm exec *)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(pnpm view *)",
+      "Bash(node *)",
+      "Bash(pnpm build *)",
+      "Bash(npx eslint *)"
     ]
   }
 }
