@@ -35,7 +35,7 @@ export const tradingPostSchema = z.object({
     .max(120, "Maximum is 120 lb per bag")
     .optional(),
   paddy_condition: z.enum(["dry", "wet"]).optional(),
-  easy_to_carry: z.boolean().optional(),
+  easy_to_carry: z.coerce.boolean().optional(),
 });
 
 export const postSchema = z.discriminatedUnion("type", [

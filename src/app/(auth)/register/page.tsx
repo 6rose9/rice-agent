@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/card";
 import { register as registerAction } from "@/lib/auth/actions";
 import { registerSchema, type RegisterInput } from "@/lib/validations/auth";
+import { createClient } from "@/lib/supabase/client";
 import { roleLabels } from "@/lib/mock-data";
 import { useRegions } from "@/hooks/use-regions";
 import { Loader2 } from "lucide-react";
@@ -40,6 +42,7 @@ function RegisterFormInner() {
   const [profileImagePreview, setProfileImagePreview] = useState("");
   const [serverError, setServerError] = useState("");
   const { regions, getTownshipsForRegion } = useRegions();
+  const profileImageInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -49,6 +52,7 @@ function RegisterFormInner() {
     setValue,
     getValues,
     formState: { errors, isSubmitting },
+    clearErrors,
   } = useForm<RegisterInput>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(registerSchema as any) as any,
@@ -117,6 +121,7 @@ function RegisterFormInner() {
     if (step === 2) {
       const valid = await trigger(["role", "bio"]);
       if (!valid) return;
+      clearErrors(["password", "confirm_password"]);
       setStep(3);
       return;
     }
@@ -130,6 +135,27 @@ function RegisterFormInner() {
   async function onSubmit(data: RegisterInput) {
     setServerError("");
 
+    // Upload profile image if one was selected
+    let avatarUrl = "";
+    if (profileImageFile) {
+      try {
+        const supabase = createClient();
+        const ext = profileImageFile.name.split(".").pop();
+        const path = `avatars/temp/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("profiles")
+          .upload(path, profileImageFile, { upsert: true });
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from("profiles")
+            .getPublicUrl(path);
+          avatarUrl = urlData.publicUrl;
+        }
+      } catch {
+        // Image upload failed — continue registration without it
+      }
+    }
+
     const formData = new FormData();
     formData.append("full_name", data.full_name);
     formData.append("phone", data.phone);
@@ -141,6 +167,7 @@ function RegisterFormInner() {
     formData.append("password", data.password);
     formData.append("confirm_password", data.confirm_password);
     formData.append("redirect", redirect);
+    if (avatarUrl) formData.append("avatar_url", avatarUrl);
 
     const result = await registerAction({ success: false }, formData);
 
@@ -168,7 +195,9 @@ function RegisterFormInner() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-[480px]">
         <CardHeader className="text-center">
-          <div className="text-3xl mb-2">🍚</div>
+          <div className="mb-2 flex justify-center">
+            <Image src="/logo.svg" alt="စပါးအောင်သွယ်" width={64} height={64} />
+          </div>
           <CardTitle>Join စပါးအောင်သွယ်</CardTitle>
           <CardDescription>
             Connect with Myanmar&apos;s rice community
@@ -300,10 +329,15 @@ function RegisterFormInner() {
                     )}
                   </Avatar>
                   <div className="flex flex-col">
-                    <label htmlFor="profile-image" className="cursor-pointer">
-                      <Button type="button" variant="outline">Upload Image</Button>
-                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => profileImageInputRef.current?.click()}
+                    >
+                      Upload Image
+                    </Button>
                     <input
+                      ref={profileImageInputRef}
                       id="profile-image"
                       type="file"
                       accept="image/*"

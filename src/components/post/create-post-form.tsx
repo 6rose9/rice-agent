@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -16,7 +18,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/components/auth/auth-provider";
-import type { PostInput } from "@/lib/validations/post";
+import { createClient } from "@/lib/supabase/client";
+import { createPost } from "@/lib/posts/actions";
+import { postSchema, type PostInput } from "@/lib/validations/post";
 import { regionTownships, regionKeys } from "@/lib/mock-data";
 import { ImagePlus, X, Loader2, Crown } from "lucide-react";
 
@@ -49,106 +53,156 @@ function formatLakh(n: number): string {
 
 export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   const { user } = useAuth();
-  const [postType, setPostType] = useState<PostInput["type"]>("general");
   const [images, setImages] = useState<string[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Fix #4: track newly uploaded file paths for cleanup on failure
+  const pendingUploads = useRef<string[]>([]);
 
-  // General form state
-  const [generalContent, setGeneralContent] = useState("");
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<PostInput>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(postSchema as any) as any,
+    defaultValues: {
+      type: "general",
+      content: "",
+    },
+  });
 
-  // Trading form state
-  const [tradingContent, setTradingContent] = useState("");
-  const [riceType, setRiceType] = useState("");
-  const [riceName, setRiceName] = useState("");
-  const [price, setPrice] = useState(PRICE_MIN);
-  const [quantity, setQuantity] = useState(QTY_MIN);
-  const [unit, setUnit] = useState("basket");
-  const [location, setLocation] = useState("");
-  const [township, setTownship] = useState("");
-  const [address, setAddress] = useState("");
-  const [easyToCarry, setEasyToCarry] = useState(false);
-  const [poundPerBag, setPoundPerBag] = useState(POUND_MIN);
-  const [paddyCondition, setPaddyCondition] = useState("");
-
+  const postType = watch("type");
+  const watchedLocation = watch("location");
   const isPremium = postType === "buying" || postType === "selling";
   const maxImages = isPremium ? 5 : 2;
 
-  function resetForms() {
-    setGeneralContent("");
-    setTradingContent("");
-    setRiceType("");
-    setRiceName("");
-    setPrice(PRICE_MIN);
-    setQuantity(QTY_MIN);
-    setUnit("basket");
-    setLocation("");
-    setTownship("");
-    setAddress("");
-    setEasyToCarry(false);
-    setPoundPerBag(POUND_MIN);
-    setPaddyCondition("");
-    setImages([]);
-    setErrors({});
-  }
-
   function handleTypeChange(type: PostInput["type"]) {
-    resetForms();
-    setPostType(type);
+    reset({
+      type,
+      content: "",
+    } as PostInput);
+    setImages([]);
+    setServerError("");
   }
 
-  function handleAddImage() {
-    if (images.length >= maxImages) return;
-    setImages([
-      ...images,
-      `/api/placeholder/400/300?text=Image+${images.length + 1}`,
-    ]);
+  // ── Image Upload ────────────────────────────────────────────────────
+
+  async function handleAddImageClick() {
+    fileInputRef.current?.click();
   }
 
-  function handleRemoveImage(idx: number) {
-    setImages(images.filter((_, i) => i !== idx));
-  }
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-  function validate(): boolean {
-    const newErrors: Record<string, string> = {};
+    const remaining = maxImages - images.length;
+    const toUpload = Array.from(files).slice(0, remaining);
 
-    if (postType === "general") {
-      if (!generalContent.trim()) {
-        newErrors.content = "Please enter some content";
-      }
-    } else {
-      if (!tradingContent.trim()) {
-        newErrors.content = "Please enter some content";
-      }
-      if (!riceType) {
-        newErrors.rice_type = "Please select rice type";
+    if (toUpload.length === 0) return;
+
+    setUploading(true);
+    const supabase = createClient();
+
+    for (const file of toUpload) {
+      try {
+        const filePath = `${user?.user.id}/${Date.now()}-${file.name.replace(/\s+/g, "_")}`;
+        const { data, error } = await supabase.storage
+          .from("post-images")
+          .upload(filePath, file);
+
+        if (error) {
+          console.error("Upload failed:", error.message);
+          continue;
+        }
+
+        // Track path for potential cleanup on failure (fix #4)
+        pendingUploads.current.push(data.path);
+
+        const { data: urlData } = supabase.storage
+          .from("post-images")
+          .getPublicUrl(data.path);
+
+        setImages((prev) => [...prev, urlData.publicUrl]);
+      } catch (err) {
+        console.error("Upload failed:", err);
       }
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setUploading(false);
+
+    // Reset file input so the same file can be re-selected
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!validate()) return;
-
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      resetForms();
-      onSuccess?.();
-    }, 800);
+  function handleRemoveImage(idx: number) {
+    setImages((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  const currentContent =
-    postType === "general" ? generalContent : tradingContent;
-  const setCurrentContent =
-    postType === "general" ? setGeneralContent : setTradingContent;
+  // ── Submit ──────────────────────────────────────────────────────────
+
+  async function onSubmit(data: PostInput) {
+    setServerError("");
+
+    const formData = new FormData();
+    formData.append("type", data.type);
+    formData.append("content", data.content);
+
+    if (data.type !== "general") {
+      if (data.rice_type) formData.append("rice_type", data.rice_type);
+      if (data.rice_name) formData.append("rice_name", data.rice_name);
+      if (data.price != null) formData.append("price", String(data.price));
+      if (data.quantity != null)
+        formData.append("quantity", String(data.quantity));
+      if (data.unit) formData.append("unit", data.unit);
+      if (data.address) formData.append("address", data.address);
+      if (data.location) formData.append("location", data.location);
+      if (data.township) formData.append("township", data.township);
+      if (data.pound_per_bag != null)
+        formData.append("pound_per_bag", String(data.pound_per_bag));
+      if (data.paddy_condition)
+        formData.append("paddy_condition", data.paddy_condition);
+      if (data.easy_to_carry != null)
+        formData.append("easy_to_carry", String(data.easy_to_carry));
+    }
+
+    // Image URLs as comma-separated string
+    if (images.length > 0) {
+      formData.append("images", images.join(","));
+    }
+
+    const result = await createPost({ success: false }, formData);
+
+    if (!result.success) {
+      setServerError(result.error || "Failed to create post.");
+      // Fix #4: clean up orphaned uploads on failure
+      if (pendingUploads.current.length > 0) {
+        const supabase = createClient();
+        await supabase.storage.from("post-images").remove(pendingUploads.current);
+        pendingUploads.current = [];
+        setImages([]);
+      }
+      return;
+    }
+
+    // Success — pending uploads are now referenced by post_images rows
+    pendingUploads.current = [];
+    reset();
+    setImages([]);
+    onSuccess?.();
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={handleSubmit(onSubmit)}
       className="flex flex-col h-full"
     >
       {/* Header */}
@@ -260,17 +314,14 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
                 ? "What do you want to share with the rice community?"
                 : "Describe what you want to buy/sell..."
             }
-            value={currentContent}
-            onChange={(e) => {
-              setCurrentContent(e.target.value);
-              if (errors.content)
-                setErrors((prev) => ({ ...prev, content: "" }));
-            }}
+            {...register("content")}
             className="min-h-[100px] resize-none text-sm"
             autoFocus
           />
           {errors.content && (
-            <p className="text-xs text-destructive mt-1">{errors.content}</p>
+            <p className="text-xs text-destructive mt-1">
+              {errors.content.message}
+            </p>
           )}
         </div>
 
@@ -284,6 +335,17 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               </span>
             )}
           </Label>
+
+          {/* Hidden file input for real uploads */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+
           <div className="flex gap-2 flex-wrap">
             {images.map((url, idx) => (
               <div
@@ -307,10 +369,15 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
             {images.length < maxImages && (
               <button
                 type="button"
-                onClick={handleAddImage}
-                className="w-20 h-20 rounded-md border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
+                onClick={handleAddImageClick}
+                disabled={uploading}
+                className="w-20 h-20 rounded-md border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
               >
-                <ImagePlus className="h-5 w-5" />
+                {uploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-5 w-5" />
+                )}
               </button>
             )}
           </div>
@@ -327,11 +394,9 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               <div className="space-y-1.5">
                 <Label className="text-xs">🌾 Rice Type *</Label>
                 <Select
-                  value={riceType}
+                  value={watch("rice_type") ?? ""}
                   onValueChange={(v) => {
-                    if (v !== null) setRiceType(v);
-                    if (errors.rice_type)
-                      setErrors((prev) => ({ ...prev, rice_type: "" }));
+                    if (v) setValue("rice_type", v, { shouldValidate: true });
                   }}
                 >
                   <SelectTrigger className="h-9 text-xs">
@@ -348,42 +413,50 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.rice_type && (
-                  <p className="text-xs text-destructive">{errors.rice_type}</p>
+                {/* eslint-disable @typescript-eslint/no-explicit-any */}
+                {(errors as any).rice_type && (
+                  <p className="text-xs text-destructive">
+                    {(errors as any).rice_type.message}
+                  </p>
                 )}
+                {/* eslint-enable @typescript-eslint/no-explicit-any */}
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs">📝 Rice Name</Label>
                 <Input
                   placeholder="e.g. Special Grade A"
-                  value={riceName}
-                  onChange={(e) => setRiceName(e.target.value)}
+                  {...register("rice_name")}
                   className="h-9 text-xs"
                 />
               </div>
 
               <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">💰 Price </Label>
+                <Label className="text-xs">💰 Price</Label>
                 <div className="space-y-1">
                   <input
                     type="range"
                     min={PRICE_MIN}
                     max={PRICE_MAX}
                     step={PRICE_STEP}
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
+                    value={watch("price") ?? PRICE_MIN}
+                    onChange={(e) =>
+                      setValue("price", Number(e.target.value), {
+                        shouldValidate: true,
+                      })
+                    }
                     className="w-full h-2 accent-primary cursor-pointer"
                   />
                   <p className="text-xs text-muted-foreground text-center">
-                    {formatLakh(price)}
+                    {formatLakh(watch("price") ?? PRICE_MIN)}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">
-                  📦 How many do you want to {postType === "buying" ? "buy" : "sell"}?
+                  📦 How many do you want to{" "}
+                  {postType === "buying" ? "buy" : "sell"}?
                 </Label>
                 <div className="space-y-1">
                   <input
@@ -391,27 +464,30 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
                     min={QTY_MIN}
                     max={QTY_MAX}
                     step={QTY_STEP}
-                    value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    value={watch("quantity") ?? QTY_MIN}
+                    onChange={(e) =>
+                      setValue("quantity", Number(e.target.value), {
+                        shouldValidate: true,
+                      })
+                    }
                     className="w-full h-2 accent-primary cursor-pointer"
                   />
                   <p className="text-xs text-muted-foreground text-center">
-                    {quantity.toLocaleString()} baskets
+                    {(watch("quantity") ?? QTY_MIN).toLocaleString()} baskets
                   </p>
                 </div>
               </div>
-
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs">📍 Region</Label>
                 <Select
-                  value={location}
+                  value={watch("location") ?? ""}
                   onValueChange={(v) => {
-                    if (v !== null) {
-                      setLocation(v);
-                      setTownship("");
+                    if (v) {
+                      setValue("location", v, { shouldValidate: true });
+                      setValue("township", "", { shouldValidate: false });
                     }
                   }}
                 >
@@ -420,7 +496,10 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {regionKeys.map((key) => (
-                      <SelectItem key={key} value={key}>
+                      <SelectItem
+                        key={key}
+                        value={key}
+                      >
                         {regionTownships[key].label}
                       </SelectItem>
                     ))}
@@ -431,19 +510,28 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               <div className="space-y-1.5">
                 <Label className="text-xs">🏘️ Township</Label>
                 <Select
-                  value={township}
+                  value={watch("township") ?? ""}
                   onValueChange={(v) => {
-                    if (v !== null) setTownship(v);
+                    if (v) setValue("township", v, { shouldValidate: true });
                   }}
-                  disabled={!location}
+                  disabled={!watchedLocation}
                 >
                   <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder={location ? "Select township" : "Select region first"} />
+                    <SelectValue
+                      placeholder={
+                        watchedLocation
+                          ? "Select township"
+                          : "Select region first"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {location &&
-                      regionTownships[location]?.townships.map((t) => (
-                        <SelectItem key={t} value={t}>
+                    {watchedLocation &&
+                      regionTownships[watchedLocation]?.townships.map((t) => (
+                        <SelectItem
+                          key={t}
+                          value={t}
+                        >
                           {t}
                         </SelectItem>
                       ))}
@@ -455,7 +543,7 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
                 <Label className="text-xs">
-                  🏋️ How many pounds per bag of paddy?
+                  How many pounds per bag of paddy?
                 </Label>
                 <div className="space-y-1">
                   <input
@@ -463,12 +551,16 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
                     min={POUND_MIN}
                     max={POUND_MAX}
                     step={1}
-                    value={poundPerBag}
-                    onChange={(e) => setPoundPerBag(Number(e.target.value))}
+                    value={watch("pound_per_bag") ?? POUND_MIN}
+                    onChange={(e) =>
+                      setValue("pound_per_bag", Number(e.target.value), {
+                        shouldValidate: true,
+                      })
+                    }
                     className="w-full h-2 accent-primary cursor-pointer"
                   />
                   <p className="text-xs text-muted-foreground text-center">
-                    {poundPerBag} lb
+                    {watch("pound_per_bag") ?? POUND_MIN} lb
                   </p>
                 </div>
               </div>
@@ -476,12 +568,12 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               <div className="space-y-1.5">
                 <Label className="text-xs">⚖️ Unit</Label>
                 <Select
-                  value={unit}
+                  value={watch("unit") ?? ""}
                   onValueChange={(v) => {
-                    if (v !== null) setUnit(v);
+                    if (v) setValue("unit", v, { shouldValidate: true });
                   }}
                 >
-                  <SelectTrigger className="h-9 text-xs">
+                  <SelectTrigger className="h-9 text-xs min-w-[150px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -498,13 +590,14 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">
-                  💧 Is the paddy wet or dry?
-                </Label>
+                <Label className="text-xs">🌾 Is the paddy wet or dry?</Label>
                 <Select
-                  value={paddyCondition}
+                  value={watch("paddy_condition") ?? ""}
                   onValueChange={(v) => {
-                    if (v !== null) setPaddyCondition(v);
+                    if (v)
+                      setValue("paddy_condition", v as "dry" | "wet", {
+                        shouldValidate: true,
+                      });
                   }}
                 >
                   <SelectTrigger className="h-9 text-xs">
@@ -522,16 +615,17 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               <Label className="text-xs">🏠 Address</Label>
               <Input
                 placeholder="e.g. No. 123, Hlaingthaya, Yangon"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                {...register("address")}
                 className="h-9 text-xs"
               />
             </div>
 
             <div className="flex items-center gap-2">
               <Switch
-                checked={easyToCarry}
-                onCheckedChange={setEasyToCarry}
+                checked={watch("easy_to_carry") ?? false}
+                onCheckedChange={(checked) =>
+                  setValue("easy_to_carry", checked, { shouldValidate: true })
+                }
               />
               <Label className="text-xs cursor-pointer">
                 🚚 Easy to carry / transport available
@@ -552,12 +646,18 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
           Cancel
         </Button>
         <div className="flex-1" />
+        {!watch("content")?.trim() && !serverError && (
+          <p className="text-xs text-muted-foreground mr-2">Enter some content to post</p>
+        )}
+        {serverError && (
+          <p className="text-xs text-destructive mr-2">{serverError}</p>
+        )}
         <Button
           type="submit"
           size="sm"
-          disabled={!currentContent.trim() || submitting}
+          disabled={!watch("content")?.trim() || isSubmitting}
         >
-          {submitting && (
+          {isSubmitting && (
             <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
           )}
           Post

@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -54,7 +55,9 @@ function LoginFormInner() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-[400px]">
         <CardHeader className="text-center">
-          <div className="text-3xl mb-2">🍚</div>
+          <div className="mb-2 flex justify-center">
+            <Image src="/logo.svg" alt="စပါးအောင်သွယ်" width={64} height={64} />
+          </div>
           <CardTitle>Welcome back</CardTitle>
           <CardDescription>
             Sign in to your စပါးအောင်သွယ် account
@@ -123,7 +126,9 @@ function LoginFormFallback() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-[400px]">
         <CardHeader className="text-center">
-          <div className="text-3xl mb-2">🍚</div>
+          <div className="mb-2 flex justify-center">
+            <Image src="/logo.svg" alt="စပါးအောင်သွယ်" width={64} height={64} />
+          </div>
           <CardTitle>Welcome back</CardTitle>
           <CardDescription>Loading...</CardDescription>
         </CardHeader>

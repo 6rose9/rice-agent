@@ -1,155 +1,94 @@
-# Plan: Supabase Integration — Replace Mock Data with Real Queries
+# Plan: Create Post with Supabase
 
-## Summary
+## Goal
 
-The previous plan (auth forms migration to react-hook-form + zod) is complete. The project now has working auth (register, login, logout, profile CRUD) with Supabase, but **all content pages still use hardcoded mock data**. This plan moves every data-fetching page to real Supabase queries and fixes structural issues in the types and database schema.
+Wire the existing `CreatePostForm` UI to Supabase so users can create real, persistent posts with image upload support.
 
----
+## What Exists
 
-## Phase 1: Fix Type & Schema Mismatches (Foundation)
+- `CreatePostForm` — full UI, Zod validation, all field states. `handleSubmit` is a `setTimeout` mock.
+- `src/lib/validations/post.ts` — `postSchema` (discriminated union: general | buying | selling)
+- `src/types/index.ts` — `Post`, `PostImage` types
+- `src/lib/auth/actions.ts` — server action pattern to follow
+- `/posts/create` page — mounts the form with auth gating
+- Feed page — currently uses `mockPosts`
 
-### 1.1 Fix `Post` type to match `posts` DB table
+## What's Missing
 
-**Problem:** `src/types/index.ts` defines `Post` with fields that don't exist in the DB (`content`, `author_id`, `author: Profile`, `reaction_count`, `comment_count`, `is_liked`, `is_saved`, `images: PostImage[]`, `location: string`). The actual DB `posts` table has `user_id`, `title`, `description`, `rice_type`, `variety`, `quantity`, `quantity_unit`, `price`, `price_unit`, `township_id`, `address`, `is_active`.
+- No `posts` or `post_images` tables in the DB
+- No `post-images` storage bucket
+- No server action to create posts
+- No file upload logic in the form
+- No real data fetching in feed
 
-**Fix:** Rewrite `Post` and add `PostRow` (raw DB row) + `PostWithRelations` (joined with profile/township/region) types.
+## Implementation Steps
 
-### 1.2 Add missing DB tables to schema.sql
+### Step 1: Create `posts` + `post_images` DB Migration
+**File: `supabase/migrations/20260618000001_create_posts.sql`**
 
-**Problem:** `supabase/schema.sql` only creates `market_status`, `regions`, `townships`, and `profiles`. Missing `posts`, `post_images`, and `follows` tables (documented in `docs/database.md`).
+Create tables matching the existing TypeScript types:
+- `posts`: id, author_id (FK→profiles), type (general/buying/selling), content, rice_type, rice_name, price, quantity, unit, address, location, township, easy_to_carry, pound_per_bag, paddy_condition, badge, reaction_count, comment_count, created_at, updated_at
+- `post_images`: id, post_id (FK→posts CASCADE), url, sort_order
+- RLS policies (everyone can view active posts, authors can manage their own)
+- Indexes for feed queries
 
-**Fix:** Append the DDL for all three tables with indexes and RLS policies per `docs/database.md`. Create a new migration file.
+### Step 2: Create `post-images` Storage Migration
+**File: `supabase/migrations/20260618000002_create_post_images_storage.sql`**
 
-### 1.3 Add `updated_at` trigger function
+- Public bucket `post-images`
+- Auth users upload to `post-images/<user_id>/<filename>`
+- Public read access
+- Owner-only delete policy
 
-**Problem:** The `update_updated_at_column()` trigger function is referenced in `docs/database.md` but not created in `schema.sql`.
+### Step 3: Create Server Actions
+**File: `src/lib/posts/actions.ts`**
 
-**Fix:** Add the trigger function to the new migration file and attach it to `profiles` and `posts`.
+- `createPost(formData)` — server action following `auth/actions.ts` pattern
+  - Parse `PostInput` from FormData, validate with existing `postSchema`
+  - Get auth user, insert into `posts` table
+  - Parse comma-separated image URLs, insert into `post_images`
+  - Return `{ success, error, redirect }`
+- `getPosts(filter?, pageSize?)` — fetch posts with author profile + images for feed
 
----
+### Step 4: Refactor CreatePostForm to react-hook-form + zod
+**Modify: `src/components/post/create-post-form.tsx`**
 
-## Phase 2: Real Data Fetching — Content Pages
+**Pattern to follow:** `src/app/(main)/profile/edit/page.tsx`
 
-### 2.1 Feed Page (`src/app/(main)/feed/page.tsx`)
+**Replace all manual `useState`-based form state with `useForm<PostInput>`:**
+- `useForm<PostInput>({ resolver: zodResolver(postSchema), defaultValues: { type: "general", content: "" } })`
+- `watch("type")` replaces `postType` state — conditional trading fields render based on this
+- `register("content")` for textarea
+- `setValue` + `onValueChange` for Select inputs (rice_type, unit, location, township, paddy_condition)
+- `setValue` for range inputs (price, quantity, pound_per_bag)
+- `setValue` for Switch (easy_to_carry)
+- `formState: { errors, isSubmitting }` replaces manual `errors` state + `submitting` state
+- Remove manual `validate()` — zod schema validates via resolver
+- `handleSubmit(onSubmit)` wraps the form
 
-Replace `mockPosts` with a Supabase query:
-- Fetch posts from `posts` table joined with `profiles`, `townships`, `regions`
-- Filter by `is_active = true`, `order by created_at desc`, `limit 20`
-- Support filter tabs: "all" (no filter), "buying" (`type = 'buying'`), "selling" (`type = 'selling'`), "following" (join `follows` table)
-- Add loading skeleton (already have `SkeletonCard`), empty state (already have `EmptyCard`), error state (already have `ErrorCard`)
-- Pagination: "Load more" button (cursor-based with `created_at`)
+**Image upload (remains as local state, not in zod schema):**
+- Keep `images: string[]` as local state (passed separately to server action)
+- Add hidden `<input type="file" multiple accept="image/*">`
+- On file select: upload to Supabase Storage via browser client, get public URLs
+- Store URLs in `images` state for preview
 
-### 2.2 Profile Page (`src/app/(main)/profile/[username]/page.tsx`)
+**onSubmit:**
+- Build `FormData` from the validated `PostInput` data + `images` array
+- Call `createPost(formData)` server action
+- Handle `serverError`, navigate on success
 
-Already fetches profile from Supabase ✓. Still needs:
-- Fetch user's posts from `posts` table (replace `mockPosts.filter`)
-- Fetch real follower/following counts from `follows` table
-- Implement Follow/Unfollow button with real DB mutations
-- Add follow/unfollow server actions
+### Step 5: Update Feed to Fetch Real Data
+**Modify: `src/app/(main)/feed/page.tsx`**
 
-### 2.3 Search Page (`src/app/(main)/search/page.tsx`)
+- Replace `mockPosts` with `getPosts()` server action via `useEffect`
+- Add loading/error state handling (already have skeleton/error/empty cards)
 
-Replace `mockProfiles` and `mockPosts` with real queries:
-- User search: `profiles` table with `ilike` on `full_name`, filter by `role`, `region_id`
-- Post search: `posts` table with `ilike` on `title`/`description`
-- Add debounced search input (300ms delay)
-- Add empty state, error state
+## Files Changed
 
-### 2.4 MyNetwork Page (`src/app/(main)/mynetwork/page.tsx`)
-
-Replace `mockInvitations`, `mockSuggestions`, `networkStats`:
-- Fetch "People you may know" from `profiles` (users not followed, same region, limit 6)
-- Fetch pending follow relationships or show "no invitations" state
-- Fetch connection/follower/following counts from `follows`
-- Connect "Accept"/"Ignore" buttons to real follow/unfollow mutations
-
-### 2.5 Post Creation (`src/components/post/create-post-form.tsx`)
-
-Replace mock `setTimeout` with real Supabase insert:
-- Add react-hook-form + zod validation for the post form
-- Insert into `posts` table with all fields (`user_id`, `type`, `title`, `description`, `rice_type`, `price`, `quantity`, `township_id`, `address`)
-- On success: redirect to feed or the new post
-- Add loading/error states
-
----
-
-## Phase 3: Follow System
-
-### 3.1 Follow/Unfollow Server Actions
-
-Create new server actions in `src/lib/actions.ts` (or a new file `src/lib/follow/actions.ts`):
-- `followUser(targetUserId: string)` — insert into `follows`
-- `unfollowUser(targetUserId: string)` — delete from `follows`
-- `isFollowing(targetUserId: string)` — check follow status
-- Handle self-follow prevention, duplicate prevention
-
-### 3.2 Follow Button Component
-
-Replace inline buttons in profile page and mynetwork page with a reusable `FollowButton` client component:
-- Shows "Follow" / "Following" / "Unfollow" states
-- Handles auth gate (redirect to login if not authenticated)
-- Optimistic UI updates
-- Loading/error states
-
----
-
-## Phase 4: Fetch Reference Data from Supabase
-
-### 4.1 Regions & Townships
-
-Currently all forms use `mockRegions`/`mockTownships` from `mock-data.ts` (only 10 townships vs ~200 in seed.sql).
-
-**Fix:** Create a data-fetching layer:
-- `src/lib/data/regions.ts` — `getRegions()`, `getTownshipsByRegion(regionId)`
-- Use in: register page, auth modal, profile edit page, post create form
-- Cache with React `cache()` for server components; fetch in client components with `useEffect`
-
-### 4.2 Market Status
-
-Already in mock data as `mockMarketStatuses` — fetch from Supabase `market_status` table.
-
----
-
-## Phase 5: Cleanup
-
-### 5.1 Remove unused mock data
-
-After all pages use real Supabase queries, remove dead mock data from `mock-data.ts`. Keep helpers like `timeAgo`, `getLocationLabel`, `formatPrice`, `roleLabels` that are still useful for display.
-
-### 5.2 Update PostCard component
-
-`PostCard` currently uses `post.content`, `post.author`, `post.images`, `post.reaction_count`, `post.comment_count`, `post.is_liked`. After the type change, update to use `post.title`, `post.description`, joined profile data, etc.
-
----
-
-## Files to Modify
-
-| File | Change |
-|---|---|
-| `src/types/index.ts` | Rewrite `Post` to match DB schema; add `PostWithRelations` |
-| `supabase/migration_002_posts_follows.sql` | **NEW** — DDL for `posts`, `post_images`, `follows` tables |
-| `src/app/(main)/feed/page.tsx` | Replace mockPosts with Supabase query |
-| `src/app/(main)/profile/[username]/page.tsx` | Fetch real posts + follow counts + follow button |
-| `src/app/(main)/search/page.tsx` | Replace mock data with Supabase search queries |
-| `src/app/(main)/mynetwork/page.tsx` | Replace mock data with Supabase queries |
-| `src/components/post/create-post-form.tsx` | Real Supabase insert + react-hook-form validation |
-| `src/components/feed/post-card.tsx` | Update to match new Post type |
-| `src/lib/auth/actions.ts` | Add follow/unfollow server actions |
-| `src/components/follow-button.tsx` | **NEW** — Reusable follow/unfollow button |
-| `src/lib/data/regions.ts` | **NEW** — Fetch regions/townships from Supabase |
-| `src/app/(auth)/register/page.tsx` | Use real regions/townships from Supabase |
-| `src/components/auth/auth-modal.tsx` | Use real regions/townships from Supabase |
-| `src/app/(main)/profile/edit/page.tsx` | Use real regions/townships from Supabase |
-| `src/lib/mock-data.ts` | Remove unused mock arrays; keep helpers |
-
-## Files NOT Touched
-
-- `src/lib/validations/auth.ts` — works correctly
-- `src/components/auth/auth-provider.tsx` — works correctly
-- `src/middleware.ts` — works correctly
-- `src/app/layout.tsx` — works correctly
-- `src/app/(main)/layout.tsx` — works correctly
-- `src/lib/supabase/*` — clients are set up correctly
-- `supabase/schema.sql` — reference tables + profiles already correct
-- `supabase/seed.sql` — township seed data is complete
-- `supabase/migration_soft_delete.sql` — soft delete already applied
+| File | Action |
+|------|--------|
+| `supabase/migrations/20260618000001_create_posts.sql` | CREATE |
+| `supabase/migrations/20260618000002_create_post_images_storage.sql` | CREATE |
+| `src/lib/posts/actions.ts` | CREATE |
+| `src/components/post/create-post-form.tsx` | MODIFY |
+| `src/app/(main)/feed/page.tsx` | MODIFY |

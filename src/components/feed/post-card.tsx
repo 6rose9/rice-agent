@@ -6,13 +6,33 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PostActions } from "@/components/feed/post-actions";
+import { EditPostModal } from "@/components/post/edit-post-modal";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import type { Post } from "@/types";
 import { timeAgo, formatPrice, formatQuantity, regionTownships } from "@/lib/mock-data";
-import { MapPin, Wheat, Banknote, Package } from "lucide-react";
+import { deletePost } from "@/lib/posts/actions";
+import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 
 interface PostCardProps {
   post: Post;
   isAuthenticated?: boolean;
+  currentUserId?: string;
+  onRefresh?: () => void;
 }
 
 const TYPE_CONFIG = {
@@ -21,12 +41,16 @@ const TYPE_CONFIG = {
   buying: { label: "💰 Buying", variant: "secondary" as const },
 };
 
-export function PostCard({ post, isAuthenticated = false }: PostCardProps) {
+export function PostCard({ post, isAuthenticated = false, currentUserId, onRefresh }: PostCardProps) {
   const { author, type, content, rice_type, price, quantity, unit, address, location, township, easy_to_carry, pound_per_bag, paddy_condition, badge, images } = post;
   const [displayTime, setDisplayTime] = useState(post.created_at);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const typeInfo = TYPE_CONFIG[type] || TYPE_CONFIG.general;
   const isPremium = type === "buying" || type === "selling";
+  const isAuthor = isAuthenticated && currentUserId === post.author_id;
 
   useEffect(() => {
     setDisplayTime(timeAgo(post.created_at));
@@ -67,6 +91,28 @@ export function PostCard({ post, isAuthenticated = false }: PostCardProps) {
               {displayTime}
             </p>
           </div>
+          {isAuthor && (
+            <DropdownMenu>
+              <DropdownMenuTrigger>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowEditModal(true)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Content */}
@@ -168,6 +214,46 @@ export function PostCard({ post, isAuthenticated = false }: PostCardProps) {
           />
         </div>
       </CardContent>
+
+      {showEditModal && (
+        <EditPostModal
+          post={post}
+          open={showEditModal}
+          onOpenChange={setShowEditModal}
+          onUpdated={onRefresh}
+        />
+      )}
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Post</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this post? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                setDeleting(true);
+                const result = await deletePost(post.id);
+                if (result.success) {
+                  setShowDeleteDialog(false);
+                  onRefresh?.();
+                }
+                setDeleting(false);
+              }}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

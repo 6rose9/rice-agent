@@ -7,18 +7,17 @@ import { RightRail } from "@/components/layout/right-rail";
 import { PostCard } from "@/components/feed/post-card";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
+import { getPostsByAuthor } from "@/lib/posts/actions";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
-  mockProfiles,
-  mockPosts,
   marketStatusLabels,
   roleLabels,
   getLocationLabel,
 } from "@/lib/mock-data";
-import type { Profile } from "@/types";
+import type { Profile, Post } from "@/types";
 import { MapPin, Calendar, Sprout, Users, Loader2, Camera } from "lucide-react";
 
 function ProfileContent() {
@@ -28,6 +27,7 @@ function ProfileContent() {
   const { isAuthenticated, user: currentUser, refreshProfile } = useAuth();
 
   const [displayProfile, setDisplayProfile] = useState<Profile | null>(null);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -142,7 +142,13 @@ function ProfileContent() {
         return;
       }
 
-      setDisplayProfile(data as Profile);
+      const profile = data as Profile;
+      setDisplayProfile(profile);
+
+      // Fetch posts by this author
+      const posts = await getPostsByAuthor(profile.id);
+      setUserPosts(posts);
+
       setIsLoading(false);
     }
 
@@ -192,14 +198,6 @@ function ProfileContent() {
       </div>
     );
   }
-
-  // Use mock posts for now (V1 — posts table will be implemented later)
-  const userPosts = mockPosts.filter(
-    (p) =>
-      p.author &&
-      (p.author.id === displayProfile.id ||
-        p.author.username === displayProfile.username),
-  );
 
   const aboutPanel = (
     <div className="space-y-4 p-4">
@@ -274,6 +272,12 @@ function ProfileContent() {
           key={post.id}
           post={post}
           isAuthenticated={isAuthenticated}
+          currentUserId={currentUser?.profile.id}
+          onRefresh={() => {
+            if (displayProfile?.id) {
+              getPostsByAuthor(displayProfile.id).then(setUserPosts);
+            }
+          }}
         />
       ))
     ) : (

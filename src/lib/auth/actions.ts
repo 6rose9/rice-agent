@@ -178,6 +178,18 @@ export async function register(
       return { success: false, error: error.message };
     }
 
+    // Save avatar URL if provided
+    const avatarUrl = formData.get("avatar_url") as string;
+    if (avatarUrl && supabase.auth.getUser) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ avatar_url: avatarUrl })
+          .eq("id", user.id);
+      }
+    }
+
     return { success: true, redirect: formData.get("redirect") as string || "/feed" };
   } catch (err) {
     return {

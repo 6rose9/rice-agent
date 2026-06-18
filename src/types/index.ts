@@ -71,7 +71,7 @@ export interface Post {
   township?: string | null;
   easy_to_carry?: boolean;
   pound_per_bag?: number | null;
-  paddy_condition?: string | null;
+  paddy_condition?: "dry" | "wet" | null;
   // Subscription badge
   badge?: SubscriptionBadge;
   images: PostImage[];
