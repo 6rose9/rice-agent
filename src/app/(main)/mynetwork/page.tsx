@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RightRail } from "@/components/layout/right-rail";
 import { useAuth } from "@/components/auth/auth-provider";
+import { SignInGate } from "@/components/auth/sign-in-gate";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -81,20 +82,12 @@ function NetworkContent() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center">
-        <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-4">
-          <Users className="h-10 w-10 text-muted-foreground" />
-        </div>
-        <h2 className="text-lg font-semibold mb-2">
-          Sign in to manage your network
-        </h2>
-        <p className="text-sm text-muted-foreground mb-4 max-w-xs">
-          Connect with rice traders, farmers, millers, and agents across Myanmar.
-        </p>
-        <Link href="/login?redirect=%2Fmynetwork">
-          <Button>Sign In</Button>
-        </Link>
-      </div>
+      <SignInGate
+        icon={Users}
+        title="Sign in to manage your network"
+        description="Connect with rice traders, farmers, millers, and agents across Myanmar."
+        redirectTo="/mynetwork"
+      />
     );
   }
 

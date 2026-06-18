@@ -26,7 +26,10 @@ export interface TownshipRow {
 }
 
 // Post types
-export type PostType = "selling" | "buying";
+export type PostType = "general" | "selling" | "buying";
+
+// Subscription badge tiers for premium posts
+export type SubscriptionBadge = "free" | "pro" | "pro_plus";
 
 // Profile (matches public.profiles table)
 export interface Profile {
@@ -55,10 +58,22 @@ export interface Post {
   author: Profile;
   type: PostType;
   content: string;
+  // General post fields
+  // (no extra fields beyond content & images)
+  // Buying / Selling fields
   rice_type?: string;
+  rice_name?: string;
   price?: number | null;
   quantity?: number | null;
+  unit?: string;
+  address?: string;
   location?: string;
+  township?: string | null;
+  easy_to_carry?: boolean;
+  pound_per_bag?: number | null;
+  paddy_condition?: string | null;
+  // Subscription badge
+  badge?: SubscriptionBadge;
   images: PostImage[];
   reaction_count: number;
   comment_count: number;

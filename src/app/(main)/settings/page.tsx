@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-provider";
+import { SignInGate } from "@/components/auth/sign-in-gate";
 import { deleteAccount } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,9 +26,11 @@ import {
   Loader2,
   LogOut,
   UserCog,
+  Settings,
   AlertTriangle,
   ChevronRight,
   ArrowLeft,
+  Bookmark,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -38,13 +41,7 @@ export default function SettingsPage() {
   const [deleteError, setDeleteError] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push("/login?redirect=/settings");
-    }
-  }, [authLoading, isAuthenticated, router]);
-
+  // Show sign-in gate instead of redirecting
   if (authLoading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -54,7 +51,14 @@ export default function SettingsPage() {
   }
 
   if (!isAuthenticated || !user) {
-    return null;
+    return (
+      <SignInGate
+        icon={Settings}
+        title="Sign in to access settings"
+        description="Manage your account, profile, and preferences."
+        redirectTo="/settings"
+      />
+    );
   }
 
   const profile = user.profile;
@@ -81,7 +85,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-[520px] mx-auto p-4 sm:p-6 space-y-6">
+    <div className="max-w-[780px] p-4 sm:p-6 space-y-6">
       {/* Back link */}
       <Link
         href={`/profile/${profile.username}`}
@@ -127,6 +131,22 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium">Edit Profile</p>
                 <p className="text-xs text-muted-foreground">
                   Update your name, role, location, and more.
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+
+          <Link
+            href="/saved"
+            className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Bookmark className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Saved Posts</p>
+                <p className="text-xs text-muted-foreground">
+                  View your bookmarked posts and listings.
                 </p>
               </div>
             </div>

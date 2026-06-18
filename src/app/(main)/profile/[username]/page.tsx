@@ -19,14 +19,7 @@ import {
   getLocationLabel,
 } from "@/lib/mock-data";
 import type { Profile } from "@/types";
-import {
-  MapPin,
-  Calendar,
-  Sprout,
-  Users,
-  Loader2,
-  Camera,
-} from "lucide-react";
+import { MapPin, Calendar, Sprout, Users, Loader2, Camera } from "lucide-react";
 
 function ProfileContent() {
   const params = useParams();
@@ -65,7 +58,9 @@ function ProfileContent() {
       return;
     }
 
-    const { data: urlData } = supabase.storage.from("profiles").getPublicUrl(path);
+    const { data: urlData } = supabase.storage
+      .from("profiles")
+      .getPublicUrl(path);
     const avatarUrl = urlData.publicUrl;
 
     const { error: updateError } = await supabase
@@ -74,7 +69,9 @@ function ProfileContent() {
       .eq("id", currentUser.profile.id);
 
     if (!updateError) {
-      setDisplayProfile((prev) => (prev ? { ...prev, avatar_url: avatarUrl } : prev));
+      setDisplayProfile((prev) =>
+        prev ? { ...prev, avatar_url: avatarUrl } : prev,
+      );
       await refreshProfile();
     }
     setUploadingAvatar(false);
@@ -99,7 +96,9 @@ function ProfileContent() {
       return;
     }
 
-    const { data: urlData } = supabase.storage.from("profiles").getPublicUrl(path);
+    const { data: urlData } = supabase.storage
+      .from("profiles")
+      .getPublicUrl(path);
     const coverUrl = urlData.publicUrl;
 
     const { error: updateError } = await supabase
@@ -108,7 +107,9 @@ function ProfileContent() {
       .eq("id", currentUser.profile.id);
 
     if (!updateError) {
-      setDisplayProfile((prev) => (prev ? { ...prev, cover_url: coverUrl } : prev));
+      setDisplayProfile((prev) =>
+        prev ? { ...prev, cover_url: coverUrl } : prev,
+      );
       await refreshProfile();
     }
     setUploadingCover(false);
@@ -197,7 +198,7 @@ function ProfileContent() {
     (p) =>
       p.author &&
       (p.author.id === displayProfile.id ||
-        p.author.username === displayProfile.username)
+        p.author.username === displayProfile.username),
   );
 
   const aboutPanel = (
@@ -234,8 +235,8 @@ function ProfileContent() {
   const networkPanel = (
     <div className="p-4 space-y-4">
       <p className="text-sm text-muted-foreground">
-        Manage your network — view connections, invitations, and find people
-        you may know.
+        Manage your network — view connections, invitations, and find people you
+        may know.
       </p>
       <div className="space-y-2">
         <Link
@@ -254,7 +255,11 @@ function ProfileContent() {
         </Link>
       </div>
       <Link href="/mynetwork">
-        <Button variant="outline" size="sm" className="w-full">
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+        >
           <Users className="h-4 w-4 mr-1.5" />
           Open Full Network
         </Button>
@@ -265,7 +270,11 @@ function ProfileContent() {
   const postsList =
     userPosts.length > 0 ? (
       userPosts.map((post) => (
-        <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} />
+        <PostCard
+          key={post.id}
+          post={post}
+          isAuthenticated={isAuthenticated}
+        />
       ))
     ) : (
       <div className="text-center py-16">
@@ -284,60 +293,71 @@ function ProfileContent() {
       <div className="flex-1 min-w-0">
         {/* Profile header */}
         <div className="relative">
+          <div
+            className={`h-24 sm:h-32 bg-gradient-to-b from-emerald-200 to-green-100 dark:from-emerald-900 dark:to-green-950 ${isOwnProfile ? "cursor-pointer group relative" : ""}`}
+            style={
+              displayProfile.cover_url
+                ? {
+                    backgroundImage: `url(${displayProfile.cover_url})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }
+                : undefined
+            }
+            onClick={() => isOwnProfile && coverInputRef.current?.click()}
+          >
+            {isOwnProfile && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                {uploadingCover ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
+                ) : (
+                  <Camera className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
+              </div>
+            )}
+          </div>
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleCoverUpload}
+          />
+          <div className="flex justify-center -mt-10 sm:-mt-12 mb-2">
             <div
-              className={`h-24 sm:h-32 bg-gradient-to-b from-emerald-200 to-green-100 dark:from-emerald-900 dark:to-green-950 ${isOwnProfile ? "cursor-pointer group relative" : ""}`}
-              style={displayProfile.cover_url ? { backgroundImage: `url(${displayProfile.cover_url})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
-              onClick={() => isOwnProfile && coverInputRef.current?.click()}
+              className={`relative ${isOwnProfile ? "cursor-pointer group" : ""}`}
+              onClick={() => isOwnProfile && avatarInputRef.current?.click()}
             >
+              <Avatar className="h-20 w-20 sm:h-28 sm:w-28 ring-4 ring-background">
+                {displayProfile.avatar_url ? (
+                  <AvatarImage
+                    src={displayProfile.avatar_url}
+                    alt={displayProfile.full_name}
+                  />
+                ) : (
+                  <AvatarFallback className="text-2xl sm:text-4xl bg-accent">
+                    {displayProfile.full_name.charAt(0)}
+                  </AvatarFallback>
+                )}
+              </Avatar>
               {isOwnProfile && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
-                  {uploadingCover ? (
-                    <Loader2 className="h-6 w-6 animate-spin text-white" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 rounded-full transition-colors">
+                  {uploadingAvatar ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
                   ) : (
-                    <Camera className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <Camera className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                   )}
                 </div>
               )}
             </div>
-            <input
-              ref={coverInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleCoverUpload}
-            />
-            <div className="flex justify-center -mt-10 sm:-mt-12 mb-2">
-              <div
-                className={`relative ${isOwnProfile ? "cursor-pointer group" : ""}`}
-                onClick={() => isOwnProfile && avatarInputRef.current?.click()}
-              >
-                <Avatar className="h-20 w-20 sm:h-28 sm:w-28 ring-4 ring-background">
-                  {displayProfile.avatar_url ? (
-                    <AvatarImage src={displayProfile.avatar_url} alt={displayProfile.full_name} />
-                  ) : (
-                    <AvatarFallback className="text-2xl sm:text-4xl bg-accent">
-                      {displayProfile.full_name.charAt(0)}
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-                {isOwnProfile && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 rounded-full transition-colors">
-                    {uploadingAvatar ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-white" />
-                    ) : (
-                      <Camera className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            <input
-              ref={avatarInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatarUpload}
-            />
+          </div>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleAvatarUpload}
+          />
           <div className="text-center px-4">
             <h1 className="text-xl font-bold">{displayProfile.full_name}</h1>
             <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
@@ -352,7 +372,10 @@ function ProfileContent() {
             </p>
             {displayProfile.market_status_id != null && (
               <div className="mt-2">
-                <Badge variant="outline" className="text-xs">
+                <Badge
+                  variant="outline"
+                  className="text-xs"
+                >
                   {marketStatusLabels[displayProfile.market_status_id] ||
                     `Status #${displayProfile.market_status_id}`}
                 </Badge>
@@ -362,20 +385,29 @@ function ProfileContent() {
               {isOwnProfile ? (
                 <>
                   <Link href="/profile/edit">
-                    <Button size="sm" variant="outline">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                    >
                       Edit Profile
                     </Button>
                   </Link>
                 </>
               ) : isAuthenticated ? (
-                <Button size="sm" variant="default">
+                <Button
+                  size="sm"
+                  variant="default"
+                >
                   Follow
                 </Button>
               ) : (
                 <Link
                   href={`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`}
                 >
-                  <Button size="sm" variant="default">
+                  <Button
+                    size="sm"
+                    variant="default"
+                  >
                     Follow
                   </Button>
                 </Link>
@@ -400,19 +432,22 @@ function ProfileContent() {
 
         {/* MOBILE: Tabs */}
         <div className="lg:hidden">
-          <Tabs defaultValue="posts" className="w-full">
+          <Tabs
+            defaultValue="posts"
+            className="w-full"
+          >
             <TabsList className="w-full grid grid-cols-3 rounded-none border-b bg-transparent">
-              <TabsTrigger
-                value="posts"
-                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary"
-              >
-                Posts
-              </TabsTrigger>
               <TabsTrigger
                 value="about"
                 className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary"
               >
                 About
+              </TabsTrigger>
+              <TabsTrigger
+                value="posts"
+                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary"
+              >
+                Posts
               </TabsTrigger>
               <TabsTrigger
                 value="network"
@@ -427,28 +462,36 @@ function ProfileContent() {
           </Tabs>
         </div>
 
-        {/* DESKTOP: 2-column layout */}
+        {/* DESKTOP: Tabs (same as mobile) */}
         <div className="hidden lg:block">
-          <div className="flex border-b">
-            <button className="px-4 py-2.5 text-sm font-medium border-b-2 border-primary text-primary">
-              Posts
-            </button>
-            <button className="px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-              About
-            </button>
-            <Link
-              href="/mynetwork"
-              className="px-4 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Network
-            </Link>
-          </div>
-          <div className="flex">
-            <div className="w-[280px] shrink-0 border-r min-h-0">
-              <div className="sticky top-0">{aboutPanel}</div>
-            </div>
-            <div className="flex-1 min-w-0">{postsList}</div>
-          </div>
+          <Tabs
+            defaultValue="posts"
+            className="w-full"
+          >
+            <TabsList className="w-full grid grid-cols-3 rounded-none border-b bg-transparent">
+              <TabsTrigger
+                value="about"
+                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary"
+              >
+                About
+              </TabsTrigger>
+              <TabsTrigger
+                value="posts"
+                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary"
+              >
+                Posts
+              </TabsTrigger>
+              <TabsTrigger
+                value="network"
+                className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary"
+              >
+                Network
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="about">{aboutPanel}</TabsContent>
+            <TabsContent value="posts">{postsList}</TabsContent>
+            <TabsContent value="network">{networkPanel}</TabsContent>
+          </Tabs>
         </div>
       </div>
 

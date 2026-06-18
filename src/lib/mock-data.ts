@@ -178,6 +178,33 @@ function placeholderImages(postId: string, count: number): PostImage[] {
 
 export const mockPosts: Post[] = [
   {
+    id: "post-general-1",
+    author_id: "user-4",
+    author: mockProfiles[3],
+    type: "general",
+    content:
+      "ဧရာဝတီတိုင်းမှာ စပါးစိုက်ပျိုးနည်း အကြံပေးလိုပါတယ်။ ဘယ်သူ့ဆီမှာ အကြံဥာဏ်တောင်းလို့ရနိုင်မလဲ? ကျေးဇူးတင်ပါတယ်။",
+    images: [],
+    reaction_count: 12,
+    comment_count: 5,
+    created_at: "2026-06-17T08:00:00Z",
+    updated_at: "2026-06-17T08:00:00Z",
+  },
+  {
+    id: "post-general-2",
+    author_id: "user-6",
+    author: mockProfiles[5],
+    type: "general",
+    is_saved: true,
+    content:
+      "မန္တလေးမှာ စပါးပွဲရုံသစ်တစ်ခု ဖွင့်လိုက်ပါတယ်။ စပါးစိုက်ပျိုးသူတွေနဲ့ ချိတ်ဆက်လိုပါတယ်။ ကျွန်တော့် Profile ကို ဝင်ကြည့်ပေးပါ။",
+    images: placeholderImages("post-general-2", 2),
+    reaction_count: 8,
+    comment_count: 3,
+    created_at: "2026-06-17T07:00:00Z",
+    updated_at: "2026-06-17T07:00:00Z",
+  },
+  {
     id: "post-1",
     author_id: "user-2",
     author: mockProfiles[1],
@@ -185,9 +212,17 @@ export const mockPosts: Post[] = [
     content:
       "ရန်ကုန်မှာ စပါးရောင်းဖို့ရှိပါတယ်။ စိတ်ဝင်စားရင် ဆက်သွယ်ပါ။\n\nPaw San အမျိုးအစားဖြစ်ပြီး အရည်အသွေးကောင်းမွန်ပါတယ်။",
     rice_type: "Paw San",
-    price: 12000,
+    rice_name: "Special Grade A",
+    price: 550_000,
     quantity: 500,
-    location: "Hmawbi, Yangon",
+    unit: "basket",
+    address: "No. 45, Hmawbi Township, Yangon",
+    location: "yangon",
+    township: "Hmawbi",
+    easy_to_carry: true,
+    pound_per_bag: 100,
+    paddy_condition: "dry",
+    badge: "pro",
     images: placeholderImages("post-1", 3),
     reaction_count: 24,
     comment_count: 8,
@@ -199,12 +234,21 @@ export const mockPosts: Post[] = [
     author_id: "user-3",
     author: mockProfiles[2],
     type: "buying",
+    is_saved: true,
     content:
       "Looking to buy Shwe Bo Paw San rice. Need 200 baskets for mill processing.\n\nPlease contact if you have stock available in Ayeyarwady region.",
     rice_type: "Shwe Bo",
-    price: 15000,
+    rice_name: undefined,
+    price: 650_000,
     quantity: 200,
-    location: "Ayeyarwady Region",
+    unit: "basket",
+    address: "Ayeyarwady Rice Mill, Pathein",
+    location: "ayeyarwady",
+    township: "Pathein",
+    easy_to_carry: false,
+    pound_per_bag: null,
+    paddy_condition: "dry",
+    badge: "pro",
     images: placeholderImages("post-2", 1),
     reaction_count: 18,
     comment_count: 5,
@@ -219,9 +263,17 @@ export const mockPosts: Post[] = [
     content:
       "ဆန်စက်အတွက် စပါး အမြောက်အများ ဝယ်ယူမည်။\n\nPaw San၊ Emata မရွေး ဝယ်ယူပါမည်။ တစ်နှုန်းကောင်းပေးပါမည်။",
     rice_type: "Any",
+    rice_name: undefined,
     price: undefined,
     quantity: 1000,
-    location: "Yangon Region",
+    unit: "basket",
+    address: "Hlaingthaya Industrial Zone, Yangon",
+    location: "yangon",
+    township: "Hlaingthaya",
+    easy_to_carry: true,
+    pound_per_bag: 95,
+    paddy_condition: "wet",
+    badge: "pro_plus",
     images: [],
     reaction_count: 32,
     comment_count: 12,
@@ -233,12 +285,21 @@ export const mockPosts: Post[] = [
     author_id: "user-5",
     author: mockProfiles[4],
     type: "selling",
+    is_saved: true,
     content:
       "Shwe Bo ဒေသထွက် Paw San စပါး ရောင်းရန်ရှိပါတယ်။\n\nနှစ်စဉ် တန်ချိန် ၅၀၀ ခန့်ထွက်ရှိပြီး အရည်အသွေးအကောင်းဆုံးဖြစ်ပါတယ်။",
     rice_type: "Paw San",
-    price: 13500,
+    rice_name: "Shwe Bo Premium",
+    price: 600_000,
     quantity: 300,
-    location: "Shwe Bo, Sagaing",
+    unit: "basket",
+    address: "Shwe Bo Town, Sagaing",
+    location: "sagaing",
+    township: "Shwebo",
+    easy_to_carry: false,
+    pound_per_bag: 98,
+    paddy_condition: "dry",
+    badge: "pro",
     images: placeholderImages("post-4", 4),
     reaction_count: 45,
     comment_count: 15,
@@ -253,9 +314,17 @@ export const mockPosts: Post[] = [
     content:
       "ဧရာဝတီတိုင်းမှ စပါးများ ရောင်းချရန် ချိတ်ဆက်ပေးပါတယ်။\n\nလက်ရှိ Paw San နှင့် Emata နှစ်မျိုးလုံးရှိပါတယ်။",
     rice_type: "Paw San, Emata",
-    price: 11000,
+    rice_name: undefined,
+    price: 500_000,
     quantity: 800,
-    location: "Ayeyarwady Region",
+    unit: "basket",
+    address: "Pathein, Ayeyarwady",
+    location: "ayeyarwady",
+    township: "Pathein",
+    easy_to_carry: true,
+    pound_per_bag: 105,
+    paddy_condition: "dry",
+    badge: "pro",
     images: placeholderImages("post-5", 2),
     reaction_count: 10,
     comment_count: 3,
@@ -270,9 +339,17 @@ export const mockPosts: Post[] = [
     content:
       "မန္တလေးဆန်ကုန်သည်များအတွက် Emata စပါး အမြောက်အများဝယ်ယူမည်။\n\nပွဲရုံများမှ တိုက်ရိုက်ဝယ်ယူလိုပါတယ်။",
     rice_type: "Emata",
-    price: 10000,
+    rice_name: undefined,
+    price: 450_000,
     quantity: 600,
-    location: "Mandalay",
+    unit: "basket",
+    address: "Mandalay Rice Market, Chanayethazan",
+    location: "mandalay",
+    township: "Chanayethazan",
+    easy_to_carry: false,
+    pound_per_bag: null,
+    paddy_condition: "wet",
+    badge: "pro",
     images: [],
     reaction_count: 8,
     comment_count: 2,
@@ -337,12 +414,17 @@ export function timeAgo(dateStr: string): string {
 
 export function formatPrice(price: number | null | undefined): string {
   if (price == null) return "—";
+  if (price >= 100_000) {
+    const lakh = price / 100_000;
+    return `${lakh.toFixed(1)} Lakh Ks`;
+  }
   return `${price.toLocaleString()} Ks`;
 }
 
-export function formatQuantity(qty: number | null | undefined): string {
+export function formatQuantity(qty: number | null | undefined, unit?: string | null): string {
   if (qty == null) return "—";
-  return `${qty.toLocaleString()} baskets`;
+  const unitLabel = unit === "pound" ? "pounds" : "baskets";
+  return `${qty.toLocaleString()} ${unitLabel}`;
 }
 
 // ── Role badge display ───────────────────────────────────────────────

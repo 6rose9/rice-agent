@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Bell, MessageCircle } from "lucide-react";
+import { Bell, MessageCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -22,13 +22,11 @@ export function TopBar() {
           <Button variant="ghost" size="icon" className="h-8 w-8">
             <Bell className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8">
-            <MessageCircle className="h-4 w-4" />
-          </Button>
-          {/* Avatar shown when logged in; otherwise show login button */}
-          <Avatar className="h-7 w-7">
-            <AvatarFallback className="text-xs">?</AvatarFallback>
-          </Avatar>
+          <Link href="/settings">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </Link>
         </div>
       </div>
     </header>

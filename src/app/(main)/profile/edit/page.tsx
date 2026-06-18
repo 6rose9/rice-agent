@@ -29,12 +29,14 @@ import {
   type ProfileUpdateInput,
 } from "@/lib/validations/auth";
 import { useAuth } from "@/components/auth/auth-provider";
+import { SignInGate } from "@/components/auth/sign-in-gate";
 import { mockMarketStatuses, roleLabels } from "@/lib/mock-data";
 import { useRegions } from "@/hooks/use-regions";
 import {
   Loader2,
   AlertTriangle,
   ArrowLeft,
+  UserCog,
 } from "lucide-react";
 import {
   Dialog,
@@ -82,13 +84,6 @@ function EditProfileInner() {
     if (!watchedRegionId || watchedRegionId < 1) return [];
     return getTownshipsForRegion(watchedRegionId);
   }, [watchedRegionId, getTownshipsForRegion]);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push("/login?redirect=/profile/edit");
-    }
-  }, [authLoading, isAuthenticated, router]);
 
   // Clean up success message after timeout
   useEffect(() => {
@@ -160,12 +155,19 @@ function EditProfileInner() {
   }
 
   if (!isAuthenticated || !currentProfile) {
-    return null; // Redirect effect handles this
+    return (
+      <SignInGate
+        icon={UserCog}
+        title="Sign in to edit your profile"
+        description="Update your name, role, location, and more."
+        redirectTo="/profile/edit"
+      />
+    );
   }
 
   return (
     <div className="min-h-screen p-4 sm:p-6">
-      <div className="max-w-[520px] mx-auto space-y-6">
+      <div className="max-w-[780px] space-y-6">
         {/* Back link */}
         <Link
           href={`/profile/${currentProfile.username}`}
@@ -465,7 +467,7 @@ function DeleteConfirmDialog({
 function EditProfileFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-[520px]">
+      <Card className="w-full max-w-[780px]">
         <CardHeader className="text-center">
           <CardTitle>Loading...</CardTitle>
         </CardHeader>

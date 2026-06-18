@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PostActions } from "@/components/feed/post-actions";
 import type { Post } from "@/types";
-import { timeAgo, formatPrice, formatQuantity } from "@/lib/mock-data";
+import { timeAgo, formatPrice, formatQuantity, regionTownships } from "@/lib/mock-data";
 import { MapPin, Wheat, Banknote, Package } from "lucide-react";
 
 interface PostCardProps {
@@ -15,9 +15,18 @@ interface PostCardProps {
   isAuthenticated?: boolean;
 }
 
+const TYPE_CONFIG = {
+  general: { label: "📝 General", variant: "outline" as const },
+  selling: { label: "🛒 Selling", variant: "default" as const },
+  buying: { label: "💰 Buying", variant: "secondary" as const },
+};
+
 export function PostCard({ post, isAuthenticated = false }: PostCardProps) {
-  const { author, type, content, rice_type, price, quantity, location, images } = post;
+  const { author, type, content, rice_type, price, quantity, unit, address, location, township, easy_to_carry, pound_per_bag, paddy_condition, badge, images } = post;
   const [displayTime, setDisplayTime] = useState(post.created_at);
+
+  const typeInfo = TYPE_CONFIG[type] || TYPE_CONFIG.general;
+  const isPremium = type === "buying" || type === "selling";
 
   useEffect(() => {
     setDisplayTime(timeAgo(post.created_at));
@@ -44,12 +53,15 @@ export function PostCard({ post, isAuthenticated = false }: PostCardProps) {
               >
                 {author.full_name}
               </Link>
-              <Badge
-                variant={type === "selling" ? "default" : "secondary"}
-                className="text-[10px] h-5 px-1.5 font-medium uppercase tracking-wide"
-              >
-                {type === "selling" ? "🛒 Selling" : "💰 Buying"}
-              </Badge>
+              {isPremium && (
+                <Badge
+                  variant={typeInfo.variant}
+                  className="text-[10px] h-5 px-1.5 font-medium uppercase tracking-wide gap-0.5"
+                >
+                  {typeInfo.label}
+                </Badge>
+              )}
+
             </div>
             <p className="text-xs text-muted-foreground mt-0.5" suppressHydrationWarning>
               {displayTime}
@@ -93,33 +105,56 @@ export function PostCard({ post, isAuthenticated = false }: PostCardProps) {
           </div>
         )}
 
-        {/* Meta tags */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-xs text-muted-foreground">
-          {rice_type && (
-            <span className="inline-flex items-center gap-1">
-              <Wheat className="h-3 w-3" />
-              {rice_type}
-            </span>
-          )}
-          {price != null && (
-            <span className="inline-flex items-center gap-1 font-medium text-foreground">
-              <Banknote className="h-3 w-3" />
-              {formatPrice(price)}/basket
-            </span>
-          )}
-          {quantity != null && (
-            <span className="inline-flex items-center gap-1">
-              <Package className="h-3 w-3" />
-              {formatQuantity(quantity)}
-            </span>
-          )}
-          {location && (
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              {location}
-            </span>
-          )}
-        </div>
+        {/* Meta tags — only for buying/selling */}
+        {isPremium && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-xs text-muted-foreground">
+            {rice_type && (
+              <span className="inline-flex items-center gap-1">
+                <Wheat className="h-3 w-3" />
+                {rice_type}
+              </span>
+            )}
+            {price != null && (
+              <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                <Banknote className="h-3 w-3" />
+                {formatPrice(price)}/{unit || "basket"}
+              </span>
+            )}
+            {quantity != null && (
+              <span className="inline-flex items-center gap-1">
+                <Package className="h-3 w-3" />
+                {formatQuantity(quantity, unit)}
+              </span>
+            )}
+            {location && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {township ? `${township}, ` : ""}
+                {regionTownships[location]?.label || location}
+              </span>
+            )}
+            {address && (
+              <span className="inline-flex items-center gap-1">
+                🏠 {address}
+              </span>
+            )}
+            {pound_per_bag != null && (
+              <span className="inline-flex items-center gap-1">
+                🏋️ {pound_per_bag} lb/bag
+              </span>
+            )}
+            {paddy_condition && (
+              <span className="inline-flex items-center gap-1">
+                {paddy_condition === "dry" ? "☀️ Dry" : "💧 Wet"}
+              </span>
+            )}
+            {easy_to_carry && (
+              <span className="inline-flex items-center gap-1">
+                🚚 Easy to carry
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Divider + Actions */}
         <div className="border-t pt-1">

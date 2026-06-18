@@ -1,12 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Routes that require authentication
+// Routes that require authentication (middleware redirects to login)
 const protectedPaths = [
   "/profile/edit",
-  "/posts/create",
-  "/mynetwork",
-  "/settings",
 ];
 
 // Auth pages — redirect to /feed if already authenticated

@@ -11,6 +11,7 @@ import {
   User,
   Settings,
   Network,
+  Bookmark,
   LogIn,
   LogOut,
 } from "lucide-react";
@@ -62,6 +63,19 @@ export function Sidebar() {
             </Link>
           );
         })}
+        {/* Saved Posts */}
+        <Link href="/saved">
+          <Button
+            variant={pathname === "/saved" ? "secondary" : "ghost"}
+            className={cn(
+              "w-full justify-start gap-3 h-10",
+              pathname === "/saved" && "font-semibold"
+            )}
+          >
+            <Bookmark className="h-5 w-5" strokeWidth={pathname === "/saved" ? 2.5 : 1.8} />
+            <span>Saved Posts</span>
+          </Button>
+        </Link>
         {isLoading ? null : user ? (
           <Link href={`/profile/${user.profile.username}`}>
             <Button
