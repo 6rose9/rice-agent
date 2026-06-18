@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +21,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/components/auth/auth-provider";
-import { regionTownships, regionKeys, roleLabels } from "@/lib/mock-data";
+import { login, register as registerAction } from "@/lib/auth/actions";
+import {
+  loginSchema,
+  registerSchema,
+  type LoginInput,
+  type RegisterInput,
+} from "@/lib/validations/auth";
+import { roleLabels } from "@/lib/mock-data";
+import { useRegions } from "@/hooks/use-regions";
 import { Loader2 } from "lucide-react";
 
 interface AuthModalProps {
@@ -36,111 +45,115 @@ export function AuthModal({
   action,
   onSuccess,
 }: AuthModalProps) {
-  const { signIn, signUp } = useAuth();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [serverError, setServerError] = useState("");
+  const { regions, getTownshipsForRegion } = useRegions();
 
-  // Login form
-  const [loginPhone, setLoginPhone] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
+  // ── Login Form ──
+  const loginForm = useForm<LoginInput>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(loginSchema as any) as any,
+    defaultValues: { phone: "", password: "" },
+  });
 
-  // Register form
-  const [regPhone, setRegPhone] = useState("");
-  const [regPassword, setRegPassword] = useState("");
-  const [regConfirmPassword, setRegConfirmPassword] = useState("");
-  const [regFullName, setRegFullName] = useState("");
-  const [regEmail, setRegEmail] = useState("");
-  const [regRole, setRegRole] = useState("");
-  const [regRegion, setRegRegion] = useState("");
-  const [regTownship, setRegTownship] = useState("");
+  // ── Register Form ──
+  const registerForm = useForm<RegisterInput>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(registerSchema as any) as any,
+    defaultValues: {
+      full_name: "",
+      phone: "",
+      email: "",
+      role: undefined,
+      region_id: 0,
+      township_id: 0,
+      bio: "",
+      password: "",
+      confirm_password: "",
+    },
+  });
+
+  const watchedRegionId = registerForm.watch("region_id");
+  const watchedTownshipId = registerForm.watch("township_id");
 
   // Townships filtered by selected region
   const regTownships = useMemo(() => {
-    if (!regRegion) return [];
-    return regionTownships[regRegion]?.townships || [];
-  }, [regRegion]);
+    if (!watchedRegionId || watchedRegionId < 1) return [];
+    return getTownshipsForRegion(watchedRegionId);
+  }, [watchedRegionId, getTownshipsForRegion]);
 
-  const resetForms = useCallback(() => {
-    setLoginPhone("");
-    setLoginPassword("");
-    setRegPhone("");
-    setRegPassword("");
-    setRegConfirmPassword("");
-    setRegFullName("");
-    setRegEmail("");
-    setRegRole("");
-    setRegRegion("");
-    setRegTownship("");
-    setError("");
-  }, []);
-
-  function handleRegionChange(value: string | null) {
-    setRegRegion(value ?? "");
-    setRegTownship("");
+  // Reset township when region changes
+  function handleRegRegionChange(value: string | null) {
+    registerForm.setValue("region_id", Number(value ?? 0), { shouldValidate: true });
+    registerForm.setValue("township_id", 0, { shouldValidate: false });
   }
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    if (!loginPhone || !loginPassword) {
-      setError("Please fill in all fields.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    const { error } = await signIn(loginPhone, loginPassword);
-    setLoading(false);
-    if (error) {
-      setError(error);
-    } else {
-      resetForms();
-      onSuccess();
-    }
+  // Reset all forms and errors
+  const resetAll = useCallback(() => {
+    loginForm.reset();
+    registerForm.reset();
+    setServerError("");
+  }, [loginForm, registerForm]);
+
+  // Reset on dialog open state change
+  function handleOpenChange(open: boolean) {
+    if (!open) resetAll();
+    onOpenChange(open);
   }
 
-  async function handleRegister(e: React.FormEvent) {
-    e.preventDefault();
-    if (!regPhone || !regPassword || !regFullName) {
-      setError("Phone, password, and name are required.");
+  // Reset when switching tabs
+  function handleTabChange(tab: string) {
+    setActiveTab(tab as "login" | "register");
+    setServerError("");
+  }
+
+  // ── Login Submit ──
+  async function onLoginSubmit(data: LoginInput) {
+    setServerError("");
+
+    const formData = new FormData();
+    formData.append("phone", data.phone);
+    formData.append("password", data.password);
+
+    const result = await login({ success: false }, formData);
+
+    if (!result.success) {
+      setServerError(result.error || "Login failed. Please try again.");
       return;
     }
-    if (regPassword !== regConfirmPassword) {
-      setError("Passwords do not match.");
+
+    resetAll();
+    onSuccess();
+  }
+
+  // ── Register Submit ──
+  async function onRegisterSubmit(data: RegisterInput) {
+    setServerError("");
+
+    const formData = new FormData();
+    formData.append("full_name", data.full_name);
+    formData.append("phone", data.phone);
+    if (data.email) formData.append("email", data.email);
+    formData.append("role", data.role);
+    formData.append("region_id", String(data.region_id));
+    formData.append("township_id", String(data.township_id));
+    if (data.bio) formData.append("bio", data.bio);
+    formData.append("password", data.password);
+    formData.append("confirm_password", data.confirm_password);
+
+    const result = await registerAction({ success: false }, formData);
+
+    if (!result.success) {
+      setServerError(result.error || "Registration failed. Please try again.");
       return;
     }
-    if (regPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    const regionLabel = regRegion ? regionTownships[regRegion]?.label : undefined;
-    const { error } = await signUp(
-      regPhone,
-      regPassword,
-      regFullName,
-      regEmail || undefined,
-      regRole || undefined,
-      regionLabel,
-      regTownship || undefined
-    );
-    setLoading(false);
-    if (error) {
-      setError(error);
-    } else {
-      resetForms();
-      onSuccess();
-    }
+
+    resetAll();
+    onSuccess();
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) resetForms();
-        onOpenChange(o);
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[400px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-center">
@@ -151,100 +164,134 @@ export function AuthModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs
-          value={activeTab}
-          onValueChange={(v) => {
-            setActiveTab(v as "login" | "register");
-            setError("");
-          }}
-          className="w-full"
-        >
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="w-full grid grid-cols-2">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="register">Register</TabsTrigger>
           </TabsList>
 
-          {/* Login form */}
+          {/* ── Login Tab ── */}
           <TabsContent value="login">
-            <form onSubmit={handleLogin} className="space-y-4 pt-2">
+            <form
+              onSubmit={loginForm.handleSubmit(onLoginSubmit)}
+              className="space-y-4 pt-2"
+            >
               <div className="space-y-2">
-                <Label htmlFor="login-phone">Phone Number</Label>
+                <Label htmlFor="modal-login-phone">Phone Number</Label>
                 <Input
-                  id="login-phone"
+                  id="modal-login-phone"
                   type="tel"
                   placeholder="09xxxxxxxxx"
-                  value={loginPhone}
-                  onChange={(e) => setLoginPhone(e.target.value)}
+                  {...loginForm.register("phone")}
                 />
+                {loginForm.formState.errors.phone && (
+                  <p className="text-sm text-destructive">
+                    {loginForm.formState.errors.phone.message}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="login-password">Password</Label>
+                <Label htmlFor="modal-login-password">Password</Label>
                 <Input
-                  id="login-password"
+                  id="modal-login-password"
                   type="password"
                   placeholder="••••••••"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
+                  {...loginForm.register("password")}
                 />
+                {loginForm.formState.errors.password && (
+                  <p className="text-sm text-destructive">
+                    {loginForm.formState.errors.password.message}
+                  </p>
+                )}
               </div>
 
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
+              {serverError && (
+                <p className="text-sm text-destructive">{serverError}</p>
               )}
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loginForm.formState.isSubmitting}
+              >
+                {loginForm.formState.isSubmitting && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
                 Login
               </Button>
             </form>
           </TabsContent>
 
-          {/* Register form */}
+          {/* ── Register Tab ── */}
           <TabsContent value="register">
-            <form onSubmit={handleRegister} className="space-y-4 pt-2">
+            <form
+              onSubmit={registerForm.handleSubmit(onRegisterSubmit)}
+              className="space-y-4 pt-2"
+            >
               <div className="space-y-2">
-                <Label htmlFor="reg-phone">
+                <Label htmlFor="modal-reg-phone">
                   Phone Number <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  id="reg-phone"
+                  id="modal-reg-phone"
                   type="tel"
                   placeholder="09xxxxxxxxx"
-                  value={regPhone}
-                  onChange={(e) => setRegPhone(e.target.value)}
+                  {...registerForm.register("phone")}
                 />
+                {registerForm.formState.errors.phone && (
+                  <p className="text-sm text-destructive">
+                    {registerForm.formState.errors.phone.message}
+                  </p>
+                )}
                 <p className="text-[10px] text-muted-foreground">
                   Myanmar phone format: 09xxxxxxxxx
                 </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-name">
+                <Label htmlFor="modal-reg-name">
                   Full Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  id="reg-name"
+                  id="modal-reg-name"
                   type="text"
                   placeholder="U Mg Mg"
-                  value={regFullName}
-                  onChange={(e) => setRegFullName(e.target.value)}
+                  {...registerForm.register("full_name")}
                 />
+                {registerForm.formState.errors.full_name && (
+                  <p className="text-sm text-destructive">
+                    {registerForm.formState.errors.full_name.message}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-email">
-                  Email <span className="text-muted-foreground"></span>
-                </Label>
+                <Label htmlFor="modal-reg-email">Email</Label>
                 <Input
-                  id="reg-email"
+                  id="modal-reg-email"
                   type="email"
                   placeholder="you@example.com"
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
+                  {...registerForm.register("email")}
                 />
+                {registerForm.formState.errors.email && (
+                  <p className="text-sm text-destructive">
+                    {registerForm.formState.errors.email.message}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-role">Profile</Label>
-                <Select value={regRole} onValueChange={(v) => setRegRole(v ?? "")}>
-                  <SelectTrigger id="reg-role" className="w-full">
+                <Label htmlFor="modal-reg-role">
+                  Role <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={registerForm.getValues("role") || ""}
+                  onValueChange={(v) =>
+                    registerForm.setValue(
+                      "role",
+                      (v ?? "general_user") as RegisterInput["role"],
+                      { shouldValidate: true }
+                    )
+                  }
+                >
+                  <SelectTrigger id="modal-reg-role" className="w-full">
                     <SelectValue placeholder="Choose your profile" />
                   </SelectTrigger>
                   <SelectContent>
@@ -255,76 +302,120 @@ export function AuthModal({
                     ))}
                   </SelectContent>
                 </Select>
+                {registerForm.formState.errors.role && (
+                  <p className="text-sm text-destructive">
+                    {registerForm.formState.errors.role.message}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-region">Region</Label>
-                <Select value={regRegion} onValueChange={handleRegionChange}>
-                  <SelectTrigger id="reg-region" className="w-full">
-                    <SelectValue placeholder="Select region" />
+                <Label htmlFor="modal-reg-region">
+                  Region <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={
+                    watchedRegionId > 0 ? String(watchedRegionId) : ""
+                  }
+                  onValueChange={handleRegRegionChange}
+                >
+                  <SelectTrigger id="modal-reg-region" className="w-full">
+                    {watchedRegionId > 0
+                      ? regions.find((r) => r.id === watchedRegionId)?.name.en
+                      : "Select region"}
                   </SelectTrigger>
                   <SelectContent>
-                    {regionKeys.map((key) => (
-                      <SelectItem key={key} value={key}>
-                        {regionTownships[key].label}
+                    {regions.map((r) => (
+                      <SelectItem key={r.id} value={String(r.id)}>
+                        {r.name.en}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {registerForm.formState.errors.region_id && (
+                  <p className="text-sm text-destructive">
+                    {registerForm.formState.errors.region_id.message}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-township">Township</Label>
+                <Label htmlFor="modal-reg-township">
+                  Township <span className="text-destructive">*</span>
+                </Label>
                 <Select
-                  value={regTownship}
-                  onValueChange={(v) => setRegTownship(v ?? "")}
-                  disabled={!regRegion}
+                  value={watchedTownshipId > 0 ? String(watchedTownshipId) : ""}
+                  onValueChange={(v) =>
+                    registerForm.setValue("township_id", Number(v ?? 0), {
+                      shouldValidate: true,
+                    })
+                  }
+                  disabled={!watchedRegionId || watchedRegionId < 1}
                 >
-                  <SelectTrigger id="reg-township" className="w-full">
-                    <SelectValue
-                      placeholder={
-                        regRegion ? "Select township" : "Select a region first"
-                      }
-                    />
+                  <SelectTrigger id="modal-reg-township" className="w-full">
+                    {watchedTownshipId > 0
+                      ? regTownships.find((t) => t.id === watchedTownshipId)?.name.en
+                      : watchedRegionId && watchedRegionId > 0
+                        ? "Select township"
+                        : "Select a region first"}
                   </SelectTrigger>
                   <SelectContent>
                     {regTownships.map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {t}
+                      <SelectItem key={t.id} value={String(t.id)}>
+                        {t.name.en}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {registerForm.formState.errors.township_id && (
+                  <p className="text-sm text-destructive">
+                    {registerForm.formState.errors.township_id.message}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-password">
+                <Label htmlFor="modal-reg-password">
                   Password <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  id="reg-password"
+                  id="modal-reg-password"
                   type="password"
                   placeholder="Min 6 characters"
-                  value={regPassword}
-                  onChange={(e) => setRegPassword(e.target.value)}
+                  {...registerForm.register("password")}
                 />
+                {registerForm.formState.errors.password && (
+                  <p className="text-sm text-destructive">
+                    {registerForm.formState.errors.password.message}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reg-confirm-password">
+                <Label htmlFor="modal-reg-confirm-password">
                   Confirm Password <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  id="reg-confirm-password"
+                  id="modal-reg-confirm-password"
                   type="password"
                   placeholder="Re-enter your password"
-                  value={regConfirmPassword}
-                  onChange={(e) => setRegConfirmPassword(e.target.value)}
+                  {...registerForm.register("confirm_password")}
                 />
+                {registerForm.formState.errors.confirm_password && (
+                  <p className="text-sm text-destructive">
+                    {registerForm.formState.errors.confirm_password.message}
+                  </p>
+                )}
               </div>
 
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
+              {serverError && (
+                <p className="text-sm text-destructive">{serverError}</p>
               )}
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={registerForm.formState.isSubmitting}
+              >
+                {registerForm.formState.isSubmitting && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
                 Create Account
               </Button>
             </form>

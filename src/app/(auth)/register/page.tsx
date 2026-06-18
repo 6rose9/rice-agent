@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,40 +25,62 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AuthProvider, useAuth } from "@/components/auth/auth-provider";
-import { regionTownships, regionKeys, roleLabels } from "@/lib/mock-data";
+import { register as registerAction } from "@/lib/auth/actions";
+import { registerSchema, type RegisterInput } from "@/lib/validations/auth";
+import { roleLabels } from "@/lib/mock-data";
+import { useRegions } from "@/hooks/use-regions";
 import { Loader2 } from "lucide-react";
 
 function RegisterFormInner() {
-  const { signUp } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/feed";
-  const [phone, setPhone] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState("");
-  const [region, setRegion] = useState("");
-  const [township, setTownship] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [profile, setProfile] = useState("");
+
+  const [step, setStep] = useState<number>(1);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<number>(1);
+  const [serverError, setServerError] = useState("");
+  const { regions, getTownshipsForRegion } = useRegions();
+
+  const {
+    register,
+    handleSubmit,
+    trigger,
+    watch,
+    setValue,
+    getValues,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterInput>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(registerSchema as any) as any,
+    defaultValues: {
+      full_name: "",
+      phone: "",
+      email: "",
+      role: undefined,
+      region_id: 0,
+      township_id: 0,
+      bio: "",
+      password: "",
+      confirm_password: "",
+    },
+  });
+
+  const watchedRegionId = watch("region_id");
+  const watchedTownshipId = watch("township_id");
+  const watchedFullName = watch("full_name");
 
   // Townships filtered by selected region
   const townships = useMemo(() => {
-    if (!region) return [];
-    return regionTownships[region]?.townships || [];
-  }, [region]);
+    if (!watchedRegionId || watchedRegionId < 1) return [];
+    return getTownshipsForRegion(watchedRegionId);
+  }, [watchedRegionId, getTownshipsForRegion]);
 
   // Reset township when region changes
   function handleRegionChange(value: string | null) {
-    setRegion(value ?? "");
-    setTownship("");
+    const regionId = Number(value ?? 0);
+    setValue("region_id", regionId, { shouldValidate: true });
+    setValue("township_id", 0, { shouldValidate: false });
   }
 
   function handleProfileImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -74,74 +98,72 @@ function RegisterFormInner() {
       if (profileImagePreview) {
         try {
           URL.revokeObjectURL(profileImagePreview);
-        } catch {}
+        } catch {
+          // ignore
+        }
       }
     };
   }, [profileImagePreview]);
 
-  function handleNext() {
-    setError("");
+  async function handleNext() {
+    setServerError("");
+
     if (step === 1) {
-      if (!phone || !fullName) {
-        setError("Phone and full name are required to continue.");
-        return;
-      }
+      const valid = await trigger(["full_name", "phone", "email", "region_id", "township_id"]);
+      if (!valid) return;
       setStep(2);
       return;
     }
+
     if (step === 2) {
-      if (!role) {
-        setError("Please choose a role to continue.");
-        return;
-      }
+      const valid = await trigger(["role", "bio"]);
+      if (!valid) return;
       setStep(3);
       return;
     }
   }
 
   function handleBack() {
-    setError("");
+    setServerError("");
     setStep((s) => Math.max(1, s - 1));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // Only submit on final step
-    if (step !== 3) {
-      handleNext();
+  async function onSubmit(data: RegisterInput) {
+    setServerError("");
+
+    const formData = new FormData();
+    formData.append("full_name", data.full_name);
+    formData.append("phone", data.phone);
+    if (data.email) formData.append("email", data.email);
+    formData.append("role", data.role);
+    formData.append("region_id", String(data.region_id));
+    formData.append("township_id", String(data.township_id));
+    if (data.bio) formData.append("bio", data.bio);
+    formData.append("password", data.password);
+    formData.append("confirm_password", data.confirm_password);
+    formData.append("redirect", redirect);
+
+    const result = await registerAction({ success: false }, formData);
+
+    if (!result.success) {
+      setServerError(result.error || "Registration failed. Please try again.");
       return;
     }
-    if (!phone || !password || !fullName) {
-      setError("Phone, name, and password are required.");
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    const regionLabel = region ? regionTownships[region]?.label : undefined;
-    const result = await signUp(
-      phone,
-      password,
-      fullName,
-      email || undefined,
-      role || undefined,
-      regionLabel,
-      township || undefined,
-    );
-    setLoading(false);
-    if (result.error) {
-      setError(result.error);
-    } else {
-      router.push(redirect);
-    }
+
+    router.push(result.redirect || redirect);
   }
+
+  // Collect field errors for current step display
+  const step1Fields = ["full_name", "phone", "email", "region_id", "township_id"] as const;
+  const step2Fields = ["role", "bio"] as const;
+  const step3Fields = ["password", "confirm_password"] as const;
+
+  const currentStepFields =
+    step === 1 ? step1Fields : step === 2 ? step2Fields : step3Fields;
+
+  const stepErrors = currentStepFields
+    .map((f) => errors[f]?.message)
+    .filter(Boolean) as string[];
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -155,23 +177,23 @@ function RegisterFormInner() {
           <p className="text-sm mt-2">Step {step} of 3</p>
         </CardHeader>
         <CardContent>
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-4"
-          >
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* ── Step 1: Basic Info ── */}
             {step === 1 && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">
+                  <Label htmlFor="full_name">
                     Full Name <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    id="name"
+                    id="full_name"
                     type="text"
                     placeholder="U Mg Mg"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    {...register("full_name")}
                   />
+                  {errors.full_name && (
+                    <p className="text-sm text-destructive">{errors.full_name.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">
@@ -181,65 +203,69 @@ function RegisterFormInner() {
                     id="phone"
                     type="tel"
                     placeholder="09xxxxxxxxx"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    {...register("phone")}
                   />
+                  {errors.phone && (
+                    <p className="text-sm text-destructive">{errors.phone.message}</p>
+                  )}
                   <p className="text-[10px] text-muted-foreground">
                     Myanmar phone format required (e.g. 09123456789)
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="region">Region</Label>
+                  <Label htmlFor="region_id">
+                    Region <span className="text-destructive">*</span>
+                  </Label>
                   <Select
-                    value={region}
+                    value={watchedRegionId > 0 ? String(watchedRegionId) : ""}
                     onValueChange={handleRegionChange}
                   >
-                    <SelectTrigger
-                      id="region"
-                      className="w-full"
-                    >
-                      <SelectValue placeholder="Select region" />
+                    <SelectTrigger id="region_id" className="w-full">
+                      {watchedRegionId > 0
+                        ? regions.find((r) => r.id === watchedRegionId)?.name.en
+                        : "Select region"}
                     </SelectTrigger>
                     <SelectContent>
-                      {regionKeys.map((key) => (
-                        <SelectItem
-                          key={key}
-                          value={key}
-                        >
-                          {regionTownships[key].label}
+                      {regions.map((r) => (
+                        <SelectItem key={r.id} value={String(r.id)}>
+                          {r.name.en}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.region_id && (
+                    <p className="text-sm text-destructive">{errors.region_id.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="township">Township</Label>
+                  <Label htmlFor="township_id">
+                    Township <span className="text-destructive">*</span>
+                  </Label>
                   <Select
-                    value={township}
-                    onValueChange={(v) => setTownship(v ?? "")}
-                    disabled={!region}
+                    value={watchedTownshipId > 0 ? String(watchedTownshipId) : ""}
+                    onValueChange={(v) =>
+                      setValue("township_id", Number(v ?? 0), { shouldValidate: true })
+                    }
+                    disabled={!watchedRegionId || watchedRegionId < 1}
                   >
-                    <SelectTrigger
-                      id="township"
-                      className="w-full"
-                    >
-                      <SelectValue
-                        placeholder={
-                          region ? "Select township" : "Select a region first"
-                        }
-                      />
+                    <SelectTrigger id="township_id" className="w-full">
+                      {watchedTownshipId > 0
+                        ? townships.find((t) => t.id === watchedTownshipId)?.name.en
+                        : watchedRegionId && watchedRegionId > 0
+                          ? "Select township"
+                          : "Select a region first"}
                     </SelectTrigger>
                     <SelectContent>
                       {townships.map((t) => (
-                        <SelectItem
-                          key={t}
-                          value={t}
-                        >
-                          {t}
+                        <SelectItem key={t.id} value={String(t.id)}>
+                          {t.name.en}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.township_id && (
+                    <p className="text-sm text-destructive">{errors.township_id.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -247,13 +273,16 @@ function RegisterFormInner() {
                     id="email"
                     type="email"
                     placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    {...register("email")}
                   />
+                  {errors.email && (
+                    <p className="text-sm text-destructive">{errors.email.message}</p>
+                  )}
                 </div>
               </div>
             )}
 
+            {/* ── Step 2: Profile ── */}
             {step === 2 && (
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
@@ -265,16 +294,15 @@ function RegisterFormInner() {
                       />
                     ) : (
                       <AvatarFallback>
-                        {fullName ? fullName.charAt(0).toUpperCase() : "?"}
+                        {watchedFullName
+                          ? watchedFullName.charAt(0).toUpperCase()
+                          : "?"}
                       </AvatarFallback>
                     )}
                   </Avatar>
                   <div className="flex flex-col">
-                    <label
-                      htmlFor="profile-image"
-                      className="cursor-pointer"
-                    >
-                      <Button type="button">Upload Image</Button>
+                    <label htmlFor="profile-image" className="cursor-pointer">
+                      <Button type="button" variant="outline">Upload Image</Button>
                     </label>
                     <input
                       id="profile-image"
@@ -289,41 +317,47 @@ function RegisterFormInner() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
+                  <Label htmlFor="role">
+                    Role <span className="text-destructive">*</span>
+                  </Label>
                   <Select
-                    value={role}
-                    onValueChange={(v) => setRole(v ?? "")}
+                    value={getValues("role") || ""}
+                    onValueChange={(v) =>
+                      setValue("role", (v ?? "general_user") as RegisterInput["role"], {
+                        shouldValidate: true,
+                      })
+                    }
                   >
-                    <SelectTrigger
-                      id="role"
-                      className="w-full"
-                    >
+                    <SelectTrigger id="role" className="w-full">
                       <SelectValue placeholder="Choose your profile" />
                     </SelectTrigger>
                     <SelectContent>
                       {Object.entries(roleLabels).map(([value, label]) => (
-                        <SelectItem
-                          key={value}
-                          value={value}
-                        >
+                        <SelectItem key={value} value={value}>
                           {label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {errors.role && (
+                    <p className="text-sm text-destructive">{errors.role.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
                   <Textarea
                     id="bio"
                     placeholder="A short bio or profile description"
-                    value={profile}
-                    onChange={(e) => setProfile(e.target.value)}
+                    {...register("bio")}
                   />
+                  {errors.bio && (
+                    <p className="text-sm text-destructive">{errors.bio.message}</p>
+                  )}
                 </div>
               </div>
             )}
 
+            {/* ── Step 3: Password ── */}
             {step === 3 && (
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -334,35 +368,50 @@ function RegisterFormInner() {
                     id="password"
                     type="password"
                     placeholder="Min 6 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    {...register("password")}
                   />
+                  {errors.password && (
+                    <p className="text-sm text-destructive">{errors.password.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password">
+                  <Label htmlFor="confirm_password">
                     Confirm Password <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    id="confirm-password"
+                    id="confirm_password"
                     type="password"
                     placeholder="Re-enter your password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    {...register("confirm_password")}
                   />
+                  {errors.confirm_password && (
+                    <p className="text-sm text-destructive">
+                      {errors.confirm_password.message}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {/* ── Errors ── */}
+            {stepErrors.length > 0 && (
+              <div className="space-y-1">
+                {stepErrors.map((msg, i) => (
+                  <p key={i} className="text-sm text-destructive">
+                    {msg}
+                  </p>
+                ))}
+              </div>
+            )}
+            {serverError && (
+              <p className="text-sm text-destructive">{serverError}</p>
+            )}
 
+            {/* ── Navigation ── */}
             <div className="flex items-center justify-between">
               <div>
                 {step > 1 ? (
-                  <Button
-                    type="button"
-                    variant={"secondary"}
-                    onClick={handleBack}
-                  >
+                  <Button type="button" variant="secondary" onClick={handleBack}>
                     Back
                   </Button>
                 ) : (
@@ -371,18 +420,12 @@ function RegisterFormInner() {
               </div>
               <div className="flex items-center gap-2">
                 {step < 3 ? (
-                  <Button
-                    type="button"
-                    onClick={handleNext}
-                  >
+                  <Button type="button" onClick={handleNext}>
                     Next
                   </Button>
                 ) : (
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                  >
-                    {loading && (
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting && (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     )}
                     Create Account
@@ -429,10 +472,8 @@ function RegisterFormFallback() {
 
 export default function RegisterPage() {
   return (
-    <AuthProvider>
-      <Suspense fallback={<RegisterFormFallback />}>
-        <RegisterFormInner />
-      </Suspense>
-    </AuthProvider>
+    <Suspense fallback={<RegisterFormFallback />}>
+      <RegisterFormInner />
+    </Suspense>
   );
 }

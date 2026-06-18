@@ -1,6 +1,73 @@
-import { Profile, Post, Comment, PostImage } from "@/types";
+import { Profile, Post, Comment, PostImage, MarketStatusRow, RegionRow, TownshipRow } from "@/types";
 
-// --- Mock Profiles ---
+// ── Mock Reference Data ─────────────────────────────────────────────
+
+export const mockMarketStatuses: MarketStatusRow[] = [
+  { id: 1, name: { en: "Looking for Buyers",   my: "ဝယ်သူရှာနေသည်" },     sort_order: 1 },
+  { id: 2, name: { en: "Looking for Suppliers", my: "ရောင်းသူရှာနေသည်" },  sort_order: 2 },
+  { id: 3, name: { en: "Buying Rice",           my: "စပါးဝယ်မည်" },         sort_order: 3 },
+  { id: 4, name: { en: "Selling Rice",          my: "စပါးရောင်းမည်" },       sort_order: 4 },
+  { id: 5, name: { en: "Available as Agent",    my: "အကျိုးဆောင်ရနိုင်သည်" }, sort_order: 5 },
+  { id: 6, name: { en: "Open for Partnership",   my: "လုပ်ငန်းဖက်စပ်ရှာနေသည်" }, sort_order: 6 },
+];
+
+export const mockRegions: RegionRow[] = [
+  { id: 1,  name: { en: "Ayeyarwady",  my: "ဧရာဝတီ" },     sort_order: 1 },
+  { id: 2,  name: { en: "Bago",        my: "ပဲခူး" },        sort_order: 2 },
+  { id: 3,  name: { en: "Chin",        my: "ချင်း" },        sort_order: 3 },
+  { id: 4,  name: { en: "Kachin",      my: "ကချင်" },       sort_order: 4 },
+  { id: 5,  name: { en: "Kayah",       my: "ကယား" },        sort_order: 5 },
+  { id: 6,  name: { en: "Kayin",       my: "ကရင်" },        sort_order: 6 },
+  { id: 7,  name: { en: "Magway",      my: "မကွေး" },       sort_order: 7 },
+  { id: 8,  name: { en: "Mandalay",    my: "မန္တလေး" },      sort_order: 8 },
+  { id: 9,  name: { en: "Mon",         my: "မွန်" },         sort_order: 9 },
+  { id: 10, name: { en: "Naypyidaw",   my: "နေပြည်တော်" },   sort_order: 10 },
+  { id: 11, name: { en: "Rakhine",     my: "ရခိုင်" },      sort_order: 11 },
+  { id: 12, name: { en: "Sagaing",     my: "စစ်ကိုင်း" },     sort_order: 12 },
+  { id: 13, name: { en: "Shan",        my: "ရှမ်း" },       sort_order: 13 },
+  { id: 14, name: { en: "Tanintharyi", my: "တနင်္သာရီ" },    sort_order: 14 },
+  { id: 15, name: { en: "Yangon",      my: "ရန်ကုန်" },      sort_order: 15 },
+];
+
+export const mockTownships: TownshipRow[] = [
+  // Yangon (15)
+  { id: 1,  name: { en: "Hlaingthaya", my: "လှိုင်သာယာ" }, region_id: 15, sort_order: 1 },
+  { id: 2,  name: { en: "Hmawbi",      my: "မှော်ဘီ" },    region_id: 15, sort_order: 2 },
+  { id: 3,  name: { en: "Insein",      my: "အင်းစိန်" },    region_id: 15, sort_order: 3 },
+  { id: 4,  name: { en: "Mingaladon",  my: "မင်္ဂလာဒုံ" },  region_id: 15, sort_order: 4 },
+  // Mandalay (8)
+  { id: 5,  name: { en: "Chanayethazan", my: "ချမ်းအေးသာစံ" }, region_id: 8, sort_order: 1 },
+  { id: 6,  name: { en: "Chanmyathazi",  my: "ချမ်းမြသာစည်" }, region_id: 8, sort_order: 2 },
+  // Sagaing (12)
+  { id: 7,  name: { en: "Shwe Bo",     my: "ရွှေဘို" },    region_id: 12, sort_order: 1 },
+  { id: 8,  name: { en: "Monywa",      my: "မုံရွာ" },     region_id: 12, sort_order: 2 },
+  // Ayeyarwady (1)
+  { id: 9,  name: { en: "Pathein",     my: "ပုသိမ်" },     region_id: 1, sort_order: 1 },
+  { id: 10, name: { en: "Hinthada",    my: "ဟင်္သာတ" },    region_id: 1, sort_order: 2 },
+];
+
+// ── Lookup Helpers ──────────────────────────────────────────────────
+
+/**
+ * Resolve a profile's location to a human-readable string.
+ * Format: "Township, Region" or just "Region" if township not found.
+ */
+export function getLocationLabel(profile: Profile): string {
+  const township = mockTownships.find((t) => t.id === profile.township_id);
+  const region = mockRegions.find((r) => r.id === profile.region_id);
+  if (township && region) return `${township.name.en}, ${region.name.en}`;
+  if (region) return region.name.en;
+  return "";
+}
+
+/** Get the display label for a market status ID. */
+export function getMarketStatusLabel(statusId: number | null | undefined): string {
+  if (statusId == null) return "";
+  const status = mockMarketStatuses.find((s) => s.id === statusId);
+  return status?.name.en ?? "";
+}
+
+// ── Mock Profiles ───────────────────────────────────────────────────
 
 export const mockProfiles: Profile[] = [
   {
@@ -11,8 +78,10 @@ export const mockProfiles: Profile[] = [
     role: "trader",
     avatar_url: "",
     bio: "စပါးလုပ်ငန်း ၁၅ နှစ်အတွေ့အကြုံရှိ။ အရည်အသွေးကောင်းမွန်ရောင်းဝယ်ပါတယ်။",
-    location: "Yangon Region",
-    market_status: "looking_for_suppliers",
+    region_id: 15,
+    township_id: 1, // Hlaingthaya
+    market_status_id: 2, // Looking for Suppliers
+    phone_verified: false,
     created_at: "2025-03-15T00:00:00Z",
     updated_at: "2026-06-10T00:00:00Z",
   },
@@ -24,8 +93,10 @@ export const mockProfiles: Profile[] = [
     role: "farmer",
     avatar_url: "",
     bio: "Hmawbi မှာ စပါးစိုက်ပျိုးပါတယ်။ Paw San နဲ့ Shwe Bo အဓိကစိုက်ပါတယ်။",
-    location: "Hmawbi, Yangon",
-    market_status: "selling_rice",
+    region_id: 15,
+    township_id: 2, // Hmawbi
+    market_status_id: 4, // Selling Rice
+    phone_verified: false,
     created_at: "2025-01-20T00:00:00Z",
     updated_at: "2026-06-08T00:00:00Z",
   },
@@ -37,8 +108,10 @@ export const mockProfiles: Profile[] = [
     role: "trader",
     avatar_url: "",
     bio: "Rice mill owner in Ayeyarwady Delta. Buying paddy in bulk.",
-    location: "Ayeyarwady Region",
-    market_status: "buying_rice",
+    region_id: 1,
+    township_id: 9, // Pathein
+    market_status_id: 3, // Buying Rice
+    phone_verified: false,
     created_at: "2025-02-10T00:00:00Z",
     updated_at: "2026-06-05T00:00:00Z",
   },
@@ -50,8 +123,10 @@ export const mockProfiles: Profile[] = [
     role: "agent",
     avatar_url: "",
     bio: "အကျိုးဆောင် ၁၀ နှစ်ကျော်။ ဧရာဝတီနဲ့ ရန်ကုန်ဒေသကို အဓိကချိတ်ဆက်ပေးပါတယ်။",
-    location: "Yangon",
-    market_status: "available_as_agent",
+    region_id: 15,
+    township_id: 3, // Insein
+    market_status_id: 5, // Available as Agent
+    phone_verified: false,
     created_at: "2025-04-01T00:00:00Z",
     updated_at: "2026-06-12T00:00:00Z",
   },
@@ -63,8 +138,10 @@ export const mockProfiles: Profile[] = [
     role: "farmer",
     avatar_url: "",
     bio: "Shwe Bo ဒေသမှာ စပါးစိုက်ပျိုးပါတယ်။ နှစ်စဉ် တန်ချိန် ၅၀၀ ခန့်ထွက်ရှိပါတယ်။",
-    location: "Shwe Bo, Sagaing",
-    market_status: "looking_for_buyers",
+    region_id: 12,
+    township_id: 7, // Shwe Bo
+    market_status_id: 1, // Looking for Buyers
+    phone_verified: false,
     created_at: "2025-05-15T00:00:00Z",
     updated_at: "2026-05-20T00:00:00Z",
   },
@@ -76,14 +153,16 @@ export const mockProfiles: Profile[] = [
     role: "trader",
     avatar_url: "",
     bio: "Mandalay rice wholesaler. Specializing in Emata and Paw San varieties.",
-    location: "Mandalay",
-    market_status: "open_for_partnership",
+    region_id: 8,
+    township_id: 5, // Chanayethazan
+    market_status_id: 6, // Open for Partnership
+    phone_verified: false,
     created_at: "2024-11-01T00:00:00Z",
     updated_at: "2026-06-14T00:00:00Z",
   },
 ];
 
-// --- Mock Post Images ---
+// ── Mock Post Images ─────────────────────────────────────────────────
 
 function placeholderImages(postId: string, count: number): PostImage[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -94,7 +173,7 @@ function placeholderImages(postId: string, count: number): PostImage[] {
   }));
 }
 
-// --- Mock Posts ---
+// ── Mock Posts ───────────────────────────────────────────────────────
 // Use fixed timestamps to avoid hydration mismatches between server and client
 
 export const mockPosts: Post[] = [
@@ -202,7 +281,7 @@ export const mockPosts: Post[] = [
   },
 ];
 
-// --- Mock Comments ---
+// ── Mock Comments ────────────────────────────────────────────────────
 
 export const mockComments: Record<string, Comment[]> = {
   "post-1": [
@@ -235,7 +314,7 @@ export const mockComments: Record<string, Comment[]> = {
   ],
 };
 
-// --- Relative time helper ---
+// ── Relative time helper ─────────────────────────────────────────────
 
 export function timeAgo(dateStr: string): string {
   const now = new Date();
@@ -254,7 +333,7 @@ export function timeAgo(dateStr: string): string {
   return date.toLocaleDateString("my-MM");
 }
 
-// --- Format helpers ---
+// ── Format helpers ───────────────────────────────────────────────────
 
 export function formatPrice(price: number | null | undefined): string {
   if (price == null) return "—";
@@ -266,7 +345,7 @@ export function formatQuantity(qty: number | null | undefined): string {
   return `${qty.toLocaleString()} baskets`;
 }
 
-// --- Role badge display ---
+// ── Role badge display ───────────────────────────────────────────────
 
 export const roleLabels: Record<string, string> = {
   farmer: "🧑‍🌾 Farmer",
@@ -275,7 +354,7 @@ export const roleLabels: Record<string, string> = {
   general_user: "👤 User",
 };
 
-// --- Region / Township data ---
+// ── Region / Township data for form dropdowns ────────────────────────
 
 export interface RegionData {
   label: string;
@@ -427,16 +506,56 @@ export const regionTownships: Record<string, RegionData> = {
 
 export const regionKeys = Object.keys(regionTownships);
 
-export const marketStatusLabels: Record<string, string> = {
-  looking_for_buyers: "Looking for Buyers",
-  looking_for_suppliers: "Looking for Suppliers",
-  buying_rice: "Buying Rice",
-  selling_rice: "Selling Rice",
-  available_as_agent: "Available as Agent",
-  open_for_partnership: "Open for Partnership",
+// ── Region key → numeric ID mapping (for register form → DB) ──────────
+export const regionKeyToId: Record<string, number> = {
+  ayeyarwady: 1,
+  bago: 2,
+  chin: 3,
+  kachin: 4,
+  kayah: 5,
+  kayin: 6,
+  magway: 7,
+  mandalay: 8,
+  mon: 9,
+  naypyitaw: 10,
+  rakhine: 11,
+  sagaing: 12,
+  shan: 13,
+  tanintharyi: 14,
+  yangon: 15,
 };
 
-// --- Mock Network Data ---
+// ── Township name → numeric ID mapping (indexed by "regionKey|townshipName") ──
+// Built from mockTownships — each township is unique by (name, region_id)
+export const townshipKeyToId: Record<string, number> = {};
+for (const t of mockTownships) {
+  // Find the region key for this township's region_id
+  const regionEntry = Object.entries(regionKeyToId).find(([, id]) => id === t.region_id);
+  const regionKey = regionEntry?.[0] ?? "";
+  townshipKeyToId[`${regionKey}|${t.name.en}`] = t.id;
+}
+
+// ── Market status labels (keyed by id for display) ───────────────────
+
+export const marketStatusLabels: Record<number, string> = {
+  1: "Looking for Buyers",
+  2: "Looking for Suppliers",
+  3: "Buying Rice",
+  4: "Selling Rice",
+  5: "Available as Agent",
+  6: "Open for Partnership",
+};
+
+export const marketStatusShort: Record<number, string> = {
+  1: "LFB",
+  2: "LFS",
+  3: "B.R.",
+  4: "S.R.",
+  5: "Avail",
+  6: "OFP",
+};
+
+// ── Mock Network Data ────────────────────────────────────────────────
 
 export interface NetworkInvitation {
   id: string;
@@ -478,14 +597,4 @@ export const networkStats = {
   connections: 156,
   followers: 42,
   following: 89,
-};
-
-// Short market-status labels for network suggestion cards
-export const marketStatusShort: Record<string, string> = {
-  looking_for_buyers: "LFB",
-  looking_for_suppliers: "LFS",
-  buying_rice: "B.R.",
-  selling_rice: "S.R.",
-  available_as_agent: "Avail",
-  open_for_partnership: "OFP",
 };
