@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Home,
@@ -11,6 +12,7 @@ import {
   Settings,
   Network,
   LogIn,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,12 +28,7 @@ const mainItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
-
-  const profileItem = user
-    ? { href: `/profile/${user.username}`, label: "Profile", icon: User }
-    : { href: "/login", label: "Login", icon: LogIn };
-  const ProfileIcon = profileItem.icon;
+  const { user, isLoading, signOut } = useAuth();
 
   return (
     <aside className="hidden md:flex flex-col w-[240px] h-screen sticky top-0 border-r bg-background px-3 py-4">
@@ -40,7 +37,7 @@ export function Sidebar() {
         href="/"
         className="flex items-center gap-2 px-3 mb-6 font-semibold text-lg"
       >
-        <span className="text-2xl">🍚</span>
+        <Image src="/logo.svg" alt="စပါးအောင်သွယ်" width={28} height={28} className="shrink-0" />
         <span>စပါးအောင်သွယ်</span>
       </Link>
 
@@ -65,19 +62,33 @@ export function Sidebar() {
             </Link>
           );
         })}
-        {/* Profile when authenticated, Login otherwise */}
-        <Link href={profileItem.href}>
-          <Button
-            variant={pathname.startsWith("/profile") ? "secondary" : "ghost"}
-            className={cn(
-              "w-full justify-start gap-3 h-10",
-              pathname.startsWith("/profile") && "font-semibold"
-            )}
-          >
-            <ProfileIcon className="h-5 w-5" strokeWidth={pathname.startsWith("/profile") ? 2.5 : 1.8} />
-            <span>{profileItem.label}</span>
-          </Button>
-        </Link>
+        {isLoading ? null : user ? (
+          <Link href={`/profile/${user.profile.username}`}>
+            <Button
+              variant={pathname.startsWith("/profile") ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 h-10",
+                pathname.startsWith("/profile") && "font-semibold"
+              )}
+            >
+              <User className="h-5 w-5" strokeWidth={pathname.startsWith("/profile") ? 2.5 : 1.8} />
+              <span>Profile</span>
+            </Button>
+          </Link>
+        ) : (
+          <Link href="/login">
+            <Button
+              variant={pathname === "/login" ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 h-10",
+                pathname === "/login" && "font-semibold"
+              )}
+            >
+              <LogIn className="h-5 w-5" strokeWidth={pathname === "/login" ? 2.5 : 1.8} />
+              <span>Login</span>
+            </Button>
+          </Link>
+        )}
       </nav>
 
       {/* Footer */}
@@ -88,6 +99,16 @@ export function Sidebar() {
             <span>Settings</span>
           </Button>
         </Link>
+        {user && (
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 h-10"
+            onClick={() => signOut()}
+          >
+            <LogOut className="h-5 w-5" strokeWidth={1.8} />
+            <span>Logout</span>
+          </Button>
+        )}
         <p className="text-[10px] text-muted-foreground mt-3 px-3">
           © 2026 စပါးအောင်သွယ်
         </p>

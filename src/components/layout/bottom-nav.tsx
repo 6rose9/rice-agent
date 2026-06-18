@@ -19,7 +19,7 @@ export function BottomNav() {
   const { user } = useAuth();
 
   const profileItem = user
-    ? { href: `/profile/${user.username}`, label: "Profile", icon: User }
+    ? { href: `/profile/${user.profile.username}`, label: "Profile", icon: User }
     : { href: "/login", label: "Login", icon: LogIn };
   const ProfileIcon = profileItem.icon;
 

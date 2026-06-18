@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { mockProfiles, roleLabels } from "@/lib/mock-data";
+import { mockProfiles, roleLabels, getLocationLabel } from "@/lib/mock-data";
 import { Clock, TrendingUp, Bookmark, Sprout } from "lucide-react";
 
 type RightRailVariant = "feed" | "profile" | "search" | "network";
@@ -62,7 +62,7 @@ export function RightRail({ variant = "feed", profileStats }: RightRailProps) {
                   </Link>
                   <p className="text-xs text-muted-foreground truncate">
                     {roleLabels[profile.role] || profile.role}
-                    {profile.location && ` · ${profile.location.split(",")[0]}`}
+                    {getLocationLabel(profile) && ` · ${getLocationLabel(profile).split(",")[0]}`}
                   </p>
                 </div>
                 <Button
@@ -131,7 +131,7 @@ export function RightRail({ variant = "feed", profileStats }: RightRailProps) {
                   </Link>
                   <p className="text-xs text-muted-foreground truncate">
                     {roleLabels[profile.role] || profile.role}
-                    {profile.location && ` · ${profile.location.split(",")[0]}`}
+                    {getLocationLabel(profile) && ` · ${getLocationLabel(profile).split(",")[0]}`}
                   </p>
                 </div>
               </div>

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,34 +16,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AuthProvider, useAuth } from "@/components/auth/auth-provider";
+import { login } from "@/lib/auth/actions";
+import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { Loader2 } from "lucide-react";
 
 function LoginFormInner() {
-  const { signIn } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/feed";
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!phone || !password) {
-      setError("Please enter your phone number and password.");
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginInput>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(loginSchema as any) as any,
+  });
+
+  async function onSubmit(data: LoginInput) {
+    const formData = new FormData();
+    formData.append("phone", data.phone);
+    formData.append("password", data.password);
+    formData.append("redirect", redirect);
+
+    const result = await login({ success: false }, formData);
+
+    if (!result.success) {
+      setError("root", { message: result.error || "Login failed. Please try again." });
       return;
     }
-    setLoading(true);
-    setError("");
-    const result = await signIn(phone, password);
-    setLoading(false);
-    if (result.error) {
-      setError(result.error);
-    } else {
-      router.push(redirect);
-    }
+
+    window.location.href = result.redirect || redirect;
   }
 
   return (
@@ -55,16 +61,18 @@ function LoginFormInner() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
               <Input
                 id="phone"
                 type="tel"
                 placeholder="09xxxxxxxxx"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                {...register("phone")}
               />
+              {errors.phone && (
+                <p className="text-sm text-destructive">{errors.phone.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
@@ -72,13 +80,17 @@ function LoginFormInner() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                {...register("password")}
               />
+              {errors.password && (
+                <p className="text-sm text-destructive">{errors.password.message}</p>
+              )}
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {errors.root && (
+              <p className="text-sm text-destructive">{errors.root.message}</p>
+            )}
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Sign In
             </Button>
           </form>
@@ -122,10 +134,8 @@ function LoginFormFallback() {
 
 export default function LoginPage() {
   return (
-    <AuthProvider>
-      <Suspense fallback={<LoginFormFallback />}>
-        <LoginFormInner />
-      </Suspense>
-    </AuthProvider>
+    <Suspense fallback={<LoginFormFallback />}>
+      <LoginFormInner />
+    </Suspense>
   );
 }

@@ -71,7 +71,6 @@ function EditProfileInner() {
       region_id: currentProfile?.region_id ?? 0,
       township_id: currentProfile?.township_id ?? 0,
       bio: currentProfile?.bio ?? "",
-      website: currentProfile?.website ?? "",
       market_status_id: currentProfile?.market_status_id ?? 0,
     },
   });
@@ -115,7 +114,6 @@ function EditProfileInner() {
     formData.append("region_id", String(data.region_id));
     formData.append("township_id", String(data.township_id));
     if (data.bio) formData.append("bio", data.bio);
-    if (data.website) formData.append("website", data.website);
     if (data.market_status_id && data.market_status_id > 0) {
       formData.append("market_status_id", String(data.market_status_id));
     }
@@ -368,22 +366,6 @@ function EditProfileInner() {
                 <p className="text-[10px] text-muted-foreground">
                   Max 500 characters.
                 </p>
-              </div>
-
-              {/* Website */}
-              <div className="space-y-2">
-                <Label htmlFor="website">Website</Label>
-                <Input
-                  id="website"
-                  type="url"
-                  placeholder="https://example.com"
-                  {...register("website")}
-                />
-                {errors.website && (
-                  <p className="text-sm text-destructive">
-                    {errors.website.message}
-                  </p>
-                )}
               </div>
 
               {/* Error / Success messages */}

@@ -4,121 +4,131 @@ import {
   createContext,
   useContext,
   useState,
+  useEffect,
   useCallback,
-  ReactNode,
+  useRef,
+  type ReactNode,
 } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import type { Profile } from "@/types";
-import { mockProfiles } from "@/lib/mock-data";
-
-interface AuthState {
-  isAuthenticated: boolean;
-  user: Profile | null;
-  isLoading: boolean;
-}
-
-interface AuthContextValue extends AuthState {
-  signIn: (phone: string, password: string) => Promise<{ error?: string }>;
-  signUp: (
-    phone: string,
-    password: string,
-    fullName: string,
-    email?: string,
-    role?: string,
-    region?: string,
-    township?: string
-  ) => Promise<{ error?: string }>;
-  signOut: () => void;
-}
+import type { AuthUser, AuthContextValue } from "@/types/auth";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function fetchProfileById(authUser: User): Promise<Profile | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", authUser.id)
+    .single();
+
+  if (error || !data) {
+    console.error("Failed to fetch profile:", error?.message);
+    return null;
+  }
+  return data as Profile;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({
-    isAuthenticated: false,
-    user: null,
-    isLoading: false,
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const sessionReadyRef = useRef(false);
 
-  const signIn = useCallback(
-    async (phone: string, _password: string) => {
-      // Mock: always succeeds if phone matches a known profile
-      setState((s) => ({ ...s, isLoading: true }));
-      // Simulate network delay
-      await new Promise((r) => setTimeout(r, 600));
-      const profile = mockProfiles.find((p) => p.phone === phone);
-      if (profile) {
-        setState({ isAuthenticated: true, user: profile, isLoading: false });
-        return {};
+  // Derive authenticated state from user presence
+  const isAuthenticated = user !== null;
+
+  // Initialize session and subscribe to auth state changes
+  useEffect(() => {
+    const supabase = createClient();
+
+    // Get initial session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const profile = await fetchProfileById(session.user);
+        if (profile) {
+          setUser({ user: session.user, profile });
+        } else {
+          // Profile not yet created — retry once after a short delay (DB trigger race)
+          await new Promise((r) => setTimeout(r, 1000));
+          const retryProfile = await fetchProfileById(session.user);
+          if (retryProfile) {
+            setUser({ user: session.user, profile: retryProfile });
+          }
+        }
       }
-      // If no matching profile, create a minimal one (new user mock)
-      const newProfile: Profile = {
-        id: `user-${Date.now()}`,
-        phone,
-        username: phone.replace(/\D/g, ""),
-        full_name: phone,
-        role: "general_user",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setState({
-        isAuthenticated: true,
-        user: newProfile,
-        isLoading: false,
-      });
-      return {};
-    },
-    []
-  );
+      sessionReadyRef.current = true;
+      setIsLoading(false);
+    });
 
-  const signUp = useCallback(
-    async (
-      phone: string,
-      _password: string,
-      fullName: string,
-      email?: string,
-      role?: string,
-      region?: string,
-      township?: string
-    ) => {
-      setState((s) => ({ ...s, isLoading: true }));
-      await new Promise((r) => setTimeout(r, 600));
-      // Validate Myanmar phone
-      const normalized = phone.replace(/[\s-]/g, "");
-      if (!/^(09\d{7,9}|\+?959\d{7,8})$/.test(normalized)) {
-        setState((s) => ({ ...s, isLoading: false }));
-        return { error: "Please enter a valid Myanmar phone number." };
-      }
-      // Build location string from region + township
-      const location =
-        region && township ? `${township}, ${region}` : region || township || undefined;
-      // Mock: always succeeds
-      const newProfile: Profile = {
-        id: `user-${Date.now()}`,
-        phone: normalized.startsWith("+") ? normalized : normalized,
-        email: email || undefined,
-        username: normalized.replace(/\D/g, ""),
-        full_name: fullName,
-        role: (role as Profile["role"]) || "general_user",
-        location,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setState({
-        isAuthenticated: true,
-        user: newProfile,
-        isLoading: false,
-      });
-      return {};
-    },
-    []
-  );
+    // Subscribe to auth changes (handles cross-tab sign-in/sign-out and token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "SIGNED_OUT") {
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
 
-  const signOut = useCallback(() => {
-    setState({ isAuthenticated: false, user: null, isLoading: false });
+        // Skip SIGNED_IN/INITIAL_SESSION — getSession() already handles initial load.
+        // Only process events after session initialization to avoid blocking on the
+        // Supabase client singleton which may still be initializing during getSession().
+        if (!sessionReadyRef.current) return;
+
+        if (session?.user) {
+          if (event === "TOKEN_REFRESHED") {
+            // Token refresh doesn't change profile, just update the user object
+            setUser((prev) =>
+              prev ? { ...prev, user: session.user } : prev,
+            );
+            return;
+          }
+
+          // For SIGNED_IN from another tab, fetch profile
+          const profile = await fetchProfileById(session.user);
+          if (profile) {
+            setUser({ user: session.user, profile });
+          } else {
+            await new Promise((r) => setTimeout(r, 1000));
+            const retryProfile = await fetchProfileById(session.user);
+            if (retryProfile) {
+              setUser({ user: session.user, profile: retryProfile });
+            }
+          }
+        }
+      },
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const signOut = useCallback(async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUser(null);
+  }, []);
+
+  // Re-fetch the current user's profile (e.g., after editing)
+  const refreshProfile = useCallback(async () => {
+    const supabase = createClient();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    if (!authUser) return;
+
+    const profile = await fetchProfileById(authUser);
+    if (profile) {
+      setUser({ user: authUser, profile });
+    }
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut }}>
+    <AuthContext.Provider
+      value={{ user, isLoading, isAuthenticated, signOut, refreshProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );

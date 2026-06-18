@@ -1,32 +1,49 @@
 // User roles in the rice industry
 export type UserRole = "farmer" | "trader" | "agent" | "general_user";
 
-// Market status options
-export type MarketStatus =
-  | "looking_for_buyers"
-  | "looking_for_suppliers"
-  | "buying_rice"
-  | "selling_rice"
-  | "available_as_agent"
-  | "open_for_partnership";
+// ── Reference Table Types ─────────────────────────────────────────────
+
+/** Row from public.market_status */
+export interface MarketStatusRow {
+  id: number;
+  name: { en: string; my: string };
+  sort_order: number;
+}
+
+/** Row from public.regions */
+export interface RegionRow {
+  id: number;
+  name: { en: string; my: string };
+  sort_order: number;
+}
+
+/** Row from public.townships */
+export interface TownshipRow {
+  id: number;
+  name: { en: string; my: string };
+  region_id: number;
+  sort_order: number;
+}
 
 // Post types
 export type PostType = "selling" | "buying";
 
-// Profile
+// Profile (matches public.profiles table)
 export interface Profile {
   id: string;
   phone: string;
-  email?: string;
+  email?: string | null;
   username: string;
   full_name: string;
   role: UserRole;
-  avatar_url?: string;
-  cover_url?: string;
-  bio?: string;
-  location?: string;
-  website?: string;
-  market_status?: MarketStatus;
+  avatar_url?: string | null;
+  cover_url?: string | null;
+  bio?: string | null;
+  region_id: number;
+  township_id: number;
+  market_status_id?: number | null;
+  phone_verified: boolean;
+  deleted_at?: string | null;
   created_at: string;
   updated_at: string;
 }

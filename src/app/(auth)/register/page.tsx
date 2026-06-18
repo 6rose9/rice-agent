@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,7 +32,6 @@ import { useRegions } from "@/hooks/use-regions";
 import { Loader2 } from "lucide-react";
 
 function RegisterFormInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/feed";
 
@@ -150,7 +149,7 @@ function RegisterFormInner() {
       return;
     }
 
-    router.push(result.redirect || redirect);
+    window.location.href = result.redirect || redirect;
   }
 
   // Collect field errors for current step display

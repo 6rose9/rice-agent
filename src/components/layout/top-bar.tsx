@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Bell, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -11,7 +12,7 @@ export function TopBar() {
       <div className="flex h-12 items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-semibold text-base">
-          <span className="text-lg">🍚</span>
+          <Image src="/logo.svg" alt="စပါးအောင်သွယ်" width={20} height={20} className="shrink-0" />
           <span className="hidden sm:inline text-primary">စပါးအောင်သွယ်</span>
           <span className="sm:hidden text-primary text-sm">စပါးအောင်သွယ်</span>
         </Link>
