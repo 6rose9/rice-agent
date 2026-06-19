@@ -14,7 +14,9 @@
       "Bash(pnpm build *)",
       "Bash(npx eslint *)",
       "Bash(npm run *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(gh auth *)",
+      "Bash(git check-ignore *)"
     ]
   },
   "enabledMcpjsonServers": [
