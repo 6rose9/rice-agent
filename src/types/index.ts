@@ -71,12 +71,14 @@ export interface Post {
   township?: string | null;
   easy_to_carry?: boolean;
   pound_per_bag?: number | null;
-  paddy_condition?: "dry" | "wet" | null;
+  paddy_condition?: number | null;
   // Subscription badge
   badge?: SubscriptionBadge;
   images: PostImage[];
   reaction_count: number;
   comment_count: number;
+  latitude?: number | null;
+  longitude?: number | null;
   is_liked?: boolean;
   is_saved?: boolean;
   created_at: string;

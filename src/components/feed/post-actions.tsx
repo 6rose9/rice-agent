@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { savePost, unsavePost } from "@/lib/posts/actions";
 
 interface PostActionsProps {
   postId: string;
@@ -34,6 +35,7 @@ export function PostActions({
   const [liked, setLiked] = useState(isLiked);
   const [saved, setSaved] = useState(isSaved);
   const [likes, setLikes] = useState(reactionCount);
+  const [saving, setSaving] = useState(false);
 
   function requireAuth(action: () => void) {
     if (isAuthenticated) {
@@ -63,10 +65,25 @@ export function PostActions({
     });
   }
 
-  function handleSave() {
-    requireAuth(() => {
-      setSaved(!saved);
-      onSave?.(postId);
+  async function handleSave() {
+    requireAuth(async () => {
+      if (saving) return;
+      setSaving(true);
+      const newSaved = !saved;
+      setSaved(newSaved);
+      try {
+        if (newSaved) {
+          await savePost(postId);
+        } else {
+          await unsavePost(postId);
+        }
+        onSave?.(postId);
+      } catch {
+        // Revert on error
+        setSaved(!newSaved);
+      } finally {
+        setSaving(false);
+      }
     });
   }
 
@@ -124,6 +141,7 @@ export function PostActions({
         size="sm"
         className={cn("gap-1.5 h-8 px-2", saved && "text-primary")}
         onClick={handleSave}
+        disabled={saving}
       >
         <Bookmark className={cn("h-4 w-4", saved && "fill-current")} />
       </Button>

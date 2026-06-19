@@ -5,50 +5,20 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
 import { createPost } from "@/lib/posts/actions";
 import { postSchema, type PostInput } from "@/lib/validations/post";
 import { regionTownships, regionKeys } from "@/lib/mock-data";
 import { ImagePlus, X, Loader2, Crown } from "lucide-react";
+import { TradingFormFields } from "./trading-form-fields";
 
 interface CreatePostFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
-}
-
-const RICE_TYPES = ["soft rice", "hard rice", "Other"];
-
-const UNITS = [
-  { value: "basket", label: "Basket (တင်း)" },
-  { value: "pound", label: "Pound (ပေါင်)" },
-];
-
-const PRICE_MIN = 500_000; // 5 lakh
-const PRICE_MAX = 7_500_000; // 75 lakh
-const PRICE_STEP = 5_000;
-
-const QTY_MIN = 100;
-const QTY_MAX = 100_000;
-const QTY_STEP = 50;
-
-const POUND_MIN = 92;
-const POUND_MAX = 120;
-
-function formatLakh(n: number): string {
-  return `${n.toLocaleString()} Ks`;
 }
 
 export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
@@ -166,8 +136,8 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
       if (data.township) formData.append("township", data.township);
       if (data.pound_per_bag != null)
         formData.append("pound_per_bag", String(data.pound_per_bag));
-      if (data.paddy_condition)
-        formData.append("paddy_condition", data.paddy_condition);
+      if (data.paddy_condition != null)
+        formData.append("paddy_condition", String(data.paddy_condition));
       if (data.easy_to_carry != null)
         formData.append("easy_to_carry", String(data.easy_to_carry));
     }
@@ -383,255 +353,15 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
           </div>
         </div>
 
-        {/* Buying / Selling extra fields */}
+        {/* Buying / Selling extra fields (shared component) */}
         {isPremium && (
-          <div className="space-y-3 pt-4 border-t">
-            <p className="text-xs font-medium text-muted-foreground">
-              📋 Listing Details
-            </p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">🌾 Rice Type *</Label>
-                <Select
-                  value={watch("rice_type") ?? ""}
-                  onValueChange={(v) => {
-                    if (v) setValue("rice_type", v, { shouldValidate: true });
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Select rice type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RICE_TYPES.map((t) => (
-                      <SelectItem
-                        key={t}
-                        value={t}
-                      >
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {/* eslint-disable @typescript-eslint/no-explicit-any */}
-                {(errors as any).rice_type && (
-                  <p className="text-xs text-destructive">
-                    {(errors as any).rice_type.message}
-                  </p>
-                )}
-                {/* eslint-enable @typescript-eslint/no-explicit-any */}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">📝 Rice Name</Label>
-                <Input
-                  placeholder="e.g. Special Grade A"
-                  {...register("rice_name")}
-                  className="h-9 text-xs"
-                />
-              </div>
-
-              <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">💰 Price</Label>
-                <div className="space-y-1">
-                  <input
-                    type="range"
-                    min={PRICE_MIN}
-                    max={PRICE_MAX}
-                    step={PRICE_STEP}
-                    value={watch("price") ?? PRICE_MIN}
-                    onChange={(e) =>
-                      setValue("price", Number(e.target.value), {
-                        shouldValidate: true,
-                      })
-                    }
-                    className="w-full h-2 accent-primary cursor-pointer"
-                  />
-                  <p className="text-xs text-muted-foreground text-center">
-                    {formatLakh(watch("price") ?? PRICE_MIN)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">
-                  📦 How many do you want to{" "}
-                  {postType === "buying" ? "buy" : "sell"}?
-                </Label>
-                <div className="space-y-1">
-                  <input
-                    type="range"
-                    min={QTY_MIN}
-                    max={QTY_MAX}
-                    step={QTY_STEP}
-                    value={watch("quantity") ?? QTY_MIN}
-                    onChange={(e) =>
-                      setValue("quantity", Number(e.target.value), {
-                        shouldValidate: true,
-                      })
-                    }
-                    className="w-full h-2 accent-primary cursor-pointer"
-                  />
-                  <p className="text-xs text-muted-foreground text-center">
-                    {(watch("quantity") ?? QTY_MIN).toLocaleString()} baskets
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">📍 Region</Label>
-                <Select
-                  value={watch("location") ?? ""}
-                  onValueChange={(v) => {
-                    if (v) {
-                      setValue("location", v, { shouldValidate: true });
-                      setValue("township", "", { shouldValidate: false });
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Select region" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {regionKeys.map((key) => (
-                      <SelectItem
-                        key={key}
-                        value={key}
-                      >
-                        {regionTownships[key].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">🏘️ Township</Label>
-                <Select
-                  value={watch("township") ?? ""}
-                  onValueChange={(v) => {
-                    if (v) setValue("township", v, { shouldValidate: true });
-                  }}
-                  disabled={!watchedLocation}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue
-                      placeholder={
-                        watchedLocation
-                          ? "Select township"
-                          : "Select region first"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {watchedLocation &&
-                      regionTownships[watchedLocation]?.townships.map((t) => (
-                        <SelectItem
-                          key={t}
-                          value={t}
-                        >
-                          {t}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5 col-span-2">
-                <Label className="text-xs">
-                  How many pounds per bag of paddy?
-                </Label>
-                <div className="space-y-1">
-                  <input
-                    type="range"
-                    min={POUND_MIN}
-                    max={POUND_MAX}
-                    step={1}
-                    value={watch("pound_per_bag") ?? POUND_MIN}
-                    onChange={(e) =>
-                      setValue("pound_per_bag", Number(e.target.value), {
-                        shouldValidate: true,
-                      })
-                    }
-                    className="w-full h-2 accent-primary cursor-pointer"
-                  />
-                  <p className="text-xs text-muted-foreground text-center">
-                    {watch("pound_per_bag") ?? POUND_MIN} lb
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">⚖️ Unit</Label>
-                <Select
-                  value={watch("unit") ?? ""}
-                  onValueChange={(v) => {
-                    if (v) setValue("unit", v, { shouldValidate: true });
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs min-w-[150px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UNITS.map((u) => (
-                      <SelectItem
-                        key={u.value}
-                        value={u.value}
-                      >
-                        {u.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">🌾 Is the paddy wet or dry?</Label>
-                <Select
-                  value={watch("paddy_condition") ?? ""}
-                  onValueChange={(v) => {
-                    if (v)
-                      setValue("paddy_condition", v as "dry" | "wet", {
-                        shouldValidate: true,
-                      });
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Select condition" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dry">Dry</SelectItem>
-                    <SelectItem value="wet">Wet</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs">🏠 Address</Label>
-              <Input
-                placeholder="e.g. No. 123, Hlaingthaya, Yangon"
-                {...register("address")}
-                className="h-9 text-xs"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={watch("easy_to_carry") ?? false}
-                onCheckedChange={(checked) =>
-                  setValue("easy_to_carry", checked, { shouldValidate: true })
-                }
-              />
-              <Label className="text-xs cursor-pointer">
-                🚚 Easy to carry / transport available
-              </Label>
-            </div>
-          </div>
+          <TradingFormFields
+            postType={postType}
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            errors={errors}
+          />
         )}
       </div>
 

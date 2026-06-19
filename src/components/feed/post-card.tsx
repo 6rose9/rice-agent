@@ -22,11 +22,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { Post } from "@/types";
 import { timeAgo, formatPrice, formatQuantity, regionTownships } from "@/lib/mock-data";
 import { deletePost } from "@/lib/posts/actions";
-import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation } from "lucide-react";
 
 interface PostCardProps {
   post: Post;
@@ -46,6 +47,7 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
   const [displayTime, setDisplayTime] = useState(post.created_at);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showMapDialog, setShowMapDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const typeInfo = TYPE_CONFIG[type] || TYPE_CONFIG.general;
@@ -91,12 +93,16 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
               {displayTime}
             </p>
           </div>
+
           {isAuthor && (
             <DropdownMenu>
-              <DropdownMenuTrigger>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
+              <DropdownMenuTrigger
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "icon" }),
+                  "h-8 w-8",
+                )}
+              >
+                <MoreHorizontal className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setShowEditModal(true)}>
@@ -189,15 +195,25 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
                 🏋️ {pound_per_bag} lb/bag
               </span>
             )}
-            {paddy_condition && (
+            {paddy_condition != null && (
               <span className="inline-flex items-center gap-1">
-                {paddy_condition === "dry" ? "☀️ Dry" : "💧 Wet"}
+                💧 Moisture: {paddy_condition}%
               </span>
             )}
             {easy_to_carry && (
               <span className="inline-flex items-center gap-1">
                 🚚 Easy to carry
               </span>
+            )}
+            {post.latitude != null && post.longitude != null && (
+              <button
+                type="button"
+                onClick={() => setShowMapDialog(true)}
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                <Navigation className="h-3 w-3" />
+                Get Directions
+              </button>
             )}
           </div>
         )}
@@ -252,6 +268,31 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
               {deleting ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Map dialog */}
+      <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>📍 Post Location</DialogTitle>
+          </DialogHeader>
+          <div className="w-full h-64 rounded-md overflow-hidden border bg-muted">
+            {showMapDialog && post.latitude != null && post.longitude != null && (
+              <iframe
+                src={`https://maps.google.com/maps?q=${post.latitude},${post.longitude}&z=15&output=embed`}
+                width="100%"
+                height="100%"
+                className="w-full h-full"
+                loading="lazy"
+                title="Post location"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            )}
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowMapDialog(false)}>Close</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </Card>

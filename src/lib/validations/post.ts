@@ -34,8 +34,10 @@ export const tradingPostSchema = z.object({
     .min(92, "Minimum is 92 lb per bag")
     .max(120, "Maximum is 120 lb per bag")
     .optional(),
-  paddy_condition: z.enum(["dry", "wet"]).optional(),
+  paddy_condition: z.coerce.number().min(10).max(16).optional(),
   easy_to_carry: z.coerce.boolean().optional(),
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
 });
 
 export const postSchema = z.discriminatedUnion("type", [

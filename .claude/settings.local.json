@@ -12,7 +12,9 @@
       "Bash(pnpm view *)",
       "Bash(node *)",
       "Bash(pnpm build *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(npm run *)",
+      "Bash(npm install *)"
     ]
   }
 }
