@@ -16,5 +16,9 @@
       "Bash(npm run *)",
       "Bash(npm install *)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "magic",
+    "context7"
+  ]
 }
