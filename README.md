@@ -1,36 +1,139 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# စပါးအောင်သွယ် (Rice Agent)
+
+A professional networking and marketplace platform for Myanmar's rice industry. Connects farmers, traders, agents, and users in a single platform where all user types can build professional profiles, publish buying and selling opportunities, follow industry participants, and discover trusted business connections.
+
+---
+
+## Screenshots
+
+| Home Feed | Profile | Create Post |
+|-----------|---------|-------------|
+| ![Home Feed](public/assets/demo/d1.png) | ![Profile](public/assets/demo/d2.png) | ![Create Post](public/assets/demo/d3.png) |
+
+| Search | Network | Post Detail |
+|--------|---------|-------------|
+| ![Search](public/assets/demo/d4.png) | ![Network](public/assets/demo/d5.png) | ![Post Detail](public/assets/demo/d6.png) |
+
+| Profile |
+|-------------|
+| ![Profile](public/assets/demo/d7.png) |S
+
+---
+
+## Tech Stack
+
+### Frontend
+- [Next.js](https://nextjs.org/) - React framework
+- [TypeScript](https://www.typescriptlang.org/) - Type safety
+- [Tailwind CSS](https://tailwindcss.com/) - Styling
+- [shadcn/ui](https://ui.shadcn.com/) - UI components
+
+### Backend
+- [Supabase Auth](https://supabase.com/auth) - Authentication
+- [Supabase PostgreSQL](https://supabase.com/database) - Database
+- [Supabase Storage](https://supabase.com/storage) - File storage
+
+### Deployment
+- [Vercel](https://vercel.com/) - Frontend hosting
+- [Supabase](https://supabase.com/) - Backend services
+
+---
+
+## Features
+
+### User Roles
+- **Farmer** - Sell rice, find buyers
+- **Trader** - Buy/sell rice, find suppliers
+- **Agent** - Connect buyers and sellers
+- **General User** - Browse and follow
+
+### Core Features
+- **Authentication** - Register, login, logout
+- **Profiles** - Create and edit profiles with role, location, status
+- **Posts** - Create buying/selling posts with images
+- **Feed** - View latest posts and posts from followed users
+- **Search** - Search users and posts with filters
+- **Network** - Follow/unfollow users, view followers
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- pnpm
+- Supabase project
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone the repository
+git clone https://github.com/your-username/rice-agent.git
+cd rice-agent
+
+# Install dependencies
+pnpm install
+
+# Set up environment variables
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Add to `.env.local`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
 
-## Learn More
+### Development
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Start development server
+pnpm dev
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Build for production
+pnpm build
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Start production server
+pnpm start
+```
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+rice-agent/
+├── src/
+│   ├── app/              # Next.js app router
+│   ├── components/       # React components
+│   ├── lib/              # Utilities and Supabase client
+│   └── hooks/            # Custom React hooks
+├── public/
+│   └── assets/
+│       └── rices/        # Rice images for seeding
+├── supabase/
+│   ├── migrations/       # Database migrations
+│   ├── seed.sql          # Township seed data
+│   └── seed-posts.sql    # Posts seed data
+├── scripts/
+│   └── seed-posts.ts     # Seed script
+└── docs/
+    └── spec.md           # Project specification
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+---
+
+## License
+
+This project is licensed under the MIT License.
