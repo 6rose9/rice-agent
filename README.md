@@ -2,6 +2,8 @@
 
 A professional networking and marketplace platform for Myanmar's rice industry. Connects farmers, traders, agents, and users in a single platform where all user types can build professional profiles, publish buying and selling opportunities, follow industry participants, and discover trusted business connections.
 
+🔗 **Live Demo**: [https://rice-agent.vercel.app/feed](https://rice-agent.vercel.app/feed)
+
 ---
 
 ## Screenshots
@@ -136,4 +138,4 @@ rice-agent/
 
 ## License
 
-This project is licensed under the MIT License.
+All Rights Reserved. See [LICENSE](LICENSE) for details.
