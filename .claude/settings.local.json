@@ -19,6 +19,18 @@
       "Bash(git check-ignore *)"
     ]
   },
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "context7-mcp",
+      "args": []
+    },
+    "magic": {
+      "type": "stdio",
+      "command": "magic",
+      "args": []
+    }
+  },
   "enabledMcpjsonServers": [
     "magic",
     "context7"
