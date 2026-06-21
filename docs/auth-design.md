@@ -6,7 +6,7 @@
 - If user provides a real email at registration → use it as the Supabase Auth email
 - If not → fallback to synthetic email `{normalized_phone}@rice-agent.local`
 - **Email confirmation disabled** in Supabase dashboard → signup completes immediately
-- No OTP required for login or signup
+- No OTP required for login or signup for version 1
 
 ## Login Flow
 ```

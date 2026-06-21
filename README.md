@@ -70,7 +70,7 @@ A professional networking and marketplace platform for Myanmar's rice industry. 
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/rice-agent.git
+git clone https://github.com/6rose9/rice-agent.git
 cd rice-agent
 
 # Install dependencies

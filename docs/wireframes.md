@@ -6,14 +6,14 @@ ASCII wireframes for all primary pages. Mobile-first; desktop variants shown inl
 
 ## 1. Landing Page (Feed)
 
-The landing page IS the feed — authenticated users land directly on their feed.
+The landing page IS the feed —  users land directly on their feed.
 
 ### Mobile
 
 ```
 ┌──────────────────────────────────┐
 │  TopBar                          │
-│  [🍚 စပါးအောင်သွယ်]    [🔔][📨] │
+│  [🍚 စပါးအောင်သွယ်]    [🔍][🔔] │⚙️
 ├──────────────────────────────────┤
 │  FeedFilter                      │
 │  [ All | Buying | Selling | Foll…]│
@@ -107,7 +107,7 @@ Same structure as landing page, but shown here with full PostCard detail and the
 ```
 ┌──────────────────────────────────┐
 │  TopBar                          │
-│  [🍚 Feed]                [⚙️]   │
+│  [🍚 Feed]           [🔍][🔔] │⚙️│
 ├──────────────────────────────────┤
 │  [ All | Buying | Selling | Foll…]│
 ├──────────────────────────────────┤
@@ -140,7 +140,7 @@ Same structure as landing page, but shown here with full PostCard detail and the
 │  └──────────────────────────────┘│
 ├──────────────────────────────────┤
 │  BottomNav                       │
-│  [🏠][🔍][➕ FAB][💬][👤]         │
+│ [🏠 Home][My Network][➕][💬][👤]│
 └──────────────────────────────────┘
 ```
 
