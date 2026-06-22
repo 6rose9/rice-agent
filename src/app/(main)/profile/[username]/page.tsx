@@ -17,6 +17,7 @@ import {
   roleLabels,
   getLocationLabel,
 } from "@/lib/mock-data";
+import { MarketStatusSelector } from "@/components/profile/market-status-selector";
 import type { Profile, Post } from "@/types";
 import { MapPin, Calendar, Sprout, Users, Loader2, Camera } from "lucide-react";
 
@@ -374,17 +375,12 @@ function ProfileContent() {
                 </>
               )}
             </p>
-            {displayProfile.market_status_id != null && (
-              <div className="mt-2">
-                <Badge
-                  variant="outline"
-                  className="text-xs"
-                >
-                  {marketStatusLabels[displayProfile.market_status_id] ||
-                    `Status #${displayProfile.market_status_id}`}
-                </Badge>
-              </div>
-            )}
+            <div className="mt-2">
+              <MarketStatusSelector
+                currentStatusId={displayProfile.market_status_id}
+                isOwnProfile={!!isOwnProfile}
+              />
+            </div>
             <div className="flex items-center justify-center gap-2 mt-3">
               {isOwnProfile ? (
                 <>

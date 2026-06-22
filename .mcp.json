@@ -11,6 +11,13 @@
       "command": "magic",
       "args": [],
       "env": {}
+    },
+    "next-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "next-devtools-mcp@latest"
+      ]
     }
   }
 }

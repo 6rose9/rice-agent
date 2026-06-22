@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Routes that require authentication (middleware redirects to login)
+// Routes that require authentication (proxy redirects to login)
 const protectedPaths = [
   "/profile/edit",
 ];
@@ -9,10 +9,10 @@ const protectedPaths = [
 // Auth pages — redirect to /feed if already authenticated
 const authPaths = ["/login", "/register"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Build a Supabase client for the middleware
+  // Build a Supabase client for the proxy
   const response = NextResponse.next({
     request: {
       headers: request.headers,

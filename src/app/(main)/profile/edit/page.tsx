@@ -78,6 +78,8 @@ function EditProfileInner() {
   });
 
   const watchedRegionId = watch("region_id");
+  const watchedTownshipId = watch("township_id");
+  const watchedMarketStatusId = watch("market_status_id");
 
   // Townships filtered by selected region
   const townships = useMemo(() => {
@@ -263,7 +265,9 @@ function EditProfileInner() {
                   onValueChange={handleRegionChange}
                 >
                   <SelectTrigger id="region_id" className="w-full">
-                    <SelectValue placeholder="Select region" />
+                    {watchedRegionId > 0
+                      ? regions.find((r) => r.id === watchedRegionId)?.name.en
+                      : "Select region"}
                   </SelectTrigger>
                   <SelectContent>
                     {regions.map((r) => (
@@ -287,8 +291,8 @@ function EditProfileInner() {
                 </Label>
                 <Select
                   value={
-                    getValues("township_id") > 0
-                      ? String(getValues("township_id"))
+                    watchedTownshipId > 0
+                      ? String(watchedTownshipId)
                       : ""
                   }
                   onValueChange={(v) =>
@@ -299,13 +303,12 @@ function EditProfileInner() {
                   disabled={!watchedRegionId || watchedRegionId < 1}
                 >
                   <SelectTrigger id="township_id" className="w-full">
-                    <SelectValue
-                      placeholder={
-                        watchedRegionId && watchedRegionId > 0
-                          ? "Select township"
-                          : "Select a region first"
-                      }
-                    />
+                    {watchedTownshipId > 0
+                      ? townships.find((t) => t.id === watchedTownshipId)
+                          ?.name.en
+                      : watchedRegionId && watchedRegionId > 0
+                        ? "Select township"
+                        : "Select a region first"}
                   </SelectTrigger>
                   <SelectContent>
                     {townships.map((t) => (
@@ -327,8 +330,8 @@ function EditProfileInner() {
                 <Label htmlFor="market_status_id">Market Status</Label>
                 <Select
                   value={
-                    (getValues("market_status_id") ?? 0) > 0
-                      ? String(getValues("market_status_id"))
+                    (watchedMarketStatusId ?? 0) > 0
+                      ? String(watchedMarketStatusId)
                       : ""
                   }
                   onValueChange={(v) =>
@@ -338,7 +341,11 @@ function EditProfileInner() {
                   }
                 >
                   <SelectTrigger id="market_status_id" className="w-full">
-                    <SelectValue placeholder="No status (optional)" />
+                    {(watchedMarketStatusId ?? 0) > 0
+                      ? mockMarketStatuses.find(
+                          (ms) => ms.id === watchedMarketStatusId
+                        )?.name.en
+                      : "No status (optional)"}
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0">No status</SelectItem>

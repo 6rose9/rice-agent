@@ -40,6 +40,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
       const fallbackAuthor = {
         id: user?.profile.id || "",
         phone: user?.profile.phone || "",
+        email: user?.profile.email || null,
         username: user?.profile.username || "",
         full_name: user?.profile.full_name || "You",
         role: user?.profile.role || "general_user",

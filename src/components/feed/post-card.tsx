@@ -25,7 +25,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Post } from "@/types";
-import { timeAgo, formatPrice, formatQuantity, regionTownships } from "@/lib/mock-data";
+import { timeAgo, formatPrice, formatQuantity, regionTownships, roleLabels, marketStatusLabels } from "@/lib/mock-data";
 import { deletePost } from "@/lib/posts/actions";
 import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation } from "lucide-react";
 
@@ -87,8 +87,13 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
                   {typeInfo.label}
                 </Badge>
               )}
-
             </div>
+            <p className="text-xs text-muted-foreground">
+              {roleLabels[author.role] || author.role}
+              {author.market_status_id && marketStatusLabels[author.market_status_id] && (
+                <> · {marketStatusLabels[author.market_status_id]}</>
+              )}
+            </p>
             <p className="text-xs text-muted-foreground mt-0.5" suppressHydrationWarning>
               {displayTime}
             </p>

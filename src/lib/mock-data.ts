@@ -73,10 +73,12 @@ export const mockProfiles: Profile[] = [
   {
     id: "user-1",
     phone: "09123456789",
+    email: "ukyawmin@example.com",
     username: "ukyawmin",
     full_name: "U Kyaw Min",
     role: "trader",
     avatar_url: "",
+    cover_url: null,
     bio: "စပါးလုပ်ငန်း ၁၅ နှစ်အတွေ့အကြုံရှိ။ အရည်အသွေးကောင်းမွန်ရောင်းဝယ်ပါတယ်။",
     region_id: 15,
     township_id: 1, // Hlaingthaya
@@ -88,10 +90,12 @@ export const mockProfiles: Profile[] = [
   {
     id: "user-2",
     phone: "09987654321",
+    email: "dawhla@example.com",
     username: "dawhla",
     full_name: "Daw Hla Htay",
     role: "farmer",
     avatar_url: "",
+    cover_url: null,
     bio: "Hmawbi မှာ စပါးစိုက်ပျိုးပါတယ်။ Paw San နဲ့ Shwe Bo အဓိကစိုက်ပါတယ်။",
     region_id: 15,
     township_id: 2, // Hmawbi
@@ -103,10 +107,12 @@ export const mockProfiles: Profile[] = [
   {
     id: "user-3",
     phone: "09555111222",
+    email: "uaunggyi@example.com",
     username: "uaunggyi",
     full_name: "U Aung Gyi",
     role: "trader",
     avatar_url: "",
+    cover_url: null,
     bio: "Rice mill owner in Ayeyarwady Delta. Buying paddy in bulk.",
     region_id: 1,
     township_id: 9, // Pathein
@@ -118,10 +124,12 @@ export const mockProfiles: Profile[] = [
   {
     id: "user-4",
     phone: "09444333222",
+    email: "dawmyamyint@example.com",
     username: "dawmyamyint",
     full_name: "Daw Mya Myint",
     role: "agent",
     avatar_url: "",
+    cover_url: null,
     bio: "အကျိုးဆောင် ၁၀ နှစ်ကျော်။ ဧရာဝတီနဲ့ ရန်ကုန်ဒေသကို အဓိကချိတ်ဆက်ပေးပါတယ်။",
     region_id: 15,
     township_id: 3, // Insein
@@ -133,10 +141,12 @@ export const mockProfiles: Profile[] = [
   {
     id: "user-5",
     phone: "09222333444",
+    email: "komyo@example.com",
     username: "komyo",
     full_name: "Ko Myo Aung",
     role: "farmer",
     avatar_url: "",
+    cover_url: null,
     bio: "Shwe Bo ဒေသမှာ စပါးစိုက်ပျိုးပါတယ်။ နှစ်စဉ် တန်ချိန် ၅၀၀ ခန့်ထွက်ရှိပါတယ်။",
     region_id: 12,
     township_id: 7, // Shwe Bo
@@ -148,10 +158,12 @@ export const mockProfiles: Profile[] = [
   {
     id: "user-6",
     phone: "09666555777",
+    email: "umgmg@example.com",
     username: "umgmg",
     full_name: "U Mg Mg",
     role: "trader",
     avatar_url: "",
+    cover_url: null,
     bio: "Mandalay rice wholesaler. Specializing in Emata and Paw San varieties.",
     region_id: 8,
     township_id: 5, // Chanayethazan
@@ -170,6 +182,7 @@ function placeholderImages(postId: string, count: number): PostImage[] {
     post_id: postId,
     url: `/api/placeholder/400/300?text=Rice+Photo+${i + 1}`,
     sort_order: i,
+    created_at: new Date().toISOString(),
   }));
 }
 
@@ -221,7 +234,7 @@ export const mockPosts: Post[] = [
     township: "Hmawbi",
     easy_to_carry: true,
     pound_per_bag: 100,
-    paddy_condition: 14,
+    paddy_condition: "14",
     badge: "pro",
     images: placeholderImages("post-1", 3),
     reaction_count: 24,
@@ -247,7 +260,7 @@ export const mockPosts: Post[] = [
     township: "Pathein",
     easy_to_carry: false,
     pound_per_bag: null,
-    paddy_condition: 14,
+    paddy_condition: "14",
     badge: "pro",
     images: placeholderImages("post-2", 1),
     reaction_count: 18,
@@ -272,7 +285,7 @@ export const mockPosts: Post[] = [
     township: "Hlaingthaya",
     easy_to_carry: true,
     pound_per_bag: 95,
-    paddy_condition: 12,
+    paddy_condition: "12",
     badge: "pro_plus",
     images: [],
     reaction_count: 32,
@@ -298,7 +311,7 @@ export const mockPosts: Post[] = [
     township: "Shwebo",
     easy_to_carry: false,
     pound_per_bag: 98,
-    paddy_condition: 14,
+    paddy_condition: "14",
     badge: "pro",
     images: placeholderImages("post-4", 4),
     reaction_count: 45,
@@ -323,7 +336,7 @@ export const mockPosts: Post[] = [
     township: "Pathein",
     easy_to_carry: true,
     pound_per_bag: 105,
-    paddy_condition: 14,
+    paddy_condition: "14",
     badge: "pro",
     images: placeholderImages("post-5", 2),
     reaction_count: 10,
@@ -348,7 +361,7 @@ export const mockPosts: Post[] = [
     township: "Chanayethazan",
     easy_to_carry: false,
     pound_per_bag: null,
-    paddy_condition: 12,
+    paddy_condition: "12",
     badge: "pro",
     images: [],
     reaction_count: 8,
@@ -430,10 +443,10 @@ export function formatQuantity(qty: number | null | undefined, unit?: string | n
 // ── Role badge display ───────────────────────────────────────────────
 
 export const roleLabels: Record<string, string> = {
-  farmer: "🧑‍🌾 Farmer",
-  trader: "🏭 Trader",
-  agent: "🤝 Agent",
-  general_user: "👤 User",
+  farmer: "Farmer",
+  trader: "Trader",
+  agent: "Agent",
+  general_user: "User",
 };
 
 // ── Region / Township data for form dropdowns ────────────────────────
@@ -635,6 +648,15 @@ export const marketStatusShort: Record<number, string> = {
   4: "S.R.",
   5: "Avail",
   6: "OFP",
+};
+
+export const marketStatusColors: Record<number, { bg: string; text: string; border: string }> = {
+  1: { bg: "bg-emerald-50 dark:bg-emerald-950", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800" },
+  2: { bg: "bg-blue-50 dark:bg-blue-950", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800" },
+  3: { bg: "bg-orange-50 dark:bg-orange-950", text: "text-orange-700 dark:text-orange-300", border: "border-orange-200 dark:border-orange-800" },
+  4: { bg: "bg-purple-50 dark:bg-purple-950", text: "text-purple-700 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800" },
+  5: { bg: "bg-teal-50 dark:bg-teal-950", text: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800" },
+  6: { bg: "bg-indigo-50 dark:bg-indigo-950", text: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-200 dark:border-indigo-800" },
 };
 
 // ── Mock Network Data ────────────────────────────────────────────────

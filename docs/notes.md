@@ -25,3 +25,13 @@ Chose TanStack Query (React Query) over alternatives:
 6. `npx skills add supabase/agent-skills` → `.agents/skills/supabase*`
 
 shadcn `@supabase/supabase-client-nextjs` skipped — registry unreachable; clients written manually.
+
+## Migration Note: Backend API with RTK Query (2026-06-22)
+
+If switching from Supabase direct client to a custom backend API:
+
+- Use **RTK + RTK Query** instead of TanStack Query
+- RTK Query handles caching, invalidation, and polling natively — replaces TanStack Query's server-state management
+- Redux store provides predictable state for complex client state if needed
+- Better suited for traditional REST/GraphQL backend architectures
+- Keep TanStack Query only if staying with Supabase direct client (current setup)

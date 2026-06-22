@@ -242,11 +242,16 @@ export async function getPosts(
     return profileMap.get(id) ?? {
       id,
       phone: "",
+      email: null,
       username: "unknown",
       full_name: "Unknown User",
       role: "general_user",
+      avatar_url: null,
+      cover_url: null,
+      bio: null,
       region_id: 0,
       township_id: 0,
+      market_status_id: null,
       phone_verified: false,
       created_at: "",
       updated_at: "",
@@ -272,7 +277,7 @@ export async function getPosts(
       post_id: img.post_id,
       url: img.url,
       sort_order: img.sort_order,
-    });
+    } as PostImage);
     imagesMap.set(img.post_id, list);
   }
 
@@ -338,11 +343,16 @@ export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
     : {
         id: authorId,
         phone: "",
+        email: null,
         username: "unknown",
         full_name: "Unknown User",
         role: "general_user",
+        avatar_url: null,
+        cover_url: null,
+        bio: null,
         region_id: 0,
         township_id: 0,
+        market_status_id: null,
         phone_verified: false,
         created_at: "",
         updated_at: "",
@@ -365,7 +375,7 @@ export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
       post_id: img.post_id,
       url: img.url,
       sort_order: img.sort_order,
-    });
+    } as PostImage);
     imagesMap.set(img.post_id, list);
   }
 
@@ -616,11 +626,16 @@ export async function getSavedPosts(): Promise<Post[]> {
     return profileMap.get(id) ?? {
       id,
       phone: "",
+      email: null,
       username: "unknown",
       full_name: "Unknown User",
       role: "general_user",
+      avatar_url: null,
+      cover_url: null,
+      bio: null,
       region_id: 0,
       township_id: 0,
+      market_status_id: null,
       phone_verified: false,
       created_at: "",
       updated_at: "",
@@ -643,7 +658,7 @@ export async function getSavedPosts(): Promise<Post[]> {
       post_id: img.post_id,
       url: img.url,
       sort_order: img.sort_order,
-    });
+    } as PostImage);
     imagesMap.set(img.post_id, list);
   }
 

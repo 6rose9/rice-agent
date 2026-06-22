@@ -125,8 +125,7 @@ export function TradingFormFields({
         {/* Quantity Slider */}
         <div className="space-y-1.5 col-span-2">
           <Label className="text-xs">
-            📦 How many do you want to{" "}
-            {postType === "buying" ? "buy" : "sell"}?
+            📦 How many do you want to {postType === "buying" ? "buy" : "sell"}?
           </Label>
           <div className="space-y-1">
             <input
@@ -286,7 +285,7 @@ export function TradingFormFields({
 
       {/* Address */}
       <div className="space-y-1.5">
-        <Label className="text-xs">🏠 Address</Label>
+          <Label className="text-xs">🏠 Address</Label>
         <Input
           placeholder="e.g. No. 123, Hlaingthaya, Yangon"
           {...register("address")}
@@ -296,7 +295,7 @@ export function TradingFormFields({
 
       {/* Pin Location */}
       <div className="space-y-1.5">
-        <Label className="text-xs">📍 Pin Location</Label>
+          <Label className="text-xs">📍 Pin Location</Label>
         <LocationPicker
           value={
             watch("latitude") != null && watch("longitude") != null
