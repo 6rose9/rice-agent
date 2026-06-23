@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { createPost } from "@/lib/posts/actions";
 import { postSchema, type PostInput } from "@/lib/validations/post";
 import { regionTownships, regionKeys } from "@/lib/mock-data";
+import { isProUser } from "@/lib/subscription";
 import { ImagePlus, X, Loader2, Crown } from "lucide-react";
 import { TradingFormFields } from "./trading-form-fields";
 
@@ -23,12 +25,18 @@ interface CreatePostFormProps {
 
 export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [userIsPro, setUserIsPro] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Fix #4: track newly uploaded file paths for cleanup on failure
   const pendingUploads = useRef<string[]>([]);
+
+  useEffect(() => {
+    setUserIsPro(isProUser());
+  }, []);
 
   const {
     register,
@@ -228,7 +236,13 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               variant={postType === "selling" ? "default" : "outline"}
               className="w-full"
               size="sm"
-              onClick={() => handleTypeChange("selling")}
+              onClick={() => {
+                if (!userIsPro) {
+                  router.push("/pricing");
+                  return;
+                }
+                handleTypeChange("selling");
+              }}
             >
               🛒 Selling
             </Button>
@@ -248,7 +262,13 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               variant={postType === "buying" ? "default" : "outline"}
               className="w-full"
               size="sm"
-              onClick={() => handleTypeChange("buying")}
+              onClick={() => {
+                if (!userIsPro) {
+                  router.push("/pricing");
+                  return;
+                }
+                handleTypeChange("buying");
+              }}
             >
               💰 Buying
             </Button>
@@ -265,13 +285,20 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
         </div>
 
         {/* Premium upsell for non-subscribers */}
-        {isPremium && (
+        {isPremium && !userIsPro && (
           <div className="flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
             <Crown className="h-4 w-4 text-amber-500 shrink-0" />
             <p className="text-[11px] text-amber-700 dark:text-amber-400">
               Buying & Selling posts are for{" "}
-              <span className="font-semibold">Pro subscribers</span>. Upgrade to
-              unlock unlimited listings with up to 5 images.
+              <span className="font-semibold">Pro subscribers</span>.{" "}
+              <button
+                type="button"
+                className="underline font-semibold hover:text-amber-900 dark:hover:text-amber-300"
+                onClick={() => router.push("/pricing")}
+              >
+                Upgrade to unlock
+              </button>{" "}
+              unlimited listings with up to 5 images.
             </p>
           </div>
         )}

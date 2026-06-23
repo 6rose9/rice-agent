@@ -25,11 +25,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Loader2,
   LogOut,
+  User,
   UserCog,
   Settings,
   AlertTriangle,
   ChevronRight,
-  ArrowLeft,
   Bookmark,
 } from "lucide-react";
 
@@ -86,15 +86,6 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-[780px] p-4 sm:p-6 space-y-6">
-      {/* Back link */}
-      <Link
-        href={`/profile/${profile.username}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Profile
-      </Link>
-
       {/* Profile Summary */}
       <Card>
         <CardContent className="pt-6">
@@ -121,6 +112,22 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-1">
+          <Link
+            href={`/profile/${profile.username}`}
+            className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <User className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">View Profile</p>
+                <p className="text-xs text-muted-foreground">
+                  See how others see your profile.
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+
           <Link
             href="/profile/edit"
             className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors"

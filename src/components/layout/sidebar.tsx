@@ -8,12 +8,12 @@ import {
   Search,
   PlusSquare,
   MessageCircle,
-  User,
   Settings,
   Network,
   Bookmark,
   LogIn,
   LogOut,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ const mainItems = [
   { href: "/posts/create", label: "Create Post", icon: PlusSquare },
   { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/mynetwork", label: "My Network", icon: Network },
+  { href: "/pricing", label: "Pricing", icon: Crown },
 ];
 
 export function Sidebar() {
@@ -76,20 +77,7 @@ export function Sidebar() {
             <span>Saved Posts</span>
           </Button>
         </Link>
-        {isLoading ? null : user ? (
-          <Link href={`/profile/${user.profile.username}`}>
-            <Button
-              variant={pathname.startsWith("/profile") ? "secondary" : "ghost"}
-              className={cn(
-                "w-full justify-start gap-3 h-10",
-                pathname.startsWith("/profile") && "font-semibold"
-              )}
-            >
-              <User className="h-5 w-5" strokeWidth={pathname.startsWith("/profile") ? 2.5 : 1.8} />
-              <span>Profile</span>
-            </Button>
-          </Link>
-        ) : (
+        {!isLoading && !user && (
           <Link href="/login">
             <Button
               variant={pathname === "/login" ? "secondary" : "ghost"}
