@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Bell, MessageCircle, Settings } from "lucide-react";
+import { Bell, MessageCircle, Search, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -19,6 +19,11 @@ export function TopBar() {
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
+          <Link href="/search">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Search className="h-4 w-4" />
+            </Button>
+          </Link>
           <Button variant="ghost" size="icon" className="h-8 w-8">
             <Bell className="h-4 w-4" />
           </Button>

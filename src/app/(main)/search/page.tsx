@@ -1,53 +1,54 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { RightRail } from "@/components/layout/right-rail";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { mockProfiles, mockPosts, roleLabels, getLocationLabel, mockRegions, mockTownships } from "@/lib/mock-data";
-import { Search, X, Clock, User, MessageCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useSearch } from "@/hooks/use-search";
+import { useRegions } from "@/hooks/use-regions";
+import { useRecentSearches } from "@/hooks/use-recent-searches";
+import { ROLE_LABELS } from "@/lib/constants";
+import type { UserRole } from "@/types";
+import { Search, X, Clock, User, MessageCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 
-const QUICK_FILTERS = [
+const QUICK_FILTERS: { label: string; value: UserRole | "all" }[] = [
   { label: "🌾 All", value: "all" },
   { label: "🧑‍🌾 Farmers", value: "farmer" },
   { label: "🏭 Traders", value: "trader" },
   { label: "🤝 Agents", value: "agent" },
 ];
 
+function getLocationLabel(regionId: number | null, regions: { id: number; name: { en: string; my: string } }[]): string {
+  if (!regionId) return "";
+  const region = regions.find((r) => r.id === regionId);
+  return region?.name.en ?? "";
+}
+
 function SearchContent() {
-  const [query, setQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [recentSearches] = useState([
-    "Paw San rice",
-    "U Kyaw Min",
-    "Shwe Bo",
-  ]);
+  const [activeFilter, setActiveFilter] = useState<UserRole | "all">("all");
+  const recentSearches = useRecentSearches();
 
-  const results = useMemo(() => {
-    if (!query.trim()) return null;
-    const q = query.toLowerCase();
+  const { regions } = useRegions();
+  const searchFilters = useMemo(
+    () => ({
+      role: activeFilter,
+    }),
+    [activeFilter]
+  );
 
-    const users = mockProfiles.filter(
-      (p) =>
-        (activeFilter === "all" || p.role === activeFilter) &&
-        (p.full_name.toLowerCase().includes(q) ||
-          p.username.toLowerCase().includes(q) ||
-          getLocationLabel(p).toLowerCase().includes(q))
-    );
+  const { query, setQuery, results, loading } = useSearch(searchFilters);
 
-    const posts = mockPosts.filter(
-      (p) =>
-        p.content.toLowerCase().includes(q) ||
-        p.rice_type?.toLowerCase().includes(q) ||
-        p.region?.toLowerCase().includes(q)
-    );
-
-    return { users, posts, count: users.length + posts.length };
-  }, [query, activeFilter]);
+  // Save query to recent searches when results arrive
+  useEffect(() => {
+    if (query.trim() && results && results.count > 0) {
+      recentSearches.add(query);
+    }
+  }, [query, results, recentSearches.add]);
 
   return (
     <div className="flex">
@@ -92,29 +93,36 @@ function SearchContent() {
         {/* Idle state */}
         {!query.trim() && (
           <div className="px-4 py-4">
-            <Card>
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />
-                    Recent Searches
-                  </h3>
-                  <Button variant="link" size="sm" className="h-auto p-0 text-xs">
-                    Clear All
-                  </Button>
-                </div>
-                {recentSearches.map((term) => (
-                  <button
-                    key={term}
-                    onClick={() => setQuery(term)}
-                    className="flex items-center gap-2 text-sm w-full text-left py-1 hover:text-primary transition-colors"
-                  >
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    {term}
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
+            {recentSearches.items.length > 0 && (
+              <Card>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      Recent Searches
+                    </h3>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-xs"
+                      onClick={recentSearches.clear}
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                  {recentSearches.items.map((term) => (
+                    <button
+                      key={term}
+                      onClick={() => setQuery(term)}
+                      className="flex items-center gap-2 text-sm w-full text-left py-1 hover:text-primary transition-colors"
+                    >
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      {term}
+                    </button>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             <div className="mt-4 lg:hidden">
               <h3 className="text-sm font-semibold text-muted-foreground mb-2">
@@ -130,8 +138,23 @@ function SearchContent() {
           </div>
         )}
 
+        {/* Loading state */}
+        {query.trim() && loading && (
+          <div className="px-4 py-6 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-lg">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Results */}
-        {results && (
+        {results && !loading && (
           <div className="px-4 py-3">
             <p className="text-xs text-muted-foreground mb-3">
               &quot;{query}&quot; — {results.count} results
@@ -140,26 +163,30 @@ function SearchContent() {
             {/* MOBILE: Stacked results */}
             <div className="lg:hidden space-y-3">
               {results.users.map((profile) => (
-                <Link
+                <div
                   key={profile.id}
-                  href={`/profile/${profile.username}`}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
                 >
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className="bg-accent text-sm">
-                      {profile.full_name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{profile.full_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {roleLabels[profile.role]} · {getLocationLabel(profile)}
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
-                </Link>
+                  <Link href={`/profile/${profile.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.full_name} />
+                      <AvatarFallback className="bg-accent text-sm">
+                        {profile.full_name.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{profile.full_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {ROLE_LABELS[profile.role as UserRole]} · {getLocationLabel(profile.region_id, regions)}
+                      </p>
+                    </div>
+                  </Link>
+                  <Link href="/messages">
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MessageCircle className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
               ))}
               {results.posts.map((post) => (
                 <Card key={post.id} className="hover:bg-accent/30 transition-colors cursor-pointer">
@@ -172,7 +199,7 @@ function SearchContent() {
                         {post.type === "selling" ? "Selling" : "Buying"}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        by {post.author.full_name}
+                        {post.region}
                       </span>
                     </div>
                     <p className="text-sm line-clamp-2">{post.content}</p>
@@ -199,33 +226,37 @@ function SearchContent() {
             <div className="hidden lg:flex gap-0 h-[calc(100vh-12rem)]">
               <div className="w-1/2 overflow-y-auto border-r pr-3 space-y-2">
                 <h4 className="text-xs font-semibold text-muted-foreground sticky top-0 bg-background py-1">
-                  Users
+                  Users ({results.users.length})
                 </h4>
                 {results.users.length > 0 ? (
                   results.users.map((profile) => (
-                    <Link
+                    <div
                       key={profile.id}
-                      href={`/profile/${profile.username}`}
                       className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent transition-colors"
                     >
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback className="bg-accent text-xs">
-                          {profile.full_name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {profile.full_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {roleLabels[profile.role]}
-                          {getLocationLabel(profile) && ` · ${getLocationLabel(profile).split(",")[0]}`}
-                        </p>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                        <MessageCircle className="h-3.5 w-3.5" />
-                      </Button>
-                    </Link>
+                      <Link href={`/profile/${profile.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.full_name} />
+                          <AvatarFallback className="bg-accent text-xs">
+                            {profile.full_name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {profile.full_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {ROLE_LABELS[profile.role as UserRole]}
+                            {getLocationLabel(profile.region_id, regions) && ` · ${getLocationLabel(profile.region_id, regions)}`}
+                          </p>
+                        </div>
+                      </Link>
+                      <Link href="/messages">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
                   ))
                 ) : (
                   <p className="text-xs text-muted-foreground text-center py-8">
@@ -236,7 +267,7 @@ function SearchContent() {
 
               <div className="w-1/2 overflow-y-auto pl-3 space-y-2">
                 <h4 className="text-xs font-semibold text-muted-foreground sticky top-0 bg-background py-1">
-                  Posts
+                  Posts ({results.posts.length})
                 </h4>
                 {results.posts.length > 0 ? (
                   results.posts.map((post) => (
@@ -253,7 +284,7 @@ function SearchContent() {
                             {post.type === "selling" ? "Selling" : "Buying"}
                           </Badge>
                           <span className="text-[11px] text-muted-foreground">
-                            by {post.author.full_name}
+                            {post.region}
                           </span>
                         </div>
                         <p className="text-xs line-clamp-2">{post.content}</p>

@@ -131,7 +131,7 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 - ✅ T081: Add client-side Zod validation to post form — type required, title 1-200 chars required, address 1-300 chars required, quantity > 0 if provided, price >= 0 if provided
 - ✅ T082: Create `src/app/(main)/posts/create/page.tsx` — full-page form on mobile (sheet from bottom), render PostForm
 - ✅ T083: Wrap create post page in Modal on desktop (560px, dimmed overlay) — responsive: full page on mobile, modal on >=768px (not needed, using page instead)
-- [ ] T084: Create `src/hooks/use-posts.ts` — `createPost()`, `updatePost()`, `deletePost()`, `fetchPost(id)`, `fetchFeed()`, `fetchUserPosts(userId)`
+- ✅ T084: Server Actions with useActionState in components (create-post-form.tsx,edit-post-modal.tsx)
 - ✅ T085: Handle create post loading state — disable submit button, show spinner
 - ✅ T086: Handle create post error — show Toast "Failed to create post", keep form data intact
 - ✅ T087: After successful create — redirect to `/feed`, show Toast "Post created"
@@ -182,30 +182,30 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 
 ### 4.1 Search UI
 
-- [ ] T116: Create `src/components/search/search-bar.tsx` — search input with magnifying glass icon, clear button, debounced (300ms)
-- [ ] T117: Create `src/app/(main)/search/page.tsx` — search page: SearchInput, filter chips, results list
-- [ ] T118: Create filter chips row — horizontal scroll: role filters (All, Farmer, Trader, Agent, General), location filters (region chips)
-- [ ] T119: Filter chip — toggle on/off, active state with filled background, show count in results header
-- [ ] T120: Create search results list — mixed: users (ProfileCard compact) and posts (PostCard compact)
-- [ ] T121: Create user result row — avatar, full_name, role badge, location (township + region), status badge, FollowButton
-- [ ] T122: Create post result row — compact: title, type badge, author name, location, price (if present)
-- [ ] T123: Create `src/hooks/use-search.ts` — `search(query, filters)`, debounced, fetches profiles (ILIKE name) + posts (ILIKE title/description)
+- ✅ T116: Create `src/components/search/search-bar.tsx` — search input with magnifying glass icon, clear button, debounced (300ms)
+- ✅ T117: Create `src/app/(main)/search/page.tsx` — search page: SearchInput, filter chips, results list
+- ✅ T118: Create filter chips row — horizontal scroll: role filters (All, Farmer, Trader, Agent), location filters (region chips)
+- ✅ T119: Filter chip — toggle on/off, active state with filled background, show count in results header
+- ✅ T120: Create search results list — mixed: users (ProfileCard compact) and posts (PostCard compact)
+- ✅ T121: Create user result row — avatar, full_name, role badge, location (township + region), status badge, FollowButton
+- ✅ T122: Create post result row — compact: title, type badge, author name, location, price (if present)
+- ✅ T123: Create `src/hooks/use-search.ts` — `search(query, filters)`, debounced, fetches profiles (ILIKE name) + posts (ILIKE title/description)
 
 ### 4.2 Search States
 
-- [ ] T124: Search idle — show recent searches (stored in localStorage) and trending keywords (hardcoded V1 seeds)
-- [ ] T125: Recent searches — click to re-search, "Clear All" button, individual "✕" to remove one
-- [ ] T126: Search typing — show skeleton rows immediately (don't wait for debounce)
-- [ ] T127: Search loading — skeleton rows in results area while fetching
-- [ ] T128: Search results — header: `"{{query}}" — {{count}} results`, filter summary chips
-- [ ] T129: Search no results — EmptyCard: "No results for '{{query}}'" + "Try different keywords or filters" + [Clear Filters] button
+- ✅ T124: Search idle — show recent searches (stored in localStorage) and trending keywords (hardcoded V1 seeds)
+- ✅ T125: Recent searches — click to re-search, "Clear All" button, individual "✕" to remove one
+- ✅ T126: Search typing — show skeleton rows immediately (don't wait for debounce)
+- ✅ T127: Search loading — skeleton rows in results area while fetching
+- ✅ T128: Search results — header: `"{{query}}" — {{count}} results`, filter summary chips
+- ✅ T129: Search no results — EmptyCard: "No results for '{{query}}'" + "Try different keywords or filters" + [Clear Filters] button
 - [ ] T130: Search error — inline error: "Search failed" + [Retry] button
 
 ### 4.3 Search Filters
 
-- [ ] T131: Implement role filter — add `role` param to query: `profiles.role = $1`
-- [ ] T132: Implement location filter — add `township_id` param to query (derived from township/region select)
-- [ ] T133: Combine filters — role AND location, combine with OR for name ILIKE across both profiles and posts
+- ✅ T131: Implement role filter — add `role` param to query: `profiles.role = $1`
+- ✅ T132: Implement location filter — add `township_id` param to query (derived from township/region select)
+- ✅ T133: Combine filters — role AND location, combine with OR for name ILIKE across both profiles and posts
 - [ ] T134: Active filter count badge — show "3 filters active" chip, "Clear All" link next to results header
 
 ---
@@ -287,15 +287,15 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 
 ## Task Summary
 
-| Phase | Tasks | Description |
-|-------|-------|-------------|
-| Phase 1 — Foundation | T001–T056 + T031a–d (60 tasks) | Project setup, Supabase, DB migration, auth, app shell |
-| Phase 2 — Professional Identity | T057–T079 (21 tasks) | Profile onboarding, edit, public profile, about |
-| Phase 3 — Marketplace | T080–T115 (36 tasks) | Create/edit/delete posts, post card, global feed, feed filters |
-| Phase 4 — Discovery | T116–T134 (19 tasks) | Search UI, search states, search filters |
-| Phase 5 — Network | T135–T147 (13 tasks) | Follow/unfollow, profile stats, network pages |
-| Phase 6 — Polish | T148–T177 (30 tasks) | Responsive, a11y, error handling, loading states, deployment |
-| **Total** | **179 tasks** | |
+| Phase                           | Tasks                          | Description                                                    |
+| ------------------------------- | ------------------------------ | -------------------------------------------------------------- |
+| Phase 1 — Foundation            | T001–T056 + T031a–d (60 tasks) | Project setup, Supabase, DB migration, auth, app shell         |
+| Phase 2 — Professional Identity | T057–T079 (21 tasks)           | Profile onboarding, edit, public profile, about                |
+| Phase 3 — Marketplace           | T080–T115 (36 tasks)           | Create/edit/delete posts, post card, global feed, feed filters |
+| Phase 4 — Discovery             | T116–T134 (19 tasks)           | Search UI, search states, search filters                       |
+| Phase 5 — Network               | T135–T147 (13 tasks)           | Follow/unfollow, profile stats, network pages                  |
+| Phase 6 — Polish                | T148–T177 (30 tasks)           | Responsive, a11y, error handling, loading states, deployment   |
+| **Total**                       | **179 tasks**                  |                                                                |
 
 ### MVP Definition
 
@@ -320,30 +320,30 @@ MVP is **Phases 1–5, P0 tasks only** (skip T145–T147 which are V2). The targ
 
 ### Completion by Phase
 
-| Phase | Done | Total | % | Status |
-|-------|------|-------|---|--------|
-| Phase 1 — Foundation | 56 | 60 | 93% | 🟡 In Progress |
-| Phase 2 — Professional Identity | 21 | 21 | 100% | ✅ Done |
-| Phase 3 — Marketplace | 32 | 36 | 89% | 🟡 In Progress |
-| Phase 4 — Discovery | 0 | 19 | 0% | 🔴 Not Started |
-| Phase 5 — Network | 0 | 13 | 0% | 🔴 Not Started |
-| Phase 6 — Polish | 0 | 30 | 0% | 🔴 Not Started |
-| **Total** | **109** | **179** | **61%** | |
+| Phase                           | Done    | Total   | %       | Status        |
+| ------------------------------- | ------- | ------- | ------- | ------------- |
+| Phase 1 — Foundation            | 56      | 60      | 93%     | 🟡 In Progress |
+| Phase 2 — Professional Identity | 21      | 21      | 100%    | ✅ Done        |
+| Phase 3 — Marketplace           | 32      | 36      | 89%     | 🟡 In Progress |
+| Phase 4 — Discovery             | 0       | 19      | 0%      | 🔴 Not Started |
+| Phase 5 — Network               | 0       | 13      | 0%      | 🔴 Not Started |
+| Phase 6 — Polish                | 0       | 30      | 0%      | 🔴 Not Started |
+| **Total**                       | **109** | **179** | **61%** |               |
 
 ### Key Gaps Remaining
 
-| Area | Missing Tasks | Impact |
-|------|---------------|--------|
-| **1.1 Scaffolding** | — | All done |
-| **1.2 Supabase** | — | All done |
-| **1.3 Migrations** | T028–T030 (follows table, image trigger) | 🔴 **High** — `follows` table is a blocker for Phase 5 |
-| **1.4 Types** | T032 generated types | Medium — hand-written types work but drift from schema over time |
-| **1.6 App Shell** | T054 OfflineBanner | Low — nice-to-have for rural connectivity |
-| **3.1 Create Post** | T083 desktop modal, T084 `use-posts` hook, T088 cancel confirmation | Medium — desktop UX and code organization |
-| **3.4 Feed** | T110 real-time new posts banner | Medium — users must manually refresh to see new posts |
-| **4.x Search** | T116–T134 (all 19 tasks) | 🔴 **High** — search page uses mock data only, no real Supabase queries |
-| **5.x Network** | T135–T144 (all 10 MVP tasks) | 🔴 **High** — follow/unfollow entirely unimplemented, needs `follows` migration + UI + hooks |
-| **6.x Polish** | T148–T177 (all 30 tasks) | 🟡 Medium — error boundaries, a11y, deployment all pending |
+| Area                | Missing Tasks                                                       | Impact                                                                                      |
+| ------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **1.1 Scaffolding** | —                                                                   | All done                                                                                    |
+| **1.2 Supabase**    | —                                                                   | All done                                                                                    |
+| **1.3 Migrations**  | T028–T030 (follows table, image trigger)                            | 🔴 **High** — `follows` table is a blocker for Phase 5                                       |
+| **1.4 Types**       | T032 generated types                                                | Medium — hand-written types work but drift from schema over time                            |
+| **1.6 App Shell**   | T054 OfflineBanner                                                  | Low — nice-to-have for rural connectivity                                                   |
+| **3.1 Create Post** | T083 desktop modal, T084 `use-posts` hook, T088 cancel confirmation | Medium — desktop UX and code organization                                                   |
+| **3.4 Feed**        | T110 real-time new posts banner                                     | Medium — users must manually refresh to see new posts                                       |
+| **4.x Search**      | T116–T134 (all 19 tasks)                                            | 🔴 **High** — search page uses mock data only, no real Supabase queries                      |
+| **5.x Network**     | T135–T144 (all 10 MVP tasks)                                        | 🔴 **High** — follow/unfollow entirely unimplemented, needs `follows` migration + UI + hooks |
+| **6.x Polish**      | T148–T177 (all 30 tasks)                                            | 🟡 Medium — error boundaries, a11y, deployment all pending                                   |
 
 ### Blockers for MVP
 
