@@ -58,14 +58,14 @@ export interface Profile extends ProfileRow {
 }
 
 /** Post with joined relations and computed fields */
-export interface Post extends Omit<PostRow, 'type' | 'address' | 'badge' | 'easy_to_carry' | 'location' | 'paddy_condition' | 'pound_per_bag' | 'price' | 'quantity' | 'rice_name' | 'rice_type' | 'township' | 'unit'> {
+export interface Post extends Omit<PostRow, 'type' | 'address' | 'badge' | 'easy_to_carry' | 'region' | 'paddy_condition' | 'pound_per_bag' | 'price' | 'quantity' | 'rice_name' | 'rice_type' | 'township' | 'unit' | 'is_active' | 'latitude' | 'longitude'> {
   type: PostType;
   author: Profile;
   images: PostImageRow[];
   address?: string | null;
   badge?: SubscriptionBadge | null;
   easy_to_carry?: boolean | null;
-  location?: string | null;
+  region?: string | null;
   paddy_condition?: string | null;
   pound_per_bag?: number | null;
   price?: number | null;
@@ -74,10 +74,11 @@ export interface Post extends Omit<PostRow, 'type' | 'address' | 'badge' | 'easy
   rice_type?: string | null;
   township?: string | null;
   unit?: string | null;
-  is_liked?: boolean;
-  is_saved?: boolean;
+  is_active?: boolean;
   latitude?: number | null;
   longitude?: number | null;
+  is_liked?: boolean;
+  is_saved?: boolean;
 }
 
 /** Post image (same as database row) */
@@ -116,7 +117,7 @@ export interface PostFormData {
   quantity?: number | null;
   unit?: string;
   address?: string;
-  location?: string;
+  region?: string;
   township?: string | null;
   easy_to_carry?: boolean;
   pound_per_bag?: number | null;

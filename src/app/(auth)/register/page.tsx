@@ -102,7 +102,7 @@ function RegisterFormInner() {
         try {
           URL.revokeObjectURL(profileImagePreview);
         } catch {
-          // ignore
+          console.warn("Failed to revoke object URL for profile image preview");
         }
       }
     };
@@ -151,7 +151,8 @@ function RegisterFormInner() {
             .getPublicUrl(path);
           avatarUrl = urlData.publicUrl;
         }
-      } catch {
+      } catch (error) {
+        console.error("Error uploading profile image:", error);
         // Image upload failed — continue registration without it
       }
     }

@@ -28,7 +28,7 @@ function MessagesContent() {
       <p className="text-sm text-muted-foreground mb-4 max-w-xs">
         Messaging is a premium feature. Upgrade your plan to connect with buyers and sellers.
       </p>
-      <Button>Buy Plan</Button>
+      <Button disabled>Coming Soon</Button>
     </div>
   );
 }

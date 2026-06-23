@@ -1,6 +1,7 @@
 -- ============================================================================
--- စပါးအောင်သွယ် — Soft Delete Migration
+-- စပါးအောင်သွယ် — Soft Delete Migration (Profiles)
 -- Run in Supabase Dashboard → SQL Editor (idempotent — safe to re-run)
+-- Note: posts.is_active is defined in 20260618000001_create_posts.sql
 -- ============================================================================
 
 -- 1. Add deleted_at column to profiles (soft delete support)
@@ -47,21 +48,3 @@ CREATE POLICY "Active profiles viewable by everyone" ON public.profiles
 -- This ORs with the policy above — owner always sees their own row
 CREATE POLICY "Users can view own profile" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
-
--- 4. Add is_active column to posts (soft delete for posts — consistent pattern)
--- ============================================================================
--- Note: posts already has is_active in the schema design; only add if missing
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'posts'
-      AND column_name = 'is_active'
-  ) THEN
-    ALTER TABLE public.posts ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT true;
-    RAISE NOTICE 'Added posts.is_active column';
-  ELSE
-    RAISE NOTICE 'posts.is_active column already exists';
-  END IF;
-END $$;

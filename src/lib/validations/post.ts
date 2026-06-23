@@ -27,7 +27,7 @@ export const tradingPostSchema = z.object({
     .optional(),
   unit: z.string().optional(),
   address: z.string().min(1, "Please enter an address").optional(),
-  location: z.string().optional(),
+  region: z.string().optional(),
   township: z.string().optional(),
   pound_per_bag: z.coerce
     .number()

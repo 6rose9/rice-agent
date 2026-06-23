@@ -47,7 +47,7 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   });
 
   const postType = watch("type");
-  const watchedLocation = watch("location");
+  const watchedLocation = watch("region");
   const isPremium = postType === "buying" || postType === "selling";
   const maxImages = isPremium ? 5 : 2;
 
@@ -132,7 +132,7 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
         formData.append("quantity", String(data.quantity));
       if (data.unit) formData.append("unit", data.unit);
       if (data.address) formData.append("address", data.address);
-      if (data.location) formData.append("location", data.location);
+      if (data.region) formData.append("region", data.region);
       if (data.township) formData.append("township", data.township);
       if (data.pound_per_bag != null)
         formData.append("pound_per_bag", String(data.pound_per_bag));

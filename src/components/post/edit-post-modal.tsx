@@ -53,7 +53,7 @@ export function EditPostModal({ post, open, onOpenChange, onUpdated }: EditPostM
           quantity: post.quantity ?? undefined,
           unit: post.unit || "basket",
           address: post.address || "",
-          location: post.location || "",
+          region: post.region || "",
           township: post.township || "",
           pound_per_bag: post.pound_per_bag ?? undefined,
           paddy_condition: paddyConditionFromPost(post.paddy_condition) ?? undefined,
@@ -147,7 +147,7 @@ export function EditPostModal({ post, open, onOpenChange, onUpdated }: EditPostM
       formData.append("quantity", String(data.quantity ?? ""));
       formData.append("unit", data.unit ?? "");
       formData.append("address", data.address ?? "");
-      formData.append("location", data.location ?? "");
+      formData.append("region", data.region ?? "");
       formData.append("township", data.township ?? "");
       formData.append("pound_per_bag", String(data.pound_per_bag ?? ""));
       formData.append("paddy_condition", String(data.paddy_condition ?? ""));

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { postSchema } from "@/lib/validations/post";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Post, PostImage, Profile } from "@/types";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -12,7 +13,140 @@ export type PostActionResult = {
   redirect?: string;
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────
+// Raw DB row shapes for joined queries
+interface PostRow {
+  id: string;
+  author_id: string;
+  type: string;
+  content: string;
+  rice_type: string | null;
+  rice_name: string | null;
+  price: number | null;
+  quantity: number | null;
+  unit: string | null;
+  address: string | null;
+  region: string | null;
+  township: string | null;
+  easy_to_carry: boolean | null;
+  pound_per_bag: number | null;
+  paddy_condition: string | null;
+  badge: string | null;
+  reaction_count: number;
+  comment_count: number;
+  is_active?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PostImageRow {
+  id: string;
+  post_id: string;
+  url: string;
+  sort_order: number;
+}
+
+// ── Shared Helpers ────────────────────────────────────────────────────
+
+/** Fallback profile for missing/soft-deleted authors */
+const UNKNOWN_PROFILE: Profile = {
+  id: "",
+  phone: "",
+  email: null,
+  username: "unknown",
+  full_name: "Unknown User",
+  role: "general_user",
+  avatar_url: null,
+  cover_url: null,
+  bio: null,
+  region_id: 0,
+  township_id: 0,
+  market_status_id: null,
+  phone_verified: false,
+  created_at: "",
+  updated_at: "",
+};
+
+/** Fetch profiles for a set of author IDs, returned as a Map */
+async function fetchProfilesMap(
+  supabase: SupabaseClient,
+  authorIds: string[],
+): Promise<Map<string, Profile>> {
+  if (authorIds.length === 0) return new Map();
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", authorIds);
+
+  return new Map(
+    (data ?? []).map((p) => [p.id, p as unknown as Profile]),
+  );
+}
+
+/** Fetch images for a set of post IDs, returned as a Map of postId → PostImage[] */
+async function fetchImagesMap(
+  supabase: SupabaseClient,
+  postIds: string[],
+): Promise<Map<string, PostImage[]>> {
+  if (postIds.length === 0) return new Map();
+
+  const { data } = await supabase
+    .from("post_images")
+    .select("*")
+    .in("post_id", postIds)
+    .order("sort_order");
+
+  const map = new Map<string, PostImage[]>();
+  for (const img of (data ?? []) as PostImageRow[]) {
+    const list = map.get(img.post_id) ?? [];
+    list.push({
+      id: img.id,
+      post_id: img.post_id,
+      url: img.url,
+      sort_order: img.sort_order,
+    } as PostImage);
+    map.set(img.post_id, list);
+  }
+  return map;
+}
+
+/** Convert a raw PostRow into an application Post object */
+function assemblePost(
+  row: PostRow,
+  author: Profile,
+  images: PostImage[],
+  extra?: Partial<Pick<Post, "is_saved">>,
+): Post {
+  return {
+    id: row.id,
+    author_id: row.author_id,
+    author,
+    type: row.type as Post["type"],
+    content: row.content,
+    rice_type: row.rice_type ?? undefined,
+    rice_name: row.rice_name ?? undefined,
+    price: row.price ?? null,
+    quantity: row.quantity ?? null,
+    unit: row.unit ?? undefined,
+    address: row.address ?? undefined,
+    region: row.region ?? undefined,
+    township: row.township ?? null,
+    easy_to_carry: row.easy_to_carry ?? undefined,
+    pound_per_bag: row.pound_per_bag ?? null,
+    paddy_condition: (row.paddy_condition as Post["paddy_condition"]) ?? undefined,
+    badge: (row.badge as Post["badge"]) ?? undefined,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    images,
+    reaction_count: row.reaction_count,
+    comment_count: row.comment_count,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    ...extra,
+  };
+}
 
 // ── Create Post ──────────────────────────────────────────────────────
 
@@ -30,7 +164,7 @@ export async function createPost(
     quantity: formData.get("quantity") || undefined,
     unit: (formData.get("unit") as string) || undefined,
     address: (formData.get("address") as string) || undefined,
-    location: (formData.get("location") as string) || undefined,
+    region: (formData.get("region") as string) || undefined,
     township: (formData.get("township") as string) || undefined,
     pound_per_bag: formData.get("pound_per_bag") || undefined,
     paddy_condition: (formData.get("paddy_condition") as string) || undefined,
@@ -42,7 +176,6 @@ export async function createPost(
   // Validate with zod schema
   const parsed = postSchema.safeParse(rawData);
   if (!parsed.success) {
-    // discriminated union — cast to access all possible field errors
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const firstError = (parsed.error.flatten().fieldErrors as any);
     const msg =
@@ -88,7 +221,7 @@ export async function createPost(
       payload.quantity = parsed.data.quantity ?? null;
       payload.unit = parsed.data.unit || null;
       payload.address = parsed.data.address || null;
-      payload.location = parsed.data.location || null;
+      payload.region = parsed.data.region || null;
       payload.township = parsed.data.township || null;
       payload.easy_to_carry = parsed.data.easy_to_carry ?? null;
       payload.pound_per_bag = parsed.data.pound_per_bag ?? null;
@@ -143,58 +276,6 @@ export async function createPost(
 
 // ── Fetch Posts ──────────────────────────────────────────────────────
 
-// Raw DB row shapes for joined queries
-interface PostRow {
-  id: string;
-  author_id: string;
-  type: string;
-  content: string;
-  rice_type: string | null;
-  rice_name: string | null;
-  price: number | null;
-  quantity: number | null;
-  unit: string | null;
-  address: string | null;
-  location: string | null;
-  township: string | null;
-  easy_to_carry: boolean | null;
-  pound_per_bag: number | null;
-  paddy_condition: string | null;
-  badge: string | null;
-  reaction_count: number;
-  comment_count: number;
-  latitude: number | null;
-  longitude: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface PostImageRow {
-  id: string;
-  post_id: string;
-  url: string;
-  sort_order: number;
-}
-
-interface ProfileRow {
-  id: string;
-  phone: string;
-  email: string | null;
-  username: string;
-  full_name: string;
-  role: string;
-  avatar_url: string | null;
-  cover_url: string | null;
-  bio: string | null;
-  region_id: number;
-  township_id: number;
-  market_status_id: number | null;
-  phone_verified: boolean;
-  deleted_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export async function getPosts(
   cursor?: string,
   pageSize = 20,
@@ -224,91 +305,22 @@ export async function getPosts(
   const nextCursor = hasMore ? rows[rows.length - 1].created_at : null;
 
   const posts = rows as unknown as PostRow[];
-
-  // Collect unique author IDs
   const authorIds = [...new Set(posts.map((p) => p.author_id))];
-
-  // Fetch profiles for all authors
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("id", authorIds);
-
-  const profiles = (profileRows ?? []) as unknown as ProfileRow[];
-  const profileMap = new Map(profiles.map((p) => [p.id, p as unknown as Profile]));
-
-  // Fix #9: provide a fallback profile for missing authors
-  function getAuthor(id: string): Profile {
-    return profileMap.get(id) ?? {
-      id,
-      phone: "",
-      email: null,
-      username: "unknown",
-      full_name: "Unknown User",
-      role: "general_user",
-      avatar_url: null,
-      cover_url: null,
-      bio: null,
-      region_id: 0,
-      township_id: 0,
-      market_status_id: null,
-      phone_verified: false,
-      created_at: "",
-      updated_at: "",
-    };
-  }
-
-  // Collect all post IDs
   const postIds = posts.map((p) => p.id);
 
-  // Fetch images for all posts
-  const { data: imageRows } = await supabase
-    .from("post_images")
-    .select("*")
-    .in("post_id", postIds)
-    .order("sort_order");
+  const [profileMap, imagesMap] = await Promise.all([
+    fetchProfilesMap(supabase, authorIds),
+    fetchImagesMap(supabase, postIds),
+  ]);
 
-  const images = (imageRows ?? []) as unknown as PostImageRow[];
-  const imagesMap = new Map<string, PostImage[]>();
-  for (const img of images) {
-    const list = imagesMap.get(img.post_id) ?? [];
-    list.push({
-      id: img.id,
-      post_id: img.post_id,
-      url: img.url,
-      sort_order: img.sort_order,
-    } as PostImage);
-    imagesMap.set(img.post_id, list);
-  }
-
-  // Assemble Post objects
   return {
-    posts: posts.map((row) => ({
-      id: row.id,
-      author_id: row.author_id,
-      author: getAuthor(row.author_id),
-      type: row.type as Post["type"],
-      content: row.content,
-      rice_type: row.rice_type ?? undefined,
-      rice_name: row.rice_name ?? undefined,
-      price: row.price ?? null,
-      quantity: row.quantity ?? null,
-      unit: row.unit ?? undefined,
-      address: row.address ?? undefined,
-      location: row.location ?? undefined,
-      township: row.township ?? null,
-      easy_to_carry: row.easy_to_carry ?? undefined,
-      pound_per_bag: row.pound_per_bag ?? null,
-      paddy_condition: (row.paddy_condition as Post["paddy_condition"]) ?? undefined,
-      badge: (row.badge as Post["badge"]) ?? undefined,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      images: imagesMap.get(row.id) ?? [],
-      reaction_count: row.reaction_count,
-      comment_count: row.comment_count,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    })),
+    posts: posts.map((row) =>
+      assemblePost(
+        row,
+        profileMap.get(row.author_id) ?? { ...UNKNOWN_PROFILE, id: row.author_id },
+        imagesMap.get(row.id) ?? [],
+      ),
+    ),
     nextCursor,
   };
 }
@@ -331,80 +343,20 @@ export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
 
   const posts = postRows as unknown as PostRow[];
 
-  // Fetch author profile
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", authorId)
-    .maybeSingle();
-
-  const authorProfile: Profile = profileRows
-    ? (profileRows as unknown as Profile)
-    : {
-        id: authorId,
-        phone: "",
-        email: null,
-        username: "unknown",
-        full_name: "Unknown User",
-        role: "general_user",
-        avatar_url: null,
-        cover_url: null,
-        bio: null,
-        region_id: 0,
-        township_id: 0,
-        market_status_id: null,
-        phone_verified: false,
-        created_at: "",
-        updated_at: "",
-      };
-
-  // Fetch images for all posts
+  // Fetch the single author profile + all images in parallel
   const postIds = posts.map((p) => p.id);
-  const { data: imageRows } = await supabase
-    .from("post_images")
-    .select("*")
-    .in("post_id", postIds)
-    .order("sort_order");
+  const [{ data: profileData }, imagesMap] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", authorId).maybeSingle(),
+    fetchImagesMap(supabase, postIds),
+  ]);
 
-  const images = (imageRows ?? []) as unknown as PostImageRow[];
-  const imagesMap = new Map<string, PostImage[]>();
-  for (const img of images) {
-    const list = imagesMap.get(img.post_id) ?? [];
-    list.push({
-      id: img.id,
-      post_id: img.post_id,
-      url: img.url,
-      sort_order: img.sort_order,
-    } as PostImage);
-    imagesMap.set(img.post_id, list);
-  }
+  const authorProfile: Profile = profileData
+    ? (profileData as unknown as Profile)
+    : { ...UNKNOWN_PROFILE, id: authorId };
 
-  return posts.map((row) => ({
-    id: row.id,
-    author_id: row.author_id,
-    author: authorProfile,
-    type: row.type as Post["type"],
-    content: row.content,
-    rice_type: row.rice_type ?? undefined,
-    rice_name: row.rice_name ?? undefined,
-    price: row.price ?? null,
-    quantity: row.quantity ?? null,
-    unit: row.unit ?? undefined,
-    address: row.address ?? undefined,
-    location: row.location ?? undefined,
-    township: row.township ?? null,
-    easy_to_carry: row.easy_to_carry ?? undefined,
-    pound_per_bag: row.pound_per_bag ?? null,
-    paddy_condition: (row.paddy_condition as Post["paddy_condition"]) ?? undefined,
-    badge: (row.badge as Post["badge"]) ?? undefined,
-    latitude: row.latitude,
-    longitude: row.longitude,
-    images: imagesMap.get(row.id) ?? [],
-    reaction_count: row.reaction_count,
-    comment_count: row.comment_count,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  }));
+  return posts.map((row) =>
+    assemblePost(row, authorProfile, imagesMap.get(row.id) ?? []),
+  );
 }
 
 // ── Update Post ──────────────────────────────────────────────────────
@@ -423,7 +375,7 @@ export async function updatePost(
     quantity: formData.get("quantity") || undefined,
     unit: (formData.get("unit") as string) || undefined,
     address: (formData.get("address") as string) || undefined,
-    location: (formData.get("location") as string) || undefined,
+    region: (formData.get("region") as string) || undefined,
     township: (formData.get("township") as string) || undefined,
     pound_per_bag: formData.get("pound_per_bag") || undefined,
     paddy_condition: (formData.get("paddy_condition") as string) || undefined,
@@ -479,7 +431,7 @@ export async function updatePost(
       payload.quantity = parsed.data.quantity ?? null;
       payload.unit = parsed.data.unit || null;
       payload.address = parsed.data.address || null;
-      payload.location = parsed.data.location || null;
+      payload.region = parsed.data.region || null;
       payload.township = parsed.data.township || null;
       payload.easy_to_carry = parsed.data.easy_to_carry ?? null;
       payload.pound_per_bag = parsed.data.pound_per_bag ?? null;
@@ -610,86 +562,20 @@ export async function getSavedPosts(): Promise<Post[]> {
   const orderMap = new Map(savedRows.map((r, i) => [r.post_id, i]));
   posts.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
 
-  // Collect unique author IDs
   const authorIds = [...new Set(posts.map((p) => p.author_id))];
+  const [profileMap, imagesMap] = await Promise.all([
+    fetchProfilesMap(supabase, authorIds),
+    fetchImagesMap(supabase, postIds),
+  ]);
 
-  // Fetch profiles for all authors
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("id", authorIds);
-
-  const profiles = (profileRows ?? []) as unknown as ProfileRow[];
-  const profileMap = new Map(profiles.map((p) => [p.id, p as unknown as Profile]));
-
-  function getAuthor(id: string): Profile {
-    return profileMap.get(id) ?? {
-      id,
-      phone: "",
-      email: null,
-      username: "unknown",
-      full_name: "Unknown User",
-      role: "general_user",
-      avatar_url: null,
-      cover_url: null,
-      bio: null,
-      region_id: 0,
-      township_id: 0,
-      market_status_id: null,
-      phone_verified: false,
-      created_at: "",
-      updated_at: "",
-    };
-  }
-
-  // Fetch images for all posts
-  const { data: imageRows } = await supabase
-    .from("post_images")
-    .select("*")
-    .in("post_id", postIds)
-    .order("sort_order");
-
-  const images = (imageRows ?? []) as unknown as PostImageRow[];
-  const imagesMap = new Map<string, PostImage[]>();
-  for (const img of images) {
-    const list = imagesMap.get(img.post_id) ?? [];
-    list.push({
-      id: img.id,
-      post_id: img.post_id,
-      url: img.url,
-      sort_order: img.sort_order,
-    } as PostImage);
-    imagesMap.set(img.post_id, list);
-  }
-
-  // Assemble Post objects
-  return posts.map((row) => ({
-    id: row.id,
-    author_id: row.author_id,
-    author: getAuthor(row.author_id),
-    type: row.type as Post["type"],
-    content: row.content,
-    rice_type: row.rice_type ?? undefined,
-    rice_name: row.rice_name ?? undefined,
-    price: row.price ?? null,
-    quantity: row.quantity ?? null,
-    unit: row.unit ?? undefined,
-    address: row.address ?? undefined,
-    location: row.location ?? undefined,
-    township: row.township ?? null,
-    easy_to_carry: row.easy_to_carry ?? undefined,
-    pound_per_bag: row.pound_per_bag ?? null,
-    paddy_condition: (row.paddy_condition as Post["paddy_condition"]) ?? undefined,
-    badge: (row.badge as Post["badge"]) ?? undefined,
-    latitude: row.latitude,
-    longitude: row.longitude,
-    images: imagesMap.get(row.id) ?? [],
-    reaction_count: row.reaction_count,
-    comment_count: row.comment_count,
-    is_saved: true,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  }));
+  return posts.map((row) =>
+    assemblePost(
+      row,
+      profileMap.get(row.author_id) ?? { ...UNKNOWN_PROFILE, id: row.author_id },
+      imagesMap.get(row.id) ?? [],
+      { is_saved: true },
+    ),
+  );
 }
 
 // ── Delete Post ──────────────────────────────────────────────────────
@@ -713,7 +599,7 @@ export async function deletePost(postId: string): Promise<PostActionResult> {
     return { success: false, error: "You can only delete your own posts." };
   }
 
-  // Fix #3: fetch image URLs before deleting rows so we can clean up storage
+  // Fetch image URLs before deleting rows so we can clean up storage
   const { data: imageRows } = await supabase
     .from("post_images")
     .select("url")

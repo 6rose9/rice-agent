@@ -1,5 +1,6 @@
 -- ============================================================================
 -- စပါးအောင်သွယ် — Posts & Post Images Tables
+-- Complete migration: all columns the post creation form needs.
 -- ============================================================================
 
 -- 0. updated_at trigger function (shared across tables)
@@ -12,7 +13,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Attach to profiles table (already exists)
+-- Attach to profiles table (already exists from auth_schema.sql)
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -27,32 +28,46 @@ END $$;
 
 -- 1. Posts table
 -- ============================================================================
+-- Columns match the post creation form fields exactly.
+-- See: src/components/post/create-post-form.tsx
+-- See: src/lib/validations/post.ts
+-- ============================================================================
 CREATE TABLE public.posts (
-  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  author_id       UUID        NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  type            TEXT        NOT NULL CHECK (type IN ('general', 'buying', 'selling')),
-  content         TEXT        NOT NULL CHECK (char_length(content) BETWEEN 1 AND 2000),
-  -- Fix #11: trading posts must have a rice_type; general posts leave it null
+  id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_id       UUID          NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  type            TEXT          NOT NULL CHECK (type IN ('general', 'buying', 'selling')),
+  content         TEXT          NOT NULL CHECK (char_length(content) BETWEEN 1 AND 2000),
+
+  -- Trading fields (nullable — only filled for buying/selling posts)
+  -- Constraint: trading posts MUST have a rice_type
   CONSTRAINT posts_rice_type_check CHECK (type = 'general' OR rice_type IS NOT NULL),
-  -- Trading fields (nullable — only filled for buying/selling)
-  rice_type       TEXT,
-  rice_name       TEXT,
-  price           NUMERIC    CHECK (price IS NULL OR price >= 0),
-  quantity        NUMERIC    CHECK (quantity IS NULL OR quantity > 0),
-  unit            TEXT,
-  address         TEXT,
-  location        TEXT,
-  township        TEXT,
-  easy_to_carry   BOOLEAN,
-  pound_per_bag   NUMERIC,
-  paddy_condition TEXT,
-  badge           TEXT        DEFAULT 'free' CHECK (badge IN ('free', 'pro', 'pro_plus')),
-  -- Counters (updated by triggers or app logic later)
-  reaction_count  INTEGER     NOT NULL DEFAULT 0,
-  comment_count   INTEGER     NOT NULL DEFAULT 0,
+  rice_type       TEXT,           -- dropdown: "Soft rice", "Hard rice", "Glutinous rice", "Jasmine rice"
+  rice_name       TEXT,           -- free text: e.g. "Special Grade A"
+  price           NUMERIC,        -- slider: 500,000–7,500,000 Ks
+  quantity        NUMERIC,        -- slider: 100–100,000 baskets
+  unit            TEXT,           -- dropdown: "pound" | "tin"
+  address         TEXT,           -- free text: e.g. "No. 123, Hlaingthaya, Yangon"
+  region          TEXT,           -- region key: "yangon", "mandalay", etc. (from regionTownships)
+  township        TEXT,           -- township name: "Hlaingthaya", "Pathein", etc.
+  easy_to_carry   BOOLEAN,        -- switch: transport available
+  pound_per_bag   NUMERIC,        -- slider: 92–120 lb
+  paddy_condition TEXT,           -- slider: 10–16 (moisture %, stored as text for flexibility)
+
+  -- Post metadata
+  badge           TEXT          DEFAULT 'free' CHECK (badge IN ('free', 'pro', 'pro_plus')),
+  reaction_count  INTEGER       NOT NULL DEFAULT 0,
+  comment_count   INTEGER       NOT NULL DEFAULT 0,
+
+  -- Soft-delete flag (defaults to true, toggled by app logic)
+  is_active       BOOLEAN       NOT NULL DEFAULT true,
+
+  -- Map coordinates (from LocationPicker component)
+  latitude        DOUBLE PRECISION,
+  longitude       DOUBLE PRECISION,
+
   -- Timestamps
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at      TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 
 -- Indexes

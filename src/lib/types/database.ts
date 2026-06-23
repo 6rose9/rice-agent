@@ -72,7 +72,10 @@ export type Database = {
           created_at: string
           easy_to_carry: boolean | null
           id: string
-          location: string | null
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          region: string | null
           paddy_condition: string | null
           pound_per_bag: number | null
           price: number | null
@@ -94,7 +97,10 @@ export type Database = {
           created_at?: string
           easy_to_carry?: boolean | null
           id?: string
-          location?: string | null
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          region?: string | null
           paddy_condition?: string | null
           pound_per_bag?: number | null
           price?: number | null
@@ -116,7 +122,10 @@ export type Database = {
           created_at?: string
           easy_to_carry?: boolean | null
           id?: string
-          location?: string | null
+          is_active: boolean
+          latitude: number | null
+          longitude: number | null
+          region?: string | null
           paddy_condition?: string | null
           pound_per_bag?: number | null
           price?: number | null

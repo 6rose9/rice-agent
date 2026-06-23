@@ -43,7 +43,7 @@ function SearchContent() {
       (p) =>
         p.content.toLowerCase().includes(q) ||
         p.rice_type?.toLowerCase().includes(q) ||
-        p.location?.toLowerCase().includes(q)
+        p.region?.toLowerCase().includes(q)
     );
 
     return { users, posts, count: users.length + posts.length };

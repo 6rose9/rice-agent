@@ -43,7 +43,7 @@ const TYPE_CONFIG = {
 };
 
 export function PostCard({ post, isAuthenticated = false, currentUserId, onRefresh }: PostCardProps) {
-  const { author, type, content, rice_type, price, quantity, unit, address, location, township, easy_to_carry, pound_per_bag, paddy_condition, badge, images } = post;
+  const { author, type, content, rice_type, price, quantity, unit, address, region, township, easy_to_carry, pound_per_bag, paddy_condition, badge, images } = post;
   const [displayTime, setDisplayTime] = useState(post.created_at);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -183,11 +183,11 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
                 {formatQuantity(quantity, unit)}
               </span>
             )}
-            {location && (
+            {region && (
               <span className="inline-flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
                 {township ? `${township}, ` : ""}
-                {regionTownships[location]?.label || location}
+                {regionTownships[region]?.label || region}
               </span>
             )}
             {address && (

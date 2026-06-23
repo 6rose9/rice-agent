@@ -51,7 +51,7 @@ export function TradingFormFields({
   setValue,
   errors,
 }: TradingFormFieldsProps) {
-  const watchedLocation = watch("location");
+  const watchedLocation = watch("region");
 
   return (
     <div className="space-y-3 pt-4 border-t">
@@ -153,10 +153,10 @@ export function TradingFormFields({
         <div className="space-y-1.5">
           <Label className="text-xs">📍 Region</Label>
           <Select
-            value={watch("location") ?? ""}
+            value={watch("region") ?? ""}
             onValueChange={(v) => {
               if (v) {
-                setValue("location", v, { shouldValidate: true });
+                setValue("region", v, { shouldValidate: true });
                 setValue("township", "", { shouldValidate: false });
               }
             }}
