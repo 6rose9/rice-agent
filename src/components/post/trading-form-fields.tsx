@@ -59,7 +59,7 @@ export function TradingFormFields({
         📋 Listing Details
       </p>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Rice Type */}
         <div className="space-y-1.5">
           <Label className="text-xs">🌾 Rice Type *</Label>
@@ -69,7 +69,7 @@ export function TradingFormFields({
               if (v) setValue("rice_type", v, { shouldValidate: true });
             }}
           >
-            <SelectTrigger className="h-9 text-xs">
+            <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue placeholder="Select rice type" />
             </SelectTrigger>
             <SelectContent>
@@ -100,7 +100,7 @@ export function TradingFormFields({
         </div>
 
         {/* Price Slider */}
-        <div className="space-y-1.5 col-span-2">
+        <div className="space-y-1.5 md:col-span-2">
           <Label className="text-xs">💰 Price</Label>
           <div className="space-y-1">
             <input
@@ -123,7 +123,7 @@ export function TradingFormFields({
         </div>
 
         {/* Quantity Slider */}
-        <div className="space-y-1.5 col-span-2">
+        <div className="space-y-1.5 md:col-span-2">
           <Label className="text-xs">
             📦 How many do you want to {postType === "buying" ? "buy" : "sell"}?
           </Label>
@@ -161,7 +161,7 @@ export function TradingFormFields({
               }
             }}
           >
-            <SelectTrigger className="h-9 text-xs">
+            <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue placeholder="Select region" />
             </SelectTrigger>
             <SelectContent>
@@ -183,7 +183,7 @@ export function TradingFormFields({
             }}
             disabled={!watchedLocation}
           >
-            <SelectTrigger className="h-9 text-xs">
+            <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue
                 placeholder={
                   watchedLocation
@@ -205,8 +205,8 @@ export function TradingFormFields({
       </div>
 
       {/* Pound per bag + Measuring */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5 col-span-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="space-y-1.5 md:col-span-2">
           <Label className="text-xs">
             How many pounds per bag of paddy?
           </Label>
@@ -238,7 +238,7 @@ export function TradingFormFields({
               if (v) setValue("unit", v, { shouldValidate: true });
             }}
           >
-            <SelectTrigger className="h-9 text-xs min-w-[150px]">
+            <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

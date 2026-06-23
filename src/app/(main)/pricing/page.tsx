@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Crown, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,12 +56,22 @@ const plans = [
 function PricingContent() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
+  const reason = searchParams.get("reason");
   const [currentTier, setCurrentTier] = useState<SubscriptionTier>("free");
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     setCurrentTier(getSubscriptionTier());
   }, []);
+
+  // Auto-redirect if already pro and a redirect target is set
+  useEffect(() => {
+    if (currentTier !== "free" && redirectTo) {
+      router.replace(redirectTo);
+    }
+  }, [currentTier, redirectTo, router]);
 
   if (!isAuthenticated) {
     return (
@@ -77,8 +87,12 @@ function PricingContent() {
   function handleSubscribe(tier: SubscriptionTier) {
     setSubscriptionTier(tier);
     setCurrentTier(tier);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    if (redirectTo) {
+      router.replace(redirectTo);
+    } else {
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 3000);
+    }
   }
 
   return (
@@ -96,6 +110,13 @@ function PricingContent() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6 mt-4">
+        {reason === "pro_required" && (
+          <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+            <span className="font-semibold">Pro subscription required.</span>{" "}
+            Buying and selling posts are available for Pro subscribers. Choose a plan below to unlock.
+          </div>
+        )}
+
         {showSuccess && (
           <div className="rounded-md bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-700 dark:text-green-400">
             Plan updated successfully!
@@ -105,7 +126,9 @@ function PricingContent() {
         <div className="text-center space-y-2">
           <h2 className="text-xl font-bold">Choose Your Plan</h2>
           <p className="text-sm text-muted-foreground">
-            Unlock trading features to buy and sell rice on the marketplace.
+            {reason === "pro_required"
+              ? "Subscribe to Pro to create buying and selling posts."
+              : "Unlock trading features to buy and sell rice on the marketplace."}
           </p>
         </div>
 
@@ -187,5 +210,9 @@ function PricingContent() {
 }
 
 export default function PricingPage() {
-  return <PricingContent />;
+  return (
+    <Suspense fallback={null}>
+      <PricingContent />
+    </Suspense>
+  );
 }

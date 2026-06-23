@@ -43,4 +43,7 @@ next-env.d.ts
 # supabase
 supabase/.temp/
 
+# mcp config (contains project-specific URLs)
+.mcp.json
+
 .wikirc.yaml

@@ -154,6 +154,21 @@ export async function createPost(
   _prevState: PostActionResult | null,
   formData: FormData,
 ): Promise<PostActionResult> {
+  const postType = formData.get("type") as string;
+
+  // Subscription gate: buying/selling posts require pro tier
+  // Client sends tier as a hidden field; server validates.
+  // (For demo/localStorage subscription — not cryptographically secure)
+  if (postType === "buying" || postType === "selling") {
+    const tier = formData.get("subscription_tier") as string;
+    if (tier !== "pro" && tier !== "pro_plus") {
+      return {
+        success: false,
+        error: "Buying and selling posts require a Pro subscription. Please upgrade to continue.",
+      };
+    }
+  }
+
   // Extract all fields from FormData
   const rawData: Record<string, unknown> = {
     type: formData.get("type") as string,

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Seven tables on Supabase PostgreSQL. Three reference tables (`market_status`, `regions`, `townships`) seeded by migration and read-only at runtime. Four application tables (`profiles`, `posts`, `post_images`, `follows`) with full Row-Level Security.
+Six tables on Supabase PostgreSQL plus two storage buckets. Three reference tables (`market_status`, `regions`, `townships`) seeded by migration and read-only at runtime. Three application tables (`profiles`, `posts`, `post_images`, `saved_posts`) with full Row-Level Security.
 
 `profiles` extends `auth.users` (Supabase-managed identity) via a 1:1 FK relationship. All policies reference `auth.uid()` for row-level access control.
 
@@ -17,11 +17,11 @@ Seven tables on Supabase PostgreSQL. Three reference tables (`market_status`, `r
 └──────────┘       └──────────┘       └──────────┘
                                              │
                          ┌───────────────────┼───────────────────┐
-                   1:many│             1:many│             1:many│
-                    ┌──────────┐       ┌──────────┐       ┌─────────────┐
-                    │  posts   │       │ follows  │       │market_status │
-                    │ (0...*)  │       │ (0...*)  │       │  (6 rows)    │
-                    └──────────┘       └──────────┘       └─────────────┘
+                   1:many│             1:many│                   │
+                    ┌──────────┐       ┌─────────────┐    ┌────────────┐
+                    │  posts   │       │market_status │    │saved_posts │
+                    │ (0...*)  │       │  (4 rows)    │    │ (0...*)    │
+                    └──────────┘       └─────────────┘    └────────────┘
                          │
                    1:many│
                     ┌──────────┐
@@ -45,8 +45,7 @@ profiles.market_status_id ──many:1── market_status(id)
 | PK type (application tables) | `uuid` DEFAULT `gen_random_uuid()` |
 | Bilingual text | `jsonb` with keys `"en"` and `"my"` |
 | Auto-updating timestamps | Trigger function `update_updated_at_column()` |
-| Soft deletion | `is_active` boolean (posts only) |
-| Ordering within groups | `sort_order smallint` |
+| Soft deletion | `deleted_at` (profiles), `is_active` (posts) |
 
 ---
 
@@ -80,8 +79,8 @@ $$ language plpgsql;
 
 ## Table 1: `regions`
 
-**Purpose:** Reference table for Myanmar's 15 states, regions, and union territory.  
-**Access:** Read-only at runtime. Seeded by migration.  
+**Purpose:** Reference table for Myanmar's 15 states, regions, and union territory.
+**Access:** Read-only at runtime. Seeded by migration.
 **Synonym lifecycle:** Inserted once per migration; never updated or deleted by application code.
 
 ### DDL
@@ -93,19 +92,6 @@ create table regions (
     sort_order  smallint  not null default 0
 );
 ```
-
-### Constraints
-
-| Constraint | Type | Column | Detail |
-|---|---|---|---|
-| `regions_pkey` | PK | `id` | `generated always as identity` |
-| `regions_name_check` | CHECK | `name` | `jsonb_typeof(name) = 'object'` (enforced at app layer) |
-
-### Indexes
-
-| Index | Columns | Type | Purpose |
-|---|---|---|---|
-| — (PK only) | — | — | 15 rows; no secondary indexes needed |
 
 ### Seed Data (15 rows)
 
@@ -132,92 +118,54 @@ create table regions (
 ```sql
 alter table regions enable row level security;
 
--- All authenticated users can read
-create policy "Regions are viewable by authenticated users"
+-- All users (including guests) can read
+create policy "Regions viewable by everyone"
     on regions for select
-    to authenticated
     using (true);
 ```
-
-No INSERT/UPDATE/DELETE policies — regions are immutable to application code. Seed data is loaded by migration under the `postgres` role.
 
 ---
 
 ## Table 2: `townships`
 
-**Purpose:** Reference table of ~200 Myanmar townships prioritized by population, each belonging to a region.  
-**Access:** Read-only at runtime. Seeded by migration.  
+**Purpose:** Reference table of ~200 Myanmar townships prioritized by population, each belonging to a region.
+**Access:** Read-only at runtime. Seeded by migration.
 
 ### DDL
 
 ```sql
 create table townships (
     id          smallint generated always as identity primary key,
-    region_id   smallint  not null references regions(id),
     name        jsonb     not null,                     -- {"en": "Hlaingthaya", "my": "လှိုင်သာယာ"}
+    region_id   smallint  not null references regions(id),
     sort_order  smallint  not null default 0,
     unique(name, region_id)
 );
 ```
 
-### Constraints
-
-| Constraint | Type | Column | Detail |
-|---|---|---|---|
-| `townships_pkey` | PK | `id` | `generated always as identity` |
-| `townships_region_id_fkey` | FK | `region_id` | → `regions(id)`. No cascade — reference data is never deleted |
-| `townships_name_region_id_key` | UNIQUE | `(name, region_id)` | Same township name may exist in different regions but not the same one |
-
 ### Indexes
 
 | Index | Columns | Type | Rationale |
 |---|---|---|---|
-| `idx_townships_region_id` | `region_id` | BTREE | Cascading dropdown: "given a region, list its townships." Query: `select * from townships where region_id = $1 order by sort_order, name` |
-
-No additional indexes at ~200 rows. If V2 adds free-text township search on `name->>'en'` and `name->>'my'`, a GIN index on `name` with `jsonb_path_ops` becomes appropriate.
-
-### Seed Data Strategy
-
-~200 rows total, distributed across 15 regions, sorted by population within each region. High-population townships first. Sample:
-
-| region | Township count (approx) | Key examples |
-|---|---|---|
-| Yangon | ~30 | Hlaingthaya, Shwepyitha, Insein, Mingaladon, North Okkalapa |
-| Mandalay | ~20 | Chanayethazan, Chanmyathazi, Mahaaungmye, Amarapura, Pyigyidagun |
-| Shan | ~25 | Taunggyi, Lashio, Muse, Kengtung, Tachileik |
-| Ayeyarwady | ~20 | Pathein, Hinthada, Myaungmya, Maubin, Labutta |
-| Bago | ~18 | Bago, Pyay, Taungoo, Tharyarwady, Nyaunglebin |
-| Sagaing | ~15 | Sagaing, Monywa, Shwebo, Kale, Tamu |
-| Magway | ~12 | Magway, Pakokku, Minbu, Thayet, Yenangyaung |
-| Mon | ~8 | Mawlamyine, Thaton, Kyaikto, Ye, Mudon |
-| Rakhine | ~10 | Sittwe, Kyaukphyu, Thandwe, Maungdaw, Mrauk-U |
-| Kayin | ~8 | Hpa-an, Myawaddy, Kawkareik |
-| Kachin | ~8 | Myitkyina, Bhamo, Mohnyin, Putao |
-| Tanintharyi | ~8 | Dawei, Myeik, Kawthaung |
-| Chin | ~6 | Hakha, Falam, Tedim |
-| Kayah | ~5 | Loikaw, Demoso |
-| Naypyidaw | ~5 | Zabuthiri, Pyinmana, Tatkon |
+| `idx_townships_region_id` | `region_id` | BTREE | Cascading dropdown: "given a region, list its townships" |
 
 ### RLS
 
 ```sql
 alter table townships enable row level security;
 
--- All authenticated users can read
-create policy "Townships are viewable by authenticated users"
+-- All users (including guests) can read
+create policy "Townships viewable by everyone"
     on townships for select
-    to authenticated
     using (true);
 ```
-
-No INSERT/UPDATE/DELETE policies. Seed data loaded by migration.
 
 ---
 
 ## Table 3: `market_status`
 
-**Purpose:** Reference table for the 6 market/availability statuses a user can set on their profile.  
-**Access:** Read-only at runtime. Seeded by migration.  
+**Purpose:** Reference table for the 4 market/availability statuses a user can set on their profile.
+**Access:** Read-only at runtime. Seeded by migration.
 **Key design:** Bilingual `name` field with `en` and `my` keys. Users reference statuses by `id` via `profiles.market_status_id` FK (nullable — new users have no status).
 
 ### DDL
@@ -225,31 +173,29 @@ No INSERT/UPDATE/DELETE policies. Seed data loaded by migration.
 ```sql
 create table market_status (
     id          smallint generated always as identity primary key,
-    name        jsonb     not null,   -- {"en": "Looking for Buyers", "my": "ဝယ်သူရှာနေသည်"}
-    sort_order  smallint  not null default 0
+    name        jsonb     not null,   -- {"en": "Buying Rice", "my": "စပါးဝယ်မည်"}
+    sort_order  smallint  not null default 0,
+    color       text                  -- Hex color code for UI display
 );
 ```
 
-### Seed Data (6 rows)
+### Seed Data (4 rows)
 
-| id | name | sort_order |
-|---|---|---|
-| 1 | `{"en":"Looking for Buyers", "my":"ဝယ်သူရှာနေသည်"}` | 1 |
-| 2 | `{"en":"Looking for Suppliers", "my":"ရောင်းသူရှာနေသည်"}` | 2 |
-| 3 | `{"en":"Buying Rice", "my":"စပါးဝယ်မည်"}` | 3 |
-| 4 | `{"en":"Selling Rice", "my":"စပါးရောင်းမည်"}` | 4 |
-| 5 | `{"en":"Available as Agent", "my":"အကျိုးဆောင်ရနိုင်သည်"}` | 5 |
-| 6 | `{"en":"Open for Partnership", "my":"လုပ်ငန်းဖက်စပ်ရှာနေသည်"}` | 6 |
+| id | name | sort_order | color |
+|---|---|---|---|
+| 1 | `{"en":"Buying Rice", "my":"စပါးဝယ်မည်"}` | 1 | `#3B82F6` |
+| 2 | `{"en":"Selling Rice", "my":"စပါးရောင်းမည်"}` | 2 | `#10B981` |
+| 3 | `{"en":"Available as Agent", "my":"အကျိုးဆောင်ရနိုင်သည်"}` | 3 | `#F59E0B` |
+| 4 | `{"en":"Open for Partnership", "my":"လုပ်ငန်းဖက်စပ်ရှာနေသည်"}` | 4 | `#8B5CF6` |
 
 ### RLS
 
 ```sql
 alter table market_status enable row level security;
 
--- All authenticated users can read
-create policy "Market status viewable by authenticated users"
+-- All users (including guests) can read
+create policy "Market status viewable by everyone"
     on market_status for select
-    to authenticated
     using (true);
 ```
 
@@ -257,11 +203,13 @@ create policy "Market status viewable by authenticated users"
 
 ## Table 4: `profiles`
 
-**Purpose:** Public identity per registered user. Extends `auth.users` 1:1.  
-**Access:** Users can read all profiles; can only write their own.  
+**Purpose:** Public identity per registered user. Extends `auth.users` 1:1.
+**Access:** Active profiles visible to everyone; users can view/update their own (even if soft-deleted).
 **Key design decisions:**
 - `region_id` and `township_id` are NOT NULL — location is required at profile creation.
 - `market_status_id` is nullable — NULL by default at signup. Users set their status later from the `market_status` reference table.
+- `phone_verified` defaults to false; set true after verification.
+- `deleted_at` for soft deletion; non-null means the account is deactivated.
 
 ### DDL
 
@@ -272,14 +220,16 @@ create table profiles (
     email            text,
     username         text        not null unique,
     full_name        text        not null,
-    role             text        not null,
+    role             text        not null default 'general_user'
+                       check (role in ('farmer', 'trader', 'agent', 'general_user')),
     avatar_url       text,
     cover_url        text,
     bio              text,
     region_id        smallint    not null references regions(id),
     township_id      smallint    not null references townships(id),
-    website          text,
     market_status_id smallint    references market_status(id),
+    phone_verified   boolean     not null default false,
+    deleted_at       timestamptz,
     created_at       timestamptz not null default now(),
     updated_at       timestamptz not null default now()
 );
@@ -291,10 +241,8 @@ create table profiles (
 |---|---|---|---|
 | `profiles_pkey` | PK | `id` | FK → `auth.users(id)` ON DELETE CASCADE |
 | `profiles_phone_key` | UNIQUE | `phone` | Myanmar phone format |
-| `profiles_username_key` | UNIQUE | `username` | URL-safe, 3–30 chars, `^[a-z0-9_]+$` (enforced at app + CHECK) |
-| `profiles_username_check` | CHECK | `username` | `username ~ '^[a-z0-9_]{3,30}$'` |
-| `profiles_role_check` | CHECK | `role` | `role in ('farmer', 'trader', 'agent', 'general')` |
-| `profiles_bio_check` | CHECK | `bio` | `char_length(bio) <= 500` |
+| `profiles_username_key` | UNIQUE | `username` | URL-safe, 3–30 chars |
+| `profiles_role_check` | CHECK | `role` | `role in ('farmer', 'trader', 'agent', 'general_user')` |
 | `profiles_region_id_fkey` | FK | `region_id` | → `regions(id)`. No cascade — reference data |
 | `profiles_township_id_fkey` | FK | `township_id` | → `townships(id)`. No cascade — reference data |
 | `profiles_market_status_id_fkey` | FK | `market_status_id` | → `market_status(id)`. Nullable — user sets later |
@@ -303,20 +251,81 @@ create table profiles (
 
 | Index | Columns | Type | Rationale |
 |---|---|---|---|
-| `idx_profiles_username` | `username` | BTREE UNIQUE | Profile route resolution: `/profile/[username]` → `select * from profiles where username = $1` |
 | `idx_profiles_role_region` | `(role, region_id)` | BTREE | Most common search filter combo: "find all farmers in this region" |
 | `idx_profiles_township_id` | `township_id` | BTREE | Join performance when resolving profile township |
 | `idx_profiles_region_id` | `region_id` | BTREE | Join performance when resolving profile region |
 
-**No full-text index on `full_name` in V1.** User search by name uses `ilike` with a leading-wildcard pattern (`%query%`), which BTREE cannot accelerate. This is acceptable at MVP scale. V2 adds a `pg_trgm` GIN index for fast `ilike` search.
+**No username index** — username uniqueness is enforced by the UNIQUE constraint which implicitly creates an index.
 
-### Trigger
+### Triggers
 
 ```sql
+-- Auto-update updated_at on changes
 create trigger update_profiles_updated_at
     before update on profiles
     for each row
     execute function update_updated_at_column();
+
+-- Auto-create profile on auth.users insert (SECURITY DEFINER)
+create trigger on_auth_user_created
+    after insert on auth.users
+    for each row execute function handle_new_user();
+```
+
+### Functions
+
+#### `handle_new_user()` — Auto-create profile on signup
+
+```sql
+create or replace function handle_new_user()
+returns trigger as $$
+begin
+  insert into profiles (id, phone, email, username, full_name, role, region_id, township_id)
+  values (
+    NEW.id,
+    NEW.raw_user_meta_data ->> 'phone',
+    NEW.raw_user_meta_data ->> 'email',
+    NEW.raw_user_meta_data ->> 'username',
+    NEW.raw_user_meta_data ->> 'full_name',
+    coalesce(NEW.raw_user_meta_data ->> 'role', 'general_user'),
+    (NEW.raw_user_meta_data ->> 'region_id')::smallint,
+    (NEW.raw_user_meta_data ->> 'township_id')::smallint
+  );
+  return NEW;
+end;
+$$ language plpgsql security definer;
+```
+
+#### `lookup_email_by_phone()` — Resolve phone to auth email for login
+
+```sql
+create or replace function lookup_email_by_phone(phone_number text)
+returns text as $$
+declare
+  found_email text;
+begin
+  select u.email into found_email
+  from auth.users u
+  join profiles p on p.id = u.id
+  where p.phone = phone_number;
+  return found_email;
+end;
+$$ language plpgsql security definer;
+```
+
+#### `soft_delete_account()` — Soft-delete own profile
+
+```sql
+create or replace function soft_delete_account()
+returns void as $$
+begin
+  update profiles
+  set deleted_at = now(),
+      updated_at = now()
+  where id = auth.uid()
+    and deleted_at is null;
+end;
+$$ language plpgsql security definer;
 ```
 
 ### RLS
@@ -324,74 +333,78 @@ create trigger update_profiles_updated_at
 ```sql
 alter table profiles enable row level security;
 
--- Anyone authenticated can view all profiles
-create policy "Profiles are viewable by authenticated users"
+-- Active (non-deleted) profiles are viewable by everyone
+create policy "Active profiles viewable by everyone"
     on profiles for select
-    to authenticated
-    using (true);
+    using (deleted_at IS NULL);
 
--- Users can only insert their own profile
-create policy "Users can create their own profile"
-    on profiles for insert
-    to authenticated
-    with check (id = auth.uid());
+-- Users can always view their own profile (even if soft-deleted)
+create policy "Users can view own profile"
+    on profiles for select
+    using (auth.uid() = id);
 
 -- Users can only update their own profile
-create policy "Users can update their own profile"
+create policy "Users can update own profile"
     on profiles for update
-    to authenticated
-    using (id = auth.uid())
-    with check (id = auth.uid());
-
--- Users can delete their own profile (cascades to posts, follows, post_images)
-create policy "Users can delete their own profile"
-    on profiles for delete
-    to authenticated
-    using (id = auth.uid());
+    using (auth.uid() = id);
 ```
 
-### Profile Handling After Registration
-
-Supabase Auth creates the `auth.users` row on registration. The application inserts the `profiles` row during onboarding.
-
-**Option A (recommended for V1): Application-layer.** After Supabase sign-up returns successfully, the client redirects to `/profile/create`. The onboarding form collects `username`, `full_name`, `role`, `region_id`, and `township_id`, then inserts into `profiles`. `market_status_id` is left NULL — the user can set it later from their profile settings page.
-
-**Option B (V2 alternative): Database trigger.** A function on `auth.users` insert auto-creates a stub `profiles` row, which the user completes later. This eliminates the "registered but no profile" gap but adds trigger complexity.
-
-V1 uses Option A.
+**RLS note:** The two SELECT policies combine with OR semantics — an authenticated user sees a profile if `deleted_at IS NULL` OR `id = auth.uid()`. This means owners always see their own profile, even if soft-deleted.
 
 ---
 
 ## Table 5: `posts`
 
-**Purpose:** Buying and selling listings — the marketplace core.  
+**Purpose:** Marketplace listings and general posts — the core content table.
 **Key design decisions:**
-- `township_id` is NOT NULL (location required)
-- `address` is NOT NULL (granular detail)
-- `price` is nullable (not all posts quote price)
-- `is_active` for soft-delete (posts are never hard-deleted via normal flow)
-- `quantity` is `numeric` to support fractional units (e.g., 2.5 တင်း)
+- `author_id` (not `user_id`) references `profiles(id)`
+- `type` includes `'general'` in addition to `'buying'` and `'selling'`
+- `content` replaces separate `title` + `description`
+- Trading fields (`rice_type`, `rice_name`, `price`, `quantity`, `unit`, `address`, `region`, `township`, `easy_to_carry`, `pound_per_bag`, `paddy_condition`) are nullable — only filled for buying/selling posts
+- `badge` for post promotion level (free/pro/pro_plus)
+- `reaction_count` and `comment_count` for denormalized counts
+- `latitude`/`longitude` for map coordinates
+- `is_active` for soft-delete
 
 ### DDL
 
 ```sql
 create table posts (
-    id            uuid        primary key default gen_random_uuid(),
-    user_id       uuid        not null references profiles(id) on delete cascade,
-    type          text        not null,
-    title         text        not null,
-    description   text,
-    rice_type     text,
-    variety       text,
-    quantity      numeric,
-    quantity_unit text        default 'တင်း',
-    price         numeric,
-    price_unit    text        default 'ကျပ်',
-    township_id   smallint    not null references townships(id),
-    address       text        not null,
-    is_active     boolean     not null default true,
-    created_at    timestamptz not null default now(),
-    updated_at    timestamptz not null default now()
+    id              uuid          primary key default gen_random_uuid(),
+    author_id       uuid          not null references profiles(id) on delete cascade,
+    type            text          not null check (type in ('general', 'buying', 'selling')),
+    content         text          not null check (char_length(content) between 1 and 2000),
+
+    -- Trading fields (nullable — only filled for buying/selling posts)
+    -- Constraint: trading posts MUST have a rice_type
+    constraint posts_rice_type_check check (type = 'general' or rice_type is not null),
+    rice_type       text,           -- dropdown: "Soft rice", "Hard rice", "Glutinous rice", "Jasmine rice"
+    rice_name       text,           -- free text: e.g. "Special Grade A"
+    price           numeric,        -- slider: 500,000–7,500,000 Ks
+    quantity        numeric,        -- slider: 100–100,000 baskets
+    unit            text,           -- dropdown: "pound" | "tin"
+    address         text,           -- free text: e.g. "No. 123, Hlaingthaya, Yangon"
+    region          text,           -- region key: "yangon", "mandalay", etc.
+    township        text,           -- township name: "Hlaingthaya", "Pathein", etc.
+    easy_to_carry   boolean,        -- switch: transport available
+    pound_per_bag   numeric,        -- slider: 92–120 lb
+    paddy_condition text,           -- slider: 10–16 (moisture %)
+
+    -- Post metadata
+    badge           text          default 'free' check (badge in ('free', 'pro', 'pro_plus')),
+    reaction_count  integer       not null default 0,
+    comment_count   integer       not null default 0,
+
+    -- Soft-delete flag
+    is_active       boolean       not null default true,
+
+    -- Map coordinates (from LocationPicker component)
+    latitude        double precision,
+    longitude       double precision,
+
+    -- Timestamps
+    created_at      timestamptz   not null default now(),
+    updated_at      timestamptz   not null default now()
 );
 ```
 
@@ -400,34 +413,19 @@ create table posts (
 | Constraint | Type | Column | Detail |
 |---|---|---|---|
 | `posts_pkey` | PK | `id` | UUID v4 |
-| `posts_user_id_fkey` | FK | `user_id` | → `profiles(id)` ON DELETE CASCADE |
-| `posts_township_id_fkey` | FK | `township_id` | → `townships(id)`. No cascade — reference data |
-| `posts_type_check` | CHECK | `type` | `type in ('buying', 'selling')` |
-| `posts_title_check` | CHECK | `title` | `char_length(title) between 1 and 200` |
-| `posts_description_check` | CHECK | `description` | `char_length(description) <= 2000` |
-| `posts_address_check` | CHECK | `address` | `char_length(address) between 1 and 300` |
-| `posts_quantity_check` | CHECK | `quantity` | `quantity > 0` (if provided) |
-| `posts_price_check` | CHECK | `price` | `price >= 0` (if provided) |
+| `posts_author_id_fkey` | FK | `author_id` | → `profiles(id)` ON DELETE CASCADE |
+| `posts_type_check` | CHECK | `type` | `type in ('general', 'buying', 'selling')` |
+| `posts_content_check` | CHECK | `content` | `char_length(content) between 1 and 2000` |
+| `posts_rice_type_check` | CHECK | — | `type = 'general' or rice_type is not null` (trading posts require rice_type) |
+| `posts_badge_check` | CHECK | `badge` | `badge in ('free', 'pro', 'pro_plus')` |
 
 ### Indexes
 
 | Index | Columns | Type | Rationale |
 |---|---|---|---|
-| `idx_posts_created_at` | `created_at DESC` | BTREE | **Global feed.** Query: `select * from posts where is_active = true order by created_at desc limit 20` |
-| `idx_posts_user_created` | `(user_id, created_at DESC)` | BTREE | **Profile posts tab.** Query: `select * from posts where user_id = $1 and is_active = true order by created_at desc` |
-| `idx_posts_type_township` | `(type, township_id, created_at DESC)` | BTREE | **Filtered feed/search.** Query: `select * from posts where type = 'selling' and township_id = $1 and is_active = true order by created_at desc` |
-| `idx_posts_township_id` | `township_id` | BTREE | Join performance when resolving post location |
-| `idx_posts_is_active` | `is_active` | BTREE (partial) | **Partial index** on active posts only: `where is_active = true`. Makes the primary feed query hit only active rows. |
-
-**Partial index detail (recommended for V1, essential for V2):**
-
-```sql
-create index idx_posts_active_feed
-    on posts (created_at desc)
-    where is_active = true;
-```
-
-This replaces the role of `idx_posts_created_at` for feed queries — the partial index is smaller and faster. Keep the full-column index only if needed for admin/debug queries on inactive posts.
+| `idx_posts_created_at` | `created_at DESC` | BTREE | Global feed: `order by created_at desc` |
+| `idx_posts_author_created` | `(author_id, created_at DESC)` | BTREE | Profile posts tab: user's own posts |
+| `idx_posts_type_created` | `(type, created_at DESC)` | BTREE | Filtered feed by post type |
 
 ### Trigger
 
@@ -443,49 +441,37 @@ create trigger update_posts_updated_at
 ```sql
 alter table posts enable row level security;
 
--- Active posts are visible to all authenticated users
-create policy "Active posts are viewable by authenticated users"
+-- All posts (including inactive) are viewable by everyone
+create policy "Posts are viewable by everyone"
     on posts for select
-    to authenticated
-    using (is_active = true);
+    using (true);
 
--- Owners can view their own inactive posts
--- (This OR-policy approach: the broader policy above + owner override below.
---  PostgreSQL evaluates all policies with OR semantics for the same command.)
--- Actually, Supabase RLS for SELECT ORs policies together. So we define:
-create policy "Owners can view their own inactive posts"
-    on posts for select
-    to authenticated
-    using (user_id = auth.uid());
-
--- Users can insert their own posts
+-- Authors can insert their own posts
 create policy "Users can create posts"
     on posts for insert
     to authenticated
-    with check (user_id = auth.uid());
+    with check (author_id = auth.uid());
 
--- Users can update their own posts
+-- Authors can update their own posts
 create policy "Users can update their own posts"
     on posts for update
     to authenticated
-    using (user_id = auth.uid())
-    with check (user_id = auth.uid());
+    using (author_id = auth.uid())
+    with check (author_id = auth.uid());
 
--- Users can delete their own posts (hard-delete; soft-delete uses UPDATE)
+-- Authors can delete their own posts
 create policy "Users can delete their own posts"
     on posts for delete
     to authenticated
-    using (user_id = auth.uid());
+    using (author_id = auth.uid());
 ```
-
-**RLS note:** The two SELECT policies combine with OR semantics — an authenticated user sees a post if `is_active = true` OR `user_id = auth.uid()`. This is the correct behavior: everyone sees active posts, and owners additionally see their own inactive posts.
 
 ---
 
 ## Table 6: `post_images`
 
-**Purpose:** Multi-image support per post. V2 feature — table defined now in schema but unused until image upload ships post-MVP.  
-**Key design:** Max 5 images per post (enforced at application layer; trigger enforcement optional in V2).
+**Purpose:** Multi-image support per post. Max 5 images per post (enforced at application layer).
+**Key design:** Column is `url` (not `image_url`).
 
 ### DDL
 
@@ -493,138 +479,141 @@ create policy "Users can delete their own posts"
 create table post_images (
     id          uuid        primary key default gen_random_uuid(),
     post_id     uuid        not null references posts(id) on delete cascade,
-    image_url   text        not null,
+    url         text        not null check (char_length(url) > 0),
     sort_order  smallint    not null default 0,
     created_at  timestamptz not null default now()
 );
 ```
 
-### Constraints
-
-| Constraint | Type | Column | Detail |
-|---|---|---|---|
-| `post_images_pkey` | PK | `id` | UUID v4 |
-| `post_images_post_id_fkey` | FK | `post_id` | → `posts(id)` ON DELETE CASCADE |
-| `post_images_url_check` | CHECK | `image_url` | `char_length(image_url) > 0` |
-
 ### Indexes
 
 | Index | Columns | Type | Rationale |
 |---|---|---|---|
-| `idx_post_images_post_id` | `(post_id, sort_order)` | BTREE | Fetch all images for a post, ordered. Query: `select * from post_images where post_id = $1 order by sort_order` |
+| `idx_post_images_post_id` | `(post_id, sort_order)` | BTREE | Fetch all images for a post, ordered |
 
 ### RLS
 
 ```sql
 alter table post_images enable row level security;
 
--- Images on active posts are visible to all authenticated users
-create policy "Images on active posts are viewable"
+-- All post images are viewable by everyone
+create policy "Post images are viewable by everyone"
     on post_images for select
-    to authenticated
-    using (
-        exists (
-            select 1 from posts
-            where posts.id = post_images.post_id
-            and (posts.is_active = true or posts.user_id = auth.uid())
-        )
-    );
+    using (true);
 
--- Post owner can insert images
-create policy "Post owner can add images"
+-- Post author can insert images
+create policy "Post author can add images"
     on post_images for insert
     to authenticated
     with check (
         exists (
             select 1 from posts
             where posts.id = post_images.post_id
-            and posts.user_id = auth.uid()
+            and posts.author_id = auth.uid()
         )
     );
 
--- Post owner can delete images
-create policy "Post owner can delete images"
+-- Post author can delete images
+create policy "Post author can delete images"
     on post_images for delete
     to authenticated
     using (
         exists (
             select 1 from posts
             where posts.id = post_images.post_id
-            and posts.user_id = auth.uid()
+            and posts.author_id = auth.uid()
         )
     );
 ```
 
-No UPDATE policy — images are immutable after insert (only URL and sort_order are set once; if reordering is needed in V2, add an UPDATE policy).
+No UPDATE policy — images are immutable after insert.
 
 ---
 
-## Table 7: `follows`
+## Table 7: `saved_posts`
 
-**Purpose:** Social-graph junction table. User A follows User B.  
-**Key design:** UNIQUE(follower, following) + CHECK(self-follow prevention).
+**Purpose:** Bookmarks — user saves a post for later reference.
+**Key design:** Composite PK `(user_id, post_id)`. No separate `id` column.
 
 ### DDL
 
 ```sql
-create table follows (
-    id           uuid        primary key default gen_random_uuid(),
-    follower_id  uuid        not null references profiles(id) on delete cascade,
-    following_id uuid        not null references profiles(id) on delete cascade,
-    created_at   timestamptz not null default now(),
-
-    constraint follows_unique unique (follower_id, following_id),
-    constraint follows_no_self check (follower_id != following_id)
+create table saved_posts (
+    user_id     uuid        not null references profiles(id) on delete cascade,
+    post_id     uuid        not null references posts(id)    on delete cascade,
+    created_at  timestamptz not null default now(),
+    primary key (user_id, post_id)
 );
 ```
-
-### Constraints
-
-| Constraint | Type | Column | Detail |
-|---|---|---|---|
-| `follows_pkey` | PK | `id` | UUID v4 |
-| `follows_follower_id_fkey` | FK | `follower_id` | → `profiles(id)` ON DELETE CASCADE |
-| `follows_following_id_fkey` | FK | `following_id` | → `profiles(id)` ON DELETE CASCADE |
-| `follows_unique` | UNIQUE | `(follower_id, following_id)` | No duplicate follows |
-| `follows_no_self` | CHECK | — | `follower_id != following_id` |
-
-When either profile is deleted, the follow row is removed by CASCADE. Both directions covered.
 
 ### Indexes
 
 | Index | Columns | Type | Rationale |
 |---|---|---|---|
-| `idx_follows_follower` | `follower_id` | BTREE | "Who am I following?" — `select * from follows where follower_id = $1` |
-| `idx_follows_following` | `following_id` | BTREE | "Who follows me?" — `select * from follows where following_id = $1` |
-| (Unique constraint) | `(follower_id, following_id)` | BTREE UNIQUE | "Am I following this user?" single-row lookup. Also serves as the `follower_id` index for that query |
-
-**Note:** The UNIQUE constraint on `(follower_id, following_id)` creates a composite index that covers `follower_id` queries. A separate `idx_follows_follower` on `follower_id` alone may be redundant in practice, but is listed here for clarity — the query planner can use the unique index's leading column `follower_id` for "who am I following?" queries. We keep `idx_follows_following` as the extra index since the unique index does not cover `following_id`-led queries.
+| `idx_saved_posts_user_created` | `(user_id, created_at DESC)` | BTREE | User's saved posts feed |
+| `idx_saved_posts_post_id` | `post_id` | BTREE | "How many users saved this post?" |
 
 ### RLS
 
 ```sql
-alter table follows enable row level security;
+alter table saved_posts enable row level security;
 
--- All follows are publicly visible to authenticated users
-create policy "Follows are viewable by authenticated users"
-    on follows for select
+-- Users can see their own saved posts
+create policy "Users can view their own saved posts"
+    on saved_posts for select
     to authenticated
-    using (true);
+    using (user_id = auth.uid());
 
--- Users can follow others (as themselves)
-create policy "Users can follow others"
-    on follows for insert
+-- Users can save (insert) posts for themselves
+create policy "Users can save posts"
+    on saved_posts for insert
     to authenticated
-    with check (follower_id = auth.uid());
+    with check (user_id = auth.uid());
 
--- Users can unfollow (delete their own follows)
-create policy "Users can unfollow"
-    on follows for delete
+-- Users can unsave (delete) their own saved posts
+create policy "Users can unsave posts"
+    on saved_posts for delete
     to authenticated
-    using (follower_id = auth.uid());
+    using (user_id = auth.uid());
 ```
 
-No UPDATE policy — a follow row has no mutable state beyond insert/delete.
+---
+
+## Storage Buckets (Supabase)
+
+### `profiles` bucket
+
+Stores avatar and cover images for user profiles. Public read access.
+
+```
+profiles/
+├── avatars/
+│   └── {user_id}/
+│       └── avatar.jpg
+└── covers/
+    └── {user_id}/
+        └── cover.jpg
+```
+
+**Policies:**
+- Authenticated users can upload to their own `avatars/` and `covers/` folders
+- Everyone can view (public bucket)
+- Users can update/delete their own images
+
+### `post-images` bucket
+
+Stores images attached to posts. Public read access.
+
+```
+post-images/
+└── {user_id}/
+    └── {image_id}.jpg
+```
+
+**Policies:**
+- Authenticated users can upload to their own folder
+- Everyone can view (public bucket)
+- Users can delete their own images
 
 ---
 
@@ -633,119 +622,17 @@ No UPDATE policy — a follow row has no mutable state beyond insert/delete.
 | Table | Index | Columns | Purpose |
 |---|---|---|---|
 | `townships` | `idx_townships_region_id` | `region_id` | Cascading region → township dropdown |
-| `profiles` | `idx_profiles_username` | `username` (unique) | Route lookup: `/profile/[username]` |
 | `profiles` | `idx_profiles_role_region` | `(role, region_id)` | Search: filter by role + region |
 | `profiles` | `idx_profiles_township_id` | `township_id` | Join: resolve profile township |
 | `profiles` | `idx_profiles_region_id` | `region_id` | Join: resolve profile region |
-| `posts` | `idx_posts_active_feed` | `created_at DESC` WHERE `is_active = true` | Global feed (partial index) |
-| `posts` | `idx_posts_user_created` | `(user_id, created_at DESC)` | User's own posts on profile |
-| `posts` | `idx_posts_type_township` | `(type, township_id, created_at DESC)` | Filtered feed by type + location |
-| `posts` | `idx_posts_township_id` | `township_id` | Join: resolve post location |
+| `posts` | `idx_posts_created_at` | `created_at DESC` | Global feed |
+| `posts` | `idx_posts_author_created` | `(author_id, created_at DESC)` | User's own posts on profile |
+| `posts` | `idx_posts_type_created` | `(type, created_at DESC)` | Filtered feed by type |
 | `post_images` | `idx_post_images_post_id` | `(post_id, sort_order)` | Load images for a post |
-| `follows` | (unique constraint) | `(follower_id, following_id)` | Uniqueness + "am I following?" lookup |
-| `follows` | `idx_follows_following` | `following_id` | "Who follows me?" lookup |
+| `saved_posts` | `idx_saved_posts_user_created` | `(user_id, created_at DESC)` | User's saved posts feed |
+| `saved_posts` | `idx_saved_posts_post_id` | `post_id` | Count saves per post |
 
 **Total: 10 indexes on 7 tables.**
-
----
-
-## Query Patterns & Index Coverage
-
-### Profile Resolution
-```sql
-select p.*, t.name as township_name, r.name as region_name
-from profiles p
-join townships t on t.id = p.township_id
-join regions r on r.id = p.region_id
-where p.username = $1;
-```
-**Indexes hit:** `idx_profiles_username`, `townships_pkey`, `regions_pkey`. Single-row lookup. ✓
-
-Note: `region_id` is resolved directly from profiles (not via townships) for best performance on this 1:1 path.
-
-### User Search (by name, role, region)
-```sql
-select p.*, t.name as township_name, r.name as region_name
-from profiles p
-join townships t on t.id = p.township_id
-join regions r on r.id = p.region_id
-where p.full_name ilike '%' || $1 || '%'
-  and p.role = $2
-  and p.region_id = $3
-limit 20;
-```
-**Indexes hit:** `idx_profiles_role_region` for the role+region filter; name `ilike` does a sequential scan over the filtered set — acceptable at MVP scale. V2 adds `pg_trgm` GIN on `full_name`. ✓
-
-### Global Feed
-```sql
-select p.*, pr.full_name, pr.role, pr.username, pr.avatar_url,
-       t.name as township_name, r.name as region_name
-from posts p
-join profiles pr on pr.id = p.user_id
-join townships t on t.id = p.township_id
-join regions r on r.id = t.region_id
-where p.is_active = true
-order by p.created_at desc
-limit 20;
-```
-**Indexes hit:** `idx_posts_active_feed` (partial index — fast), plus PK joins. ✓
-
-### Followed Feed (V2)
-```sql
-select p.*, pr.full_name, pr.role, pr.username,
-       t.name as township_name, r.name as region_name
-from posts p
-join profiles pr on pr.id = p.user_id
-join townships t on t.id = p.township_id
-join regions r on r.id = t.region_id
-join follows f on f.following_id = p.user_id
-where f.follower_id = $1
-  and p.is_active = true
-order by p.created_at desc
-limit 20;
-```
-**Indexes hit:** `(follower_id, following_id)` unique index + `idx_posts_active_feed`. V2 query; listed for completeness. ✓
-
-### Follow Status Check
-```sql
-select 1 from follows
-where follower_id = $1 and following_id = $2;
-```
-**Indexes hit:** Unique constraint `(follower_id, following_id)` — single-row index lookup. ✓
-
-### Follower/Following Counts
-```sql
-select count(*) from follows where follower_id = $1;   -- following count
-select count(*) from follows where following_id = $1;  -- follower count
-```
-**Indexes hit:** `(follower_id, following_id)` unique for the first; `idx_follows_following` for the second. Both are index-only scans. ✓
-
-### Active Posts Filtered by Type + Township
-```sql
-select p.*, pr.full_name, pr.role, pr.username,
-       t.name as township_name, r.name as region_name
-from posts p
-join profiles pr on pr.id = p.user_id
-join townships t on t.id = p.township_id
-join regions r on r.id = t.region_id
-where p.is_active = true
-  and p.type = 'selling'
-  and p.township_id = $1
-order by p.created_at desc
-limit 20;
-```
-**Indexes hit:** `idx_posts_type_township` for the type+township filter with `created_at DESC`. ✓
-
----
-
-## Storage Buckets (Supabase)
-
-| Bucket | Purpose | Max File Size | Max Files/Post | Public |
-|---|---|---|---|---|
-| `avatars` | Profile photos (V2) | 2 MB | 1 per profile | Yes (read) |
-| `post-images` | Post listing images (V2) | 5 MB | 5 per post | Yes (read) |
-
-Both buckets are deferred to post-MVP. Columns `avatar_url` and `image_url` are nullable; the application uses initial-based fallback avatars and text-only posts in V1.
 
 ---
 
@@ -756,42 +643,37 @@ Both buckets are deferred to post-MVP. Columns `avatar_url` and `image_url` are 
 farmer
 trader
 agent
-general
+general_user
 ```
-
-### `market_status` (reference table)
-Statuses are stored as rows with bilingual names, referenced by `profiles.market_status_id` (FK, nullable).
-
-| id | en | my |
-|---|---|---|
-| 1 | Looking for Buyers | ဝယ်သူရှာနေသည် |
-| 2 | Looking for Suppliers | ရောင်းသူရှာနေသည် |
-| 3 | Buying Rice | စပါးဝယ်မည် |
-| 4 | Selling Rice | စပါးရောင်းမည် |
-| 5 | Available as Agent | အကျိုးဆောင်ရနိုင်သည် |
-| 6 | Open for Partnership | လုပ်ငန်းဖက်စပ်ရှာနေသည် |
-
-`market_status_id` is NULL by default at user creation — the user chooses a status later. No badge is shown when NULL.
 
 ### `posts.type`
 ```
+general
 buying
 selling
 ```
 
-### `posts.quantity_unit`
+### `posts.badge`
 ```
-တင်း      (basket — traditional volumetric unit, ~20-25 kg depending on rice type)
-အိတ်      (bag — typically 50 kg)
-တန်       (ton — 1000 kg)
+free
+pro
+pro_plus
 ```
-Default: `'တင်း'`. Free-form in V1 (no CHECK constraint beyond being text).
 
-### `posts.price_unit`
+### `posts.unit`
 ```
-ကျပ်      (MMK — Myanmar Kyat)
+pound
+tin
 ```
-Default: `'ကျပ်'`. Free-form in V1 to allow per-unit specification (e.g., "ကျပ်/တင်း").
+
+### `market_status` (reference table)
+
+| id | en | my | color |
+|---|---|---|---|
+| 1 | Buying Rice | စပါးဝယ်မည် | `#3B82F6` |
+| 2 | Selling Rice | စပါးရောင်းမည် | `#10B981` |
+| 3 | Available as Agent | အကျိုးဆောင်ရနိုင်သည် | `#F59E0B` |
+| 4 | Open for Partnership | လုပ်ငန်းဖက်စပ်ရှာနေသည် | `#8B5CF6` |
 
 ---
 
@@ -800,20 +682,13 @@ Default: `'ကျပ်'`. Free-form in V1 to allow per-unit specification (e.g.
 ```
 supabase/
 └── migrations/
-    └── 20250615000000_initial_schema.sql
+    ├── 20260618000000_auth_schema.sql          — Extension, reference tables (market_status, regions, townships), profiles, handle_new_user trigger, lookup_email_by_phone, soft_delete_account
+    ├── 20260618000001_create_profiles_storage.sql — Storage bucket "profiles" with RLS policies
+    ├── 20260618000002_create_posts.sql          — update_updated_at_column function, posts, post_images
+    ├── 20260618000003_create_post_images_storage.sql — Storage bucket "post-images" with RLS policies
+    ├── 20260619000000_create_saved_posts.sql    — saved_posts table
+    └── 20260619000001_user_soft_delete.sql      — idempotent soft-delete migration (deleted_at column, soft_delete_account function, updated RLS)
 ```
-
-Single migration file containing, in order:
-
-1. `create extension if not exists "pgcrypto"`
-2. `create or replace function update_updated_at_column()`
-3. `create table market_status` + seed data + RLS
-4. `create table regions` + seed data + RLS
-5. `create table townships` + seed data + RLS + index
-6. `create table profiles` + constraints + RLS + indexes + trigger
-7. `create table posts` + constraints + RLS + indexes + trigger
-8. `create table post_images` + constraints + RLS + index
-9. `create table follows` + constraints + RLS
 
 ---
 
@@ -821,13 +696,12 @@ Single migration file containing, in order:
 
 | Enhancement | Detail |
 |---|---|
-| `pg_trgm` extension | GIN indexes on `profiles.full_name` and `posts.title` for fast `ILIKE` search |
+| `follows` table | Social-graph junction table (follower_id, following_id) |
 | `conversations` table | Direct messaging between users |
 | `messages` table | Individual messages within a conversation |
 | `reviews` table | Ratings and reviews between users |
 | `verifications` table | User verification requests and badges |
 | `notifications` table | In-app notification system |
-| `profiles` → `search_vector` | Generated `tsvector` column with Myanmar tokenizer consideration |
-| Trigger: enforce max 5 images per post | Database-level enforcement for `post_images` |
+| `pg_trgm` extension | GIN indexes on `profiles.full_name` and `posts.content` for fast `ILIKE` search |
 
 None of these are created in the V1 migration.

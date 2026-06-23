@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/components/auth/auth-provider";
-import { mockComments, timeAgo } from "@/lib/mock-data";
+import { mockComments } from "@/lib/mock-data";
+import { formatRelativeTime } from "@/lib/utils/format";
 import type { Comment } from "@/types";
 import { Loader2, Send } from "lucide-react";
 import Link from "next/link";
@@ -91,7 +92,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
                     {comment.author.full_name}
                   </Link>
                   <span className="text-[10px] text-muted-foreground">
-                    {timeAgo(comment.created_at)}
+                    {formatRelativeTime(comment.created_at)}
                   </span>
                 </div>
                 <p className="text-sm mt-0.5 break-words">{comment.content}</p>

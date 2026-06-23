@@ -11,8 +11,9 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ============================================================================
 CREATE TABLE public.market_status (
   id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  name JSONB NOT NULL,                     -- {"en": "Looking for Buyers", "my": "ဝယ်သူရှာနေသည်"}
-  sort_order SMALLINT NOT NULL DEFAULT 0
+  name JSONB NOT NULL,                     -- {"en": "Buying Rice", "my": "စပါးဝယ်မည်"}
+  sort_order SMALLINT NOT NULL DEFAULT 0,
+  color TEXT                                -- Hex color code for UI display
 );
 
 ALTER TABLE public.market_status ENABLE ROW LEVEL SECURITY;
@@ -20,13 +21,11 @@ CREATE POLICY "Market status viewable by everyone" ON public.market_status
   FOR SELECT USING (true);
 
 -- Seed market status values
-INSERT INTO public.market_status (name, sort_order) VALUES
-  ('{"en": "Looking for Buyers",   "my": "ဝယ်သူရှာနေသည်"}',       1),
-  ('{"en": "Looking for Suppliers","my": "ရောင်းသူရှာနေသည်"}',     2),
-  ('{"en": "Buying Rice",          "my": "စပါးဝယ်မည်"}',           3),
-  ('{"en": "Selling Rice",         "my": "စပါးရောင်းမည်"}',         4),
-  ('{"en": "Available as Agent",   "my": "အကျိုးဆောင်ရနိုင်သည်"}',   5),
-  ('{"en": "Open for Partnership",  "my": "လုပ်ငန်းဖက်စပ်ရှာနေသည်"}', 6);
+INSERT INTO public.market_status (name, sort_order, color) VALUES
+  ('{"en": "Buying Rice",          "my": "စပါးဝယ်မည်"}',           1, '#3B82F6'),
+  ('{"en": "Selling Rice",         "my": "စပါးရောင်းမည်"}',         2, '#10B981'),
+  ('{"en": "Available as Agent",   "my": "အကျိုးဆောင်ရနိုင်သည်"}',   3, '#F59E0B'),
+  ('{"en": "Open for Partnership",  "my": "လုပ်ငန်းဖက်စပ်ရှာနေသည်"}', 4, '#8B5CF6');
 
 -- 2. Regions reference table (bilingual names, JSONB)
 -- ============================================================================

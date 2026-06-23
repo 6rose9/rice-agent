@@ -25,7 +25,8 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Post } from "@/types";
-import { timeAgo, formatPrice, formatQuantity, regionTownships, roleLabels, marketStatusLabels } from "@/lib/mock-data";
+import { formatRelativeTime, formatPrice, formatQuantity } from "@/lib/utils/format";
+import { regionTownships, roleLabels, marketStatusLabels } from "@/lib/mock-data";
 import { deletePost } from "@/lib/posts/actions";
 import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation } from "lucide-react";
 
@@ -55,7 +56,7 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
   const isAuthor = isAuthenticated && currentUserId === post.author_id;
 
   useEffect(() => {
-    setDisplayTime(timeAgo(post.created_at));
+    setDisplayTime(formatRelativeTime(post.created_at));
   }, [post.created_at]);
 
   return (

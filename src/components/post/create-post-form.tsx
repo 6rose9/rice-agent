@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { createPost } from "@/lib/posts/actions";
 import { postSchema, type PostInput } from "@/lib/validations/post";
 import { regionTownships, regionKeys } from "@/lib/mock-data";
-import { isProUser } from "@/lib/subscription";
+import { useSubscription } from "@/hooks/use-subscription";
 import { ImagePlus, X, Loader2, Crown } from "lucide-react";
 import { TradingFormFields } from "./trading-form-fields";
 
@@ -29,14 +29,10 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [serverError, setServerError] = useState("");
-  const [userIsPro, setUserIsPro] = useState(false);
+  const { isPro: userIsPro } = useSubscription();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Fix #4: track newly uploaded file paths for cleanup on failure
   const pendingUploads = useRef<string[]>([]);
-
-  useEffect(() => {
-    setUserIsPro(isProUser());
-  }, []);
 
   const {
     register,
@@ -128,9 +124,20 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   async function onSubmit(data: PostInput) {
     setServerError("");
 
+    // Subscription gate at submit time: redirect non-pro users to pricing
+    if ((data.type === "buying" || data.type === "selling") && !userIsPro) {
+      router.push("/pricing?redirect=/posts/create&reason=pro_required");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("type", data.type);
     formData.append("content", data.content);
+
+    // Send subscription tier for server-side validation (buying/selling posts)
+    if (data.type === "buying" || data.type === "selling") {
+      formData.append("subscription_tier", "pro");
+    }
 
     if (data.type !== "general") {
       if (data.rice_type) formData.append("rice_type", data.rice_type);
@@ -236,13 +243,7 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               variant={postType === "selling" ? "default" : "outline"}
               className="w-full"
               size="sm"
-              onClick={() => {
-                if (!userIsPro) {
-                  router.push("/pricing");
-                  return;
-                }
-                handleTypeChange("selling");
-              }}
+              onClick={() => handleTypeChange("selling")}
             >
               🛒 Selling
             </Button>
@@ -262,13 +263,7 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
               variant={postType === "buying" ? "default" : "outline"}
               className="w-full"
               size="sm"
-              onClick={() => {
-                if (!userIsPro) {
-                  router.push("/pricing");
-                  return;
-                }
-                handleTypeChange("buying");
-              }}
+              onClick={() => handleTypeChange("buying")}
             >
               💰 Buying
             </Button>

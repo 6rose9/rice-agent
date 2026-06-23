@@ -3,12 +3,10 @@ import { Profile, Post, Comment, PostImage, MarketStatusRow, RegionRow, Township
 // ── Mock Reference Data ─────────────────────────────────────────────
 
 export const mockMarketStatuses: MarketStatusRow[] = [
-  { id: 1, name: { en: "Looking for Buyers",   my: "ဝယ်သူရှာနေသည်" },     sort_order: 1 },
-  { id: 2, name: { en: "Looking for Suppliers", my: "ရောင်းသူရှာနေသည်" },  sort_order: 2 },
-  { id: 3, name: { en: "Buying Rice",           my: "စပါးဝယ်မည်" },         sort_order: 3 },
-  { id: 4, name: { en: "Selling Rice",          my: "စပါးရောင်းမည်" },       sort_order: 4 },
-  { id: 5, name: { en: "Available as Agent",    my: "အကျိုးဆောင်ရနိုင်သည်" }, sort_order: 5 },
-  { id: 6, name: { en: "Open for Partnership",   my: "လုပ်ငန်းဖက်စပ်ရှာနေသည်" }, sort_order: 6 },
+  { id: 1, name: { en: "Buying Rice",           my: "စပါးဝယ်မည်" },         sort_order: 1 },
+  { id: 2, name: { en: "Selling Rice",          my: "စပါးရောင်းမည်" },       sort_order: 2 },
+  { id: 3, name: { en: "Available as Agent",    my: "အကျိုးဆောင်ရနိုင်သည်" }, sort_order: 3 },
+  { id: 4, name: { en: "Open for Partnership",   my: "လုပ်ငန်းဖက်စပ်ရှာနေသည်" }, sort_order: 4 },
 ];
 
 export const mockRegions: RegionRow[] = [
@@ -82,7 +80,7 @@ export const mockProfiles: Profile[] = [
     bio: "စပါးလုပ်ငန်း ၁၅ နှစ်အတွေ့အကြုံရှိ။ အရည်အသွေးကောင်းမွန်ရောင်းဝယ်ပါတယ်။",
     region_id: 15,
     township_id: 1, // Hlaingthaya
-    market_status_id: 2, // Looking for Suppliers
+    market_status_id: 2, // Selling Rice
     phone_verified: false,
     created_at: "2025-03-15T00:00:00Z",
     updated_at: "2026-06-10T00:00:00Z",
@@ -150,7 +148,7 @@ export const mockProfiles: Profile[] = [
     bio: "Shwe Bo ဒေသမှာ စပါးစိုက်ပျိုးပါတယ်။ နှစ်စဉ် တန်ချိန် ၅၀၀ ခန့်ထွက်ရှိပါတယ်။",
     region_id: 12,
     township_id: 7, // Shwe Bo
-    market_status_id: 1, // Looking for Buyers
+    market_status_id: 2, // Selling Rice
     phone_verified: false,
     created_at: "2025-05-15T00:00:00Z",
     updated_at: "2026-05-20T00:00:00Z",
@@ -404,42 +402,6 @@ export const mockComments: Record<string, Comment[]> = {
   ],
 };
 
-// ── Relative time helper ─────────────────────────────────────────────
-
-export function timeAgo(dateStr: string): string {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "ယခုအတွင်း";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 4) return `${weeks}w`;
-  return date.toLocaleDateString("my-MM");
-}
-
-// ── Format helpers ───────────────────────────────────────────────────
-
-export function formatPrice(price: number | null | undefined): string {
-  if (price == null) return "—";
-  if (price >= 100_000) {
-    const lakh = price / 100_000;
-    return `${lakh.toFixed(1)} Lakh Ks`;
-  }
-  return `${price.toLocaleString()} Ks`;
-}
-
-export function formatQuantity(qty: number | null | undefined, unit?: string | null): string {
-  if (qty == null) return "—";
-  const unitLabel = unit === "pound" ? "pounds" : "baskets";
-  return `${qty.toLocaleString()} ${unitLabel}`;
-}
-
 // ── Role badge display ───────────────────────────────────────────────
 
 export const roleLabels: Record<string, string> = {
@@ -633,21 +595,17 @@ for (const t of mockTownships) {
 // ── Market status labels (keyed by id for display) ───────────────────
 
 export const marketStatusLabels: Record<number, string> = {
-  1: "Looking for Buyers",
-  2: "Looking for Suppliers",
-  3: "Buying Rice",
-  4: "Selling Rice",
-  5: "Available as Agent",
-  6: "Open for Partnership",
+  1: "Buying Rice",
+  2: "Selling Rice",
+  3: "Available as Agent",
+  4: "Open for Partnership",
 };
 
 export const marketStatusShort: Record<number, string> = {
-  1: "LFB",
-  2: "LFS",
-  3: "B.R.",
-  4: "S.R.",
-  5: "Avail",
-  6: "OFP",
+  1: "B.R.",
+  2: "S.R.",
+  3: "Avail",
+  4: "OFP",
 };
 
 export const marketStatusColors: Record<number, { bg: string; text: string; border: string }> = {
