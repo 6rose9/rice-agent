@@ -22,9 +22,10 @@ export interface TownshipRow extends Omit<Tables<'townships'>, 'name'> {
   name: BilingualName
 }
 
-/** Market status with typed name */
+/** Market status with typed name and color */
 export interface MarketStatusRow extends Omit<Tables<'market_status'>, 'name'> {
   name: BilingualName
+  color: string | null
 }
 
 /** Insert types */
@@ -105,22 +106,4 @@ export interface ProfileFormData {
   township_id: number;
   market_status_id?: number | null;
   bio?: string;
-}
-
-/** Post form data (for create/edit) */
-export interface PostFormData {
-  type: PostType;
-  content: string;
-  rice_type?: string;
-  rice_name?: string;
-  price?: number | null;
-  quantity?: number | null;
-  unit?: string;
-  address?: string;
-  region?: string;
-  township?: string | null;
-  easy_to_carry?: boolean;
-  pound_per_bag?: number | null;
-  paddy_condition?: string | null;
-  badge?: SubscriptionBadge;
 }

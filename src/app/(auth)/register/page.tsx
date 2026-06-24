@@ -26,12 +26,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { register as registerAction } from "@/lib/auth/actions";
+import { register as registerAction, updateAvatar } from "@/lib/auth/actions";
 import { registerSchema, type RegisterInput } from "@/lib/validations/auth";
 import { createClient } from "@/lib/supabase/client";
-import { roleLabels } from "@/lib/mock-data";
+import { ROLE_LABELS } from "@/lib/constants";
 import { useRegions } from "@/hooks/use-regions";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 
 function RegisterFormInner() {
   const searchParams = useSearchParams();
@@ -41,6 +41,8 @@ function RegisterFormInner() {
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState("");
   const [serverError, setServerError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { regions, getTownshipsForRegion } = useRegions();
   const profileImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -56,6 +58,7 @@ function RegisterFormInner() {
   } = useForm<RegisterInput>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(registerSchema as any) as any,
+    mode: "onSubmit",
     defaultValues: {
       full_name: "",
       phone: "",
@@ -114,6 +117,7 @@ function RegisterFormInner() {
     if (step === 1) {
       const valid = await trigger(["full_name", "phone", "email", "region_id", "township_id"]);
       if (!valid) return;
+      clearErrors();
       setStep(2);
       return;
     }
@@ -121,7 +125,7 @@ function RegisterFormInner() {
     if (step === 2) {
       const valid = await trigger(["role", "bio"]);
       if (!valid) return;
-      clearErrors(["password", "confirm_password"]);
+      clearErrors();
       setStep(3);
       return;
     }
@@ -129,7 +133,28 @@ function RegisterFormInner() {
 
   function handleBack() {
     setServerError("");
+    clearErrors();
     setStep((s) => Math.max(1, s - 1));
+  }
+
+  async function handleCreateAccount() {
+    setServerError("");
+
+    // Validate all fields before submitting
+    const valid = await trigger();
+    if (!valid) {
+      // Navigate to the first step that has errors
+      if (step1Fields.some((f) => errors[f])) {
+        setStep(1);
+      } else if (step2Fields.some((f) => errors[f])) {
+        setStep(2);
+      }
+      // Step 3 errors are already visible
+      return;
+    }
+
+    // All valid — submit
+    handleSubmit(onSubmit)();
   }
 
   async function onSubmit(data: RegisterInput) {
@@ -168,29 +193,25 @@ function RegisterFormInner() {
     formData.append("password", data.password);
     formData.append("confirm_password", data.confirm_password);
     formData.append("redirect", redirect);
-    if (avatarUrl) formData.append("avatar_url", avatarUrl);
 
-    const result = await registerAction({ success: false }, formData);
+    const result = await registerAction(null, formData);
 
     if (!result.success) {
       setServerError(result.error || "Registration failed. Please try again.");
       return;
     }
 
+    // Update avatar after registration (profile row exists by now)
+    if (avatarUrl) {
+      await updateAvatar(avatarUrl);
+    }
+
     window.location.href = result.redirect || redirect;
   }
 
-  // Collect field errors for current step display
+  // Field groups for step navigation on failed submit
   const step1Fields = ["full_name", "phone", "email", "region_id", "township_id"] as const;
   const step2Fields = ["role", "bio"] as const;
-  const step3Fields = ["password", "confirm_password"] as const;
-
-  const currentStepFields =
-    step === 1 ? step1Fields : step === 2 ? step2Fields : step3Fields;
-
-  const stepErrors = currentStepFields
-    .map((f) => errors[f]?.message)
-    .filter(Boolean) as string[];
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -206,7 +227,7 @@ function RegisterFormInner() {
           <p className="text-sm mt-2">Step {step} of 3</p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
             {/* ── Step 1: Basic Info ── */}
             {step === 1 && (
               <div className="space-y-4">
@@ -366,7 +387,7 @@ function RegisterFormInner() {
                       <SelectValue placeholder="Choose your profile" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(roleLabels).map(([value, label]) => (
+                      {Object.entries(ROLE_LABELS).map(([value, label]) => (
                         <SelectItem key={value} value={value}>
                           {label}
                         </SelectItem>
@@ -398,12 +419,27 @@ function RegisterFormInner() {
                   <Label htmlFor="password">
                     Password <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Min 6 characters"
-                    {...register("password")}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Min 6 characters"
+                      {...register("password")}
+                      className="pr-9"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                   {errors.password && (
                     <p className="text-sm text-destructive">{errors.password.message}</p>
                   )}
@@ -412,12 +448,27 @@ function RegisterFormInner() {
                   <Label htmlFor="confirm_password">
                     Confirm Password <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="confirm_password"
-                    type="password"
-                    placeholder="Re-enter your password"
-                    {...register("confirm_password")}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirm_password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Re-enter your password"
+                      {...register("confirm_password")}
+                      className="pr-9"
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                   {errors.confirm_password && (
                     <p className="text-sm text-destructive">
                       {errors.confirm_password.message}
@@ -427,16 +478,7 @@ function RegisterFormInner() {
               </div>
             )}
 
-            {/* ── Errors ── */}
-            {stepErrors.length > 0 && (
-              <div className="space-y-1">
-                {stepErrors.map((msg, i) => (
-                  <p key={i} className="text-sm text-destructive">
-                    {msg}
-                  </p>
-                ))}
-              </div>
-            )}
+            {/* ── Server Error ── */}
             {serverError && (
               <p className="text-sm text-destructive">{serverError}</p>
             )}
@@ -458,7 +500,7 @@ function RegisterFormInner() {
                     Next
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button type="button" disabled={isSubmitting} onClick={handleCreateAccount}>
                     {isSubmitting && (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     )}

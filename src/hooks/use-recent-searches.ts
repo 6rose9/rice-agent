@@ -10,7 +10,8 @@ function load(): string[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
-  } catch {
+  } catch (err) {
+    console.error("Failed to load recent searches:", err);
     return [];
   }
 }
@@ -18,7 +19,9 @@ function load(): string[] {
 function save(items: string[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  } catch {}
+  } catch (err) {
+    console.error("Failed to save recent searches:", err);
+  }
 }
 
 export function useRecentSearches() {

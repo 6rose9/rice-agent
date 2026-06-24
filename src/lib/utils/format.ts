@@ -21,13 +21,12 @@ export function formatRelativeTime(dateStr: string): string {
 
 /**
  * Format a price in Kyats.
- * Values >= 1 lakh are shown as "X.X Lakh Ks", otherwise "X,XXX Ks".
+ * Round lakhs (100000, 200000, …) shown as "X Lakh"; others as "X,XXX Ks".
  */
 export function formatPrice(price: number | null | undefined): string {
   if (price == null) return "—";
-  if (price >= 100_000) {
-    const lakh = price / 100_000;
-    return `${lakh.toFixed(1)} Lakh Ks`;
+  if (price >= 100_000 && price % 100_000 === 0) {
+    return `${price / 100_000} Lakh`;
   }
   return `${price.toLocaleString()} Ks`;
 }

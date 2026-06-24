@@ -78,7 +78,8 @@ export function PostActions({
           await unsavePost(postId);
         }
         onSave?.(postId);
-      } catch {
+      } catch (err) {
+        console.error("Failed to toggle bookmark:", err);
         // Revert on error
         setSaved(!newSaved);
       } finally {

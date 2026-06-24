@@ -4,14 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { postSchema } from "@/lib/validations/post";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Post, PostImage, Profile } from "@/types";
+import { ActionResult, extractFirstFieldError, requireAuth } from "@/lib/actions";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 // ── Types ─────────────────────────────────────────────────────────────
-
-export type PostActionResult = {
-  success: boolean;
-  error?: string;
-  redirect?: string;
-};
 
 // Raw DB row shapes for joined queries
 interface PostRow {
@@ -48,6 +44,18 @@ interface PostImageRow {
 }
 
 // ── Shared Helpers ────────────────────────────────────────────────────
+
+/** Encode a cursor from created_at + id for composite pagination */
+function encodeCursor(created_at: string, id: string): string {
+  return `${created_at}|${id}`;
+}
+
+/** Decode a composite cursor back into [created_at, id] */
+function decodeCursor(cursor: string): [string, string] {
+  const idx = cursor.lastIndexOf("|");
+  if (idx === -1) return [cursor, ""]; // fallback for legacy single-value cursors
+  return [cursor.slice(0, idx), cursor.slice(idx + 1)];
+}
 
 /** Fallback profile for missing/soft-deleted authors */
 const UNKNOWN_PROFILE: Profile = {
@@ -148,12 +156,41 @@ function assemblePost(
   };
 }
 
+// ── Get Single Post ────────────────────────────────────────────────
+
+export async function getPost(postId: string): Promise<Post | null> {
+  const supabase = await createClient();
+
+  const { data: postRow, error } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("id", postId)
+    .maybeSingle();
+
+  if (error || !postRow) {
+    return null;
+  }
+
+  const row = postRow as unknown as PostRow;
+
+  const [{ data: profileData }, imagesMap] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", row.author_id).maybeSingle(),
+    fetchImagesMap(supabase, [row.id]),
+  ]);
+
+  const author: Profile = profileData
+    ? (profileData as unknown as Profile)
+    : { ...UNKNOWN_PROFILE, id: row.author_id };
+
+  return assemblePost(row, author, imagesMap.get(row.id) ?? []);
+}
+
 // ── Create Post ──────────────────────────────────────────────────────
 
 export async function createPost(
-  _prevState: PostActionResult | null,
+  _prevState: ActionResult | null,
   formData: FormData,
-): Promise<PostActionResult> {
+): Promise<ActionResult> {
   const postType = formData.get("type") as string;
 
   // Subscription gate: buying/selling posts require pro tier
@@ -191,15 +228,9 @@ export async function createPost(
   // Validate with zod schema
   const parsed = postSchema.safeParse(rawData);
   if (!parsed.success) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const firstError = (parsed.error.flatten().fieldErrors as any);
+    const fe = parsed.error.flatten().fieldErrors;
     const msg =
-      firstError.content?.[0] ||
-      firstError.rice_type?.[0] ||
-      firstError.price?.[0] ||
-      firstError.quantity?.[0] ||
-      firstError.pound_per_bag?.[0] ||
-      firstError.paddy_condition?.[0] ||
+      extractFirstFieldError(fe, "content", "rice_type", "price", "quantity", "pound_per_bag", "paddy_condition") ||
       "Invalid input.";
     return { success: false, error: msg };
   }
@@ -207,12 +238,9 @@ export async function createPost(
   const supabase = await createClient();
 
   // Get authenticated user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+  const { user } = auth;
 
   // Image URLs (comma-separated string from form)
   const imageUrls = (formData.get("images") as string)
@@ -280,6 +308,10 @@ export async function createPost(
       }
     }
 
+    // Invalidate feed cache so new post appears on next visit
+    revalidatePath("/feed");
+    revalidateTag("posts", "default");
+
     return { success: true, redirect: "/feed" };
   } catch (err) {
     return {
@@ -294,18 +326,30 @@ export async function createPost(
 export async function getPosts(
   cursor?: string,
   pageSize = 20,
+  type?: "buying" | "selling",
 ): Promise<{ posts: Post[]; nextCursor: string | null }> {
   const supabase = await createClient();
 
   // Fetch posts ordered by newest first, with cursor-based pagination
+  // Cursor is a composite "created_at|id" to handle identical timestamps
   let query = supabase
     .from("posts")
     .select("*")
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(pageSize + 1); // fetch one extra to detect if there are more
 
   if (cursor) {
-    query = query.lt("created_at", cursor);
+    const [cursorDate, cursorId] = decodeCursor(cursor);
+    // Filter rows that come strictly before the cursor position
+    // created_at < cursorDate, OR (created_at = cursorDate AND id < cursorId)
+    query = query.or(
+      `created_at.lt.${cursorDate},and(created_at.eq.${cursorDate},id.lt.${cursorId})`,
+    );
+  }
+
+  if (type) {
+    query = query.eq("type", type);
   }
 
   const { data: postRows, error: postError } = await query;
@@ -317,7 +361,10 @@ export async function getPosts(
 
   const hasMore = postRows.length > pageSize;
   const rows = hasMore ? postRows.slice(0, pageSize) : postRows;
-  const nextCursor = hasMore ? rows[rows.length - 1].created_at : null;
+  const lastRow = rows[rows.length - 1];
+  const nextCursor = hasMore
+    ? encodeCursor(lastRow.created_at, lastRow.id)
+    : null;
 
   const posts = rows as unknown as PostRow[];
   const authorIds = [...new Set(posts.map((p) => p.author_id))];
@@ -342,7 +389,10 @@ export async function getPosts(
 
 // ── Fetch Posts by Author ────────────────────────────────────────────
 
-export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
+export async function getPostsByAuthor(
+  authorId: string,
+  authorProfile?: Profile,
+): Promise<Post[]> {
   const supabase = await createClient();
 
   const { data: postRows, error: postError } = await supabase
@@ -358,19 +408,23 @@ export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
 
   const posts = postRows as unknown as PostRow[];
 
-  // Fetch the single author profile + all images in parallel
+  // Fetch the author profile (skip if already provided) + all images in parallel
   const postIds = posts.map((p) => p.id);
+  const profilePromise = authorProfile
+    ? Promise.resolve({ data: authorProfile as unknown as Record<string, unknown> })
+    : supabase.from("profiles").select("*").eq("id", authorId).maybeSingle();
+
   const [{ data: profileData }, imagesMap] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", authorId).maybeSingle(),
+    profilePromise,
     fetchImagesMap(supabase, postIds),
   ]);
 
-  const authorProfile: Profile = profileData
+  const resolvedProfile: Profile = profileData
     ? (profileData as unknown as Profile)
     : { ...UNKNOWN_PROFILE, id: authorId };
 
   return posts.map((row) =>
-    assemblePost(row, authorProfile, imagesMap.get(row.id) ?? []),
+    assemblePost(row, resolvedProfile, imagesMap.get(row.id) ?? []),
   );
 }
 
@@ -378,9 +432,9 @@ export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
 
 export async function updatePost(
   postId: string,
-  _prevState: PostActionResult | null,
+  _prevState: ActionResult | null,
   formData: FormData,
-): Promise<PostActionResult> {
+): Promise<ActionResult> {
   const rawData: Record<string, unknown> = {
     type: formData.get("type") as string,
     content: formData.get("content") as string,
@@ -401,26 +455,17 @@ export async function updatePost(
 
   const parsed = postSchema.safeParse(rawData);
   if (!parsed.success) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const firstError = (parsed.error.flatten().fieldErrors as any);
+    const fe = parsed.error.flatten().fieldErrors;
     const msg =
-      firstError.content?.[0] ||
-      firstError.rice_type?.[0] ||
-      firstError.price?.[0] ||
-      firstError.quantity?.[0] ||
-      firstError.pound_per_bag?.[0] ||
-      firstError.paddy_condition?.[0] ||
+      extractFirstFieldError(fe, "content", "rice_type", "price", "quantity", "pound_per_bag", "paddy_condition") ||
       "Invalid input.";
     return { success: false, error: msg };
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+  const { user } = auth;
 
   // Verify ownership
   const { data: existing } = await supabase
@@ -469,6 +514,11 @@ export async function updatePost(
       return { success: false, error: updateError.message };
     }
 
+    // Invalidate feed and profile caches
+    revalidatePath("/feed");
+    revalidatePath("/saved");
+    revalidateTag("posts", "default");
+
     // Handle images: remove old, insert new
     const imageUrls = (formData.get("images") as string)
       ?.split(",")
@@ -497,44 +547,58 @@ export async function updatePost(
 
 // ── Save / Unsave Post ──────────────────────────────────────────────
 
-export async function savePost(postId: string): Promise<PostActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+export async function savePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
 
-  const { error } = await supabase
-    .from("saved_posts")
-    .upsert({ user_id: user.id, post_id: postId }, { onConflict: "user_id,post_id" });
+    const { error } = await supabase
+      .from("saved_posts")
+      .upsert({ user_id: user.id, post_id: postId }, { onConflict: "user_id,post_id" });
 
-  if (error) {
-    return { success: false, error: error.message };
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/feed");
+    revalidatePath("/saved");
+    revalidateTag("posts", "default");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to save post.",
+    };
   }
-  return { success: true };
 }
 
-export async function unsavePost(postId: string): Promise<PostActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+export async function unsavePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
 
-  const { error } = await supabase
-    .from("saved_posts")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("post_id", postId);
+    const { error } = await supabase
+      .from("saved_posts")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("post_id", postId);
 
-  if (error) {
-    return { success: false, error: error.message };
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/feed");
+    revalidatePath("/saved");
+    revalidateTag("posts", "default");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to unsave post.",
+    };
   }
-  return { success: true };
 }
 
 // ── Fetch Saved Posts ────────────────────────────────────────────────
@@ -595,59 +659,67 @@ export async function getSavedPosts(): Promise<Post[]> {
 
 // ── Delete Post ──────────────────────────────────────────────────────
 
-export async function deletePost(postId: string): Promise<PostActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+export async function deletePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
 
-  const { data: existing } = await supabase
-    .from("posts")
-    .select("author_id")
-    .eq("id", postId)
-    .maybeSingle();
+    const { data: existing } = await supabase
+      .from("posts")
+      .select("author_id")
+      .eq("id", postId)
+      .maybeSingle();
 
-  if (!existing || existing.author_id !== user.id) {
-    return { success: false, error: "You can only delete your own posts." };
-  }
+    if (!existing || existing.author_id !== user.id) {
+      return { success: false, error: "You can only delete your own posts." };
+    }
 
-  // Fetch image URLs before deleting rows so we can clean up storage
-  const { data: imageRows } = await supabase
-    .from("post_images")
-    .select("url")
-    .eq("post_id", postId);
+    // Fetch image URLs before deleting rows so we can clean up storage
+    const { data: imageRows } = await supabase
+      .from("post_images")
+      .select("url")
+      .eq("post_id", postId);
 
-  // Delete image rows first
-  await supabase.from("post_images").delete().eq("post_id", postId);
+    // Delete image rows first
+    await supabase.from("post_images").delete().eq("post_id", postId);
 
-  // Delete the post itself
-  const { error } = await supabase.from("posts").delete().eq("id", postId);
+    // Delete the post itself
+    const { error } = await supabase.from("posts").delete().eq("id", postId);
 
-  if (error) {
-    return { success: false, error: error.message };
-  }
+    if (error) {
+      return { success: false, error: error.message };
+    }
 
-  // Clean up storage blobs
-  if (imageRows && imageRows.length > 0) {
-    const paths = (imageRows as { url: string }[])
-      .map((img) => {
-        const parts = img.url.split("/post-images/");
-        return parts.length === 2 ? parts[1] : null;
-      })
-      .filter(Boolean) as string[];
+    // Invalidate feed and saved caches
+    revalidatePath("/feed");
+    revalidatePath("/saved");
+    revalidateTag("posts", "default");
 
-    if (paths.length > 0) {
-      const { error: storageError } = await supabase.storage
-        .from("post-images")
-        .remove(paths);
-      if (storageError) {
-        console.error("Failed to clean up post image storage:", storageError.message);
+    // Clean up storage blobs
+    if (imageRows && imageRows.length > 0) {
+      const paths = (imageRows as { url: string }[])
+        .map((img) => {
+          const parts = img.url.split("/post-images/");
+          return parts.length === 2 ? parts[1] : null;
+        })
+        .filter(Boolean) as string[];
+
+      if (paths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from("post-images")
+          .remove(paths);
+        if (storageError) {
+          console.error("Failed to clean up post image storage:", storageError.message);
+        }
       }
     }
-  }
 
-  return { success: true };
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to delete post.",
+    };
+  }
 }

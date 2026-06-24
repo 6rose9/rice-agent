@@ -12,11 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import {
-  marketStatusLabels,
-  roleLabels,
-  getLocationLabel,
-} from "@/lib/mock-data";
+import { ROLE_LABELS } from "@/lib/constants";
+import { useMarketStatuses } from "@/hooks/use-market-statuses";
+import { useRegions } from "@/hooks/use-regions";
 import { MarketStatusSelector } from "@/components/profile/market-status-selector";
 import type { Profile, Post } from "@/types";
 import { MapPin, Calendar, Sprout, Users, Loader2, Camera } from "lucide-react";
@@ -26,6 +24,7 @@ function ProfileContent() {
   const router = useRouter();
   const username = params.username as string;
   const { isAuthenticated, user: currentUser, refreshProfile } = useAuth();
+  const { getLocationLabel } = useRegions();
 
   const [displayProfile, setDisplayProfile] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -146,8 +145,8 @@ function ProfileContent() {
       const profile = data as Profile;
       setDisplayProfile(profile);
 
-      // Fetch posts by this author
-      const posts = await getPostsByAuthor(profile.id);
+      // Fetch posts by this author (pass profile to avoid redundant query)
+      const posts = await getPostsByAuthor(profile.id, profile);
       setUserPosts(posts);
 
       setIsLoading(false);
@@ -366,7 +365,7 @@ function ProfileContent() {
           <div className="text-center px-4">
             <h1 className="text-xl font-bold">{displayProfile.full_name}</h1>
             <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-              {roleLabels[displayProfile.role] || displayProfile.role}
+              {ROLE_LABELS[displayProfile.role as keyof typeof ROLE_LABELS] || displayProfile.role}
               {getLocationLabel(displayProfile) && (
                 <>
                   <span>·</span>
@@ -379,6 +378,11 @@ function ProfileContent() {
               <MarketStatusSelector
                 currentStatusId={displayProfile.market_status_id}
                 isOwnProfile={!!isOwnProfile}
+                onStatusChange={(newStatusId) =>
+                  setDisplayProfile((prev) =>
+                    prev ? { ...prev, market_status_id: newStatusId } : prev,
+                  )
+                }
               />
             </div>
             <div className="flex items-center justify-center gap-2 mt-3">

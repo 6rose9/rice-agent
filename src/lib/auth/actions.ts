@@ -6,6 +6,11 @@ import {
   registerSchema,
   profileUpdateSchema,
 } from "@/lib/validations/auth";
+import {
+  ActionResult,
+  extractFirstFieldError,
+  requireAuth,
+} from "@/lib/actions";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -20,41 +25,51 @@ function syntheticEmail(phone: string): string {
   return `${normalized}@rice-agent.local`;
 }
 
-/** Generate a URL-safe username from full name + random suffix */
-function generateUsername(fullName: string): string {
+/** Generate a URL-safe username from full name + random suffix, ensuring uniqueness */
+async function generateUsername(
+  fullName: string,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<string> {
   const base = fullName
     .toLowerCase()
     .replace(/\s+/g, "_")
     .replace(/[^a-z0-9_]/g, "")
     .replace(/^_+|_+$/g, "")
     .slice(0, 20);
-  const suffix = Math.floor(1000 + Math.random() * 9000).toString();
-  return `${base}_${suffix}`;
+
+  const MAX_RETRIES = 10;
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    const suffix = Math.floor(1000 + Math.random() * 9000).toString();
+    const candidate = `${base}_${suffix}`;
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", candidate)
+      .maybeSingle();
+
+    if (!data) return candidate;
+  }
+
+  // Fallback: use timestamp suffix to guarantee uniqueness
+  return `${base}_${Date.now().toString(36)}`;
 }
 
 // ── Server Actions ────────────────────────────────────────────────────
 
-export type AuthActionResult = {
-  success: boolean;
-  error?: string;
-  redirect?: string;
-};
-
 export async function login(
-  _prevState: AuthActionResult | null,
+  _prevState: ActionResult | null,
   formData: FormData,
-): Promise<AuthActionResult> {
+): Promise<ActionResult> {
   const phone = formData.get("phone") as string;
   const password = formData.get("password") as string;
 
   // Validate
   const parsed = loginSchema.safeParse({ phone, password });
   if (!parsed.success) {
-    const firstError = parsed.error.flatten().fieldErrors;
+    const fe = parsed.error.flatten().fieldErrors;
     const msg =
-      firstError.phone?.[0] ||
-      firstError.password?.[0] ||
-      "Invalid input.";
+      extractFirstFieldError(fe, "phone", "password") || "Invalid input.";
     return { success: false, error: msg };
   }
 
@@ -114,9 +129,9 @@ export async function login(
 }
 
 export async function register(
-  _prevState: AuthActionResult | null,
+  _prevState: ActionResult | null,
   formData: FormData,
-): Promise<AuthActionResult> {
+): Promise<ActionResult> {
   // Collect all fields from multi-step form
   const rawData = {
     full_name: formData.get("full_name") as string,
@@ -133,26 +148,23 @@ export async function register(
   // Validate
   const parsed = registerSchema.safeParse(rawData);
   if (!parsed.success) {
-    const firstError = parsed.error.flatten().fieldErrors;
+    const fe = parsed.error.flatten().fieldErrors;
     const msg =
-      firstError.phone?.[0] ||
-      firstError.password?.[0] ||
-      firstError.confirm_password?.[0] ||
-      firstError.full_name?.[0] ||
-      firstError.role?.[0] ||
-      firstError.region_id?.[0] ||
-      firstError.township_id?.[0] ||
-      "Invalid input.";
+      extractFirstFieldError(
+        fe,
+        "phone", "password", "confirm_password",
+        "full_name", "role", "region_id", "township_id",
+      ) || "Invalid input.";
     return { success: false, error: msg };
   }
 
   const supabase = await createClient();
   const normalizedPhone = normalizePhone(parsed.data.phone);
   const authEmail = parsed.data.email || syntheticEmail(parsed.data.phone);
-  const username = generateUsername(parsed.data.full_name);
+  const username = await generateUsername(parsed.data.full_name, supabase);
 
   try {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: authEmail,
       password: parsed.data.password,
       options: {
@@ -178,18 +190,6 @@ export async function register(
       return { success: false, error: error.message };
     }
 
-    // Save avatar URL if provided
-    const avatarUrl = formData.get("avatar_url") as string;
-    if (avatarUrl && supabase.auth.getUser) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from("profiles")
-          .update({ avatar_url: avatarUrl })
-          .eq("id", user.id);
-      }
-    }
-
     return { success: true, redirect: formData.get("redirect") as string || "/feed" };
   } catch (err) {
     return {
@@ -199,27 +199,28 @@ export async function register(
   }
 }
 
-export async function logout(): Promise<AuthActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    return { success: false, error: error.message };
+export async function logout(): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Logout failed. Please try again.",
+    };
   }
-  return { success: true };
 }
 
 // ── Profile Update ─────────────────────────────────────────────────────
 
-export type ProfileActionResult = {
-  success: boolean;
-  error?: string;
-  redirect?: string;
-};
-
 export async function updateProfile(
-  _prevState: ProfileActionResult | null,
+  _prevState: ActionResult | null,
   formData: FormData,
-): Promise<ProfileActionResult> {
+): Promise<ActionResult> {
   const rawData = {
     full_name: formData.get("full_name") as string,
     role: formData.get("role") as string,
@@ -232,26 +233,17 @@ export async function updateProfile(
   // Validate
   const parsed = profileUpdateSchema.safeParse(rawData);
   if (!parsed.success) {
-    const firstError = parsed.error.flatten().fieldErrors;
+    const fe = parsed.error.flatten().fieldErrors;
     const msg =
-      firstError.full_name?.[0] ||
-      firstError.role?.[0] ||
-      firstError.region_id?.[0] ||
-      firstError.township_id?.[0] ||
-      firstError.bio?.[0] ||
+      extractFirstFieldError(fe, "full_name", "role", "region_id", "township_id", "bio") ||
       "Invalid input.";
     return { success: false, error: msg };
   }
 
-  const supabase = await createClient();
-
-  // Get current user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+  // Get authenticated user
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+  const { user, supabase } = auth;
 
   try {
     const { error } = await supabase
@@ -266,7 +258,6 @@ export async function updateProfile(
           parsed.data.market_status_id && parsed.data.market_status_id > 0
             ? parsed.data.market_status_id
             : null,
-        updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
 
@@ -283,18 +274,40 @@ export async function updateProfile(
   }
 }
 
+// ── Avatar Update (for post-registration) ──────────────────────────────
+
+export async function updateAvatar(
+  avatarUrl: string,
+): Promise<ActionResult> {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+  const { supabase } = auth;
+
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ avatar_url: avatarUrl })
+      .eq("id", auth.user.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update avatar.",
+    };
+  }
+}
+
 // ── Account Deletion (Soft Delete) ─────────────────────────────────────
 
-export async function deleteAccount(): Promise<AuthActionResult> {
-  const supabase = await createClient();
-
-  // Verify user is authenticated
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+export async function deleteAccount(): Promise<ActionResult> {
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+  const { supabase } = auth;
 
   try {
     // Call the soft_delete_account RPC function

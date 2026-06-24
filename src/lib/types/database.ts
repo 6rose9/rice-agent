@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -17,16 +19,19 @@ export type Database = {
           id: number
           name: Json
           sort_order: number
+          color: string | null
         }
         Insert: {
           id?: never
           name: Json
           sort_order?: number
+          color?: string | null
         }
         Update: {
           id?: never
           name?: Json
           sort_order?: number
+          color?: string | null
         }
         Relationships: []
       }
@@ -72,10 +77,7 @@ export type Database = {
           created_at: string
           easy_to_carry: boolean | null
           id: string
-          is_active: boolean
-          latitude: number | null
-          longitude: number | null
-          region: string | null
+          location: string | null
           paddy_condition: string | null
           pound_per_bag: number | null
           price: number | null
@@ -97,10 +99,7 @@ export type Database = {
           created_at?: string
           easy_to_carry?: boolean | null
           id?: string
-          is_active: boolean
-          latitude: number | null
-          longitude: number | null
-          region?: string | null
+          location?: string | null
           paddy_condition?: string | null
           pound_per_bag?: number | null
           price?: number | null
@@ -122,10 +121,7 @@ export type Database = {
           created_at?: string
           easy_to_carry?: boolean | null
           id?: string
-          is_active: boolean
-          latitude: number | null
-          longitude: number | null
-          region?: string | null
+          location?: string | null
           paddy_condition?: string | null
           pound_per_bag?: number | null
           price?: number | null
@@ -194,6 +190,7 @@ export type Database = {
           market_status_id?: number | null
           phone?: string
           phone_verified?: boolean
+          region_id?: number
           role?: string
           township_id?: number
           updated_at?: string

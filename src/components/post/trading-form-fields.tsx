@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { regionTownships, regionKeys } from "@/lib/mock-data";
+import { useRegions } from "@/hooks/use-regions";
 
 const LocationPicker = dynamic(
   () => import("@/components/post/location-picker").then((mod) => mod.LocationPicker),
@@ -52,6 +52,13 @@ export function TradingFormFields({
   errors,
 }: TradingFormFieldsProps) {
   const watchedLocation = watch("region");
+  const { regions, getTownshipsForRegion, loading } = useRegions();
+
+  // Find selected region ID from the stored English name
+  const selectedRegion = regions.find((r) => r.name.en === watchedLocation);
+  const townships = selectedRegion
+    ? getTownshipsForRegion(selectedRegion.id)
+    : [];
 
   return (
     <div className="space-y-3 pt-4 border-t">
@@ -160,14 +167,15 @@ export function TradingFormFields({
                 setValue("township", "", { shouldValidate: false });
               }
             }}
+            disabled={loading}
           >
             <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue placeholder="Select region" />
             </SelectTrigger>
             <SelectContent>
-              {regionKeys.map((key) => (
-                <SelectItem key={key} value={key}>
-                  {regionTownships[key].label}
+              {regions.map((r) => (
+                <SelectItem key={r.id} value={r.name.en}>
+                  {r.name.en}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -181,7 +189,7 @@ export function TradingFormFields({
             onValueChange={(v) => {
               if (v) setValue("township", v, { shouldValidate: true });
             }}
-            disabled={!watchedLocation}
+            disabled={!watchedLocation || loading}
           >
             <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue
@@ -193,12 +201,11 @@ export function TradingFormFields({
               />
             </SelectTrigger>
             <SelectContent>
-              {watchedLocation &&
-                regionTownships[watchedLocation]?.townships.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
+              {townships.map((t) => (
+                <SelectItem key={t.id} value={t.name.en}>
+                  {t.name.en}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -253,7 +260,7 @@ export function TradingFormFields({
 
         {/* Moisture Level (paddy_condition as range slider) */}
         <div className="space-y-1.5">
-          <Label className="text-xs">💧 Moisture Level</Label>
+          <Label className="text-xs">☀️ Moisture Level</Label>
           <div className="space-y-1">
             <input
               type="range"

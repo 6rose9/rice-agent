@@ -41,7 +41,7 @@ function LoginFormInner() {
     formData.append("password", data.password);
     formData.append("redirect", redirect);
 
-    const result = await login({ success: false }, formData);
+    const result = await login(null, formData);
 
     if (!result.success) {
       setError("root", { message: result.error || "Login failed. Please try again." });

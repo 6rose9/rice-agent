@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { RegionRow, TownshipRow } from "@/types";
 
@@ -30,5 +30,13 @@ export function useRegions() {
     return townships.filter((t) => t.region_id === regionId);
   }
 
-  return { regions, townships, getTownshipsForRegion, loading };
+  function getLocationLabel(profile: { region_id: number; township_id: number | null }): string {
+    const township = townships.find((t) => t.id === profile.township_id);
+    const region = regions.find((r) => r.id === profile.region_id);
+    if (township && region) return `${township.name.en}, ${region.name.en}`;
+    if (region) return region.name.en;
+    return "";
+  }
+
+  return { regions, townships, getTownshipsForRegion, getLocationLabel, loading };
 }

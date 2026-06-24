@@ -1,9 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { mockProfiles, roleLabels, getLocationLabel } from "@/lib/mock-data";
+import { ROLE_LABELS } from "@/lib/constants";
+import { mockProfiles } from "@/lib/mock-data";
+import { useRegions } from "@/hooks/use-regions";
 import { Clock, TrendingUp, Bookmark, Sprout } from "lucide-react";
 
 type RightRailVariant = "feed" | "profile" | "search" | "network";
@@ -15,6 +19,7 @@ interface RightRailProps {
 }
 
 export function RightRail({ variant = "feed", profileStats }: RightRailProps) {
+  const { getLocationLabel } = useRegions();
   const suggestions = mockProfiles.slice(0, 3);
 
   const baseClasses =
@@ -61,7 +66,7 @@ export function RightRail({ variant = "feed", profileStats }: RightRailProps) {
                     {profile.full_name}
                   </Link>
                   <p className="text-xs text-muted-foreground truncate">
-                    {roleLabels[profile.role] || profile.role}
+                    {ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS] || profile.role}
                     {getLocationLabel(profile) && ` · ${getLocationLabel(profile).split(",")[0]}`}
                   </p>
                 </div>
@@ -130,7 +135,7 @@ export function RightRail({ variant = "feed", profileStats }: RightRailProps) {
                     {profile.full_name}
                   </Link>
                   <p className="text-xs text-muted-foreground truncate">
-                    {roleLabels[profile.role] || profile.role}
+                    {ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS] || profile.role}
                     {getLocationLabel(profile) && ` · ${getLocationLabel(profile).split(",")[0]}`}
                   </p>
                 </div>

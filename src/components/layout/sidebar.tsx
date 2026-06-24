@@ -14,6 +14,7 @@ import {
   LogIn,
   LogOut,
   Crown,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,9 @@ const mainItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user, isLoading, signOut } = useAuth();
+
+  const profileHref = user ? `/profile/${user.profile.username}` : "/login";
+  const isOwnProfile = user && pathname === profileHref;
 
   return (
     <aside className="hidden md:flex flex-col w-[240px] h-screen sticky top-0 border-r bg-background px-3 py-4">
@@ -77,6 +81,21 @@ export function Sidebar() {
             <span>Saved Posts</span>
           </Button>
         </Link>
+        {/* Profile */}
+        {user && (
+          <Link href={profileHref}>
+            <Button
+              variant={isOwnProfile ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 h-10",
+                isOwnProfile && "font-semibold"
+              )}
+            >
+              <User className="h-5 w-5" strokeWidth={isOwnProfile ? 2.5 : 1.8} />
+              <span>Profile</span>
+            </Button>
+          </Link>
+        )}
         {!isLoading && !user && (
           <Link href="/login">
             <Button

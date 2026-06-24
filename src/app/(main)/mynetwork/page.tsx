@@ -11,14 +11,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ROLE_LABELS } from "@/lib/constants";
 import {
   mockInvitations,
   mockSuggestions,
-  roleLabels,
   networkStats,
-  getLocationLabel,
-  marketStatusShort,
 } from "@/lib/mock-data";
+import { useMarketStatuses } from "@/hooks/use-market-statuses";
+import { useRegions } from "@/hooks/use-regions";
 import {
   Users,
   UserPlus,
@@ -69,6 +69,7 @@ function SuggestionSkeleton() {
 
 function NetworkContent() {
   const { isAuthenticated } = useAuth();
+  const { getLocationLabel } = useRegions();
 
   const [phase, setPhase] = useState<"loading" | "ready">("loading");
   const [invitations, setInvitations] = useState(mockInvitations);
@@ -218,7 +219,7 @@ function NetworkContent() {
                               {inv.from.full_name}
                             </Link>
                             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
-                              <span>{roleLabels[inv.from.role]}</span>
+                              <span>{ROLE_LABELS[inv.from.role as keyof typeof ROLE_LABELS]}</span>
                               {getLocationLabel(inv.from) && (
                                 <>
                                   <span>·</span>
@@ -330,6 +331,8 @@ function NetworkContent() {
 function SuggestionCard({ profile }: { profile: (typeof mockSuggestions)[number] }) {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const { shortLabels: marketStatusShort } = useMarketStatuses();
+  const { getLocationLabel } = useRegions();
 
   function handleConnect() {
     if (!isAuthenticated) {
@@ -358,7 +361,7 @@ function SuggestionCard({ profile }: { profile: (typeof mockSuggestions)[number]
             {profile.full_name}
           </Link>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {roleLabels[profile.role]}
+            {ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS]}
           </p>
           {getLocationLabel(profile) && (
             <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center justify-center gap-0.5">

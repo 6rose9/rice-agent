@@ -137,7 +137,8 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
         const data: Suggestion[] = await res.json();
         setSuggestions(data);
         setShowSuggestions(data.length > 0);
-      } catch {
+      } catch (err) {
+        console.error("Location search failed:", err);
         setError("Search failed. Please try again.");
       } finally {
         setSearching(false);

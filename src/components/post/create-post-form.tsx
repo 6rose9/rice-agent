@@ -13,7 +13,6 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
 import { createPost } from "@/lib/posts/actions";
 import { postSchema, type PostInput } from "@/lib/validations/post";
-import { regionTownships, regionKeys } from "@/lib/mock-data";
 import { useSubscription } from "@/hooks/use-subscription";
 import { ImagePlus, X, Loader2, Crown } from "lucide-react";
 import { TradingFormFields } from "./trading-form-fields";
@@ -162,7 +161,7 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
       formData.append("images", images.join(","));
     }
 
-    const result = await createPost({ success: false }, formData);
+    const result = await createPost(null, formData);
 
     if (!result.success) {
       setServerError(result.error || "Failed to create post.");

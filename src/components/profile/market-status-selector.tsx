@@ -11,11 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/components/auth/auth-provider";
-import {
-  mockMarketStatuses,
-  marketStatusLabels,
-  marketStatusColors,
-} from "@/lib/mock-data";
+import { useMarketStatuses } from "@/hooks/use-market-statuses";
 import { Check, ChevronDown, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,13 +28,10 @@ export function MarketStatusSelector({
 }: MarketStatusSelectorProps) {
   const [saving, setSaving] = useState(false);
   const { refreshProfile } = useAuth();
+  const { statuses, labels, colors } = useMarketStatuses();
 
-  const currentLabel = currentStatusId
-    ? marketStatusLabels[currentStatusId]
-    : null;
-  const currentColor = currentStatusId
-    ? marketStatusColors[currentStatusId]
-    : null;
+  const currentLabel = currentStatusId ? labels[currentStatusId] : null;
+  const currentColor = currentStatusId ? colors[currentStatusId] : null;
 
   async function handleSelect(statusId: number | null) {
     if (!isOwnProfile) return;
@@ -77,12 +70,16 @@ export function MarketStatusSelector({
     return (
       <Badge
         variant="outline"
-        className={cn(
-          "text-xs",
-          currentColor?.bg,
-          currentColor?.text,
-          currentColor?.border
-        )}
+        className="text-xs"
+        style={
+          currentColor
+            ? {
+                backgroundColor: `${currentColor}20`,
+                color: currentColor,
+                borderColor: `${currentColor}40`,
+              }
+            : undefined
+        }
       >
         {currentLabel}
       </Badge>
@@ -97,10 +94,17 @@ export function MarketStatusSelector({
           "inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border cursor-pointer",
           "hover:bg-accent transition-colors",
           "disabled:opacity-50 disabled:cursor-not-allowed",
-          currentLabel
-            ? cn(currentColor?.bg, currentColor?.text, currentColor?.border)
-            : "text-muted-foreground border-dashed"
+          !currentLabel && "text-muted-foreground border-dashed"
         )}
+        style={
+          currentColor && currentLabel
+            ? {
+                backgroundColor: `${currentColor}20`,
+                color: currentColor,
+                borderColor: `${currentColor}40`,
+              }
+            : undefined
+        }
         disabled={saving}
       >
         {saving ? (
@@ -123,8 +127,8 @@ export function MarketStatusSelector({
             Market Status
           </p>
         </div>
-        {mockMarketStatuses.map((status) => {
-          const colors = marketStatusColors[status.id];
+        {statuses.map((status) => {
+          const color = status.color;
           const isSelected = currentStatusId === status.id;
           return (
             <DropdownMenuItem
@@ -137,20 +141,21 @@ export function MarketStatusSelector({
               )}
             >
               <div
-                className={cn(
-                  "flex-1 flex items-center gap-2",
-                  colors?.text
-                )}
+                className="flex-1 flex items-center gap-2"
+                style={color ? { color } : undefined}
               >
                 <span
-                  className={cn(
-                    "inline-block w-2 h-2 rounded-full",
-                    colors?.bg,
-                    colors?.border,
-                    "border"
-                  )}
+                  className="inline-block w-2 h-2 rounded-full border"
+                  style={
+                    color
+                      ? {
+                          backgroundColor: `${color}30`,
+                          borderColor: `${color}60`,
+                        }
+                      : undefined
+                  }
                 />
-                {status.name.en}
+                {(status.name as { en: string }).en}
               </div>
               {isSelected && <Check className="h-3 w-3 text-primary" />}
             </DropdownMenuItem>

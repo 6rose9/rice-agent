@@ -21,54 +21,65 @@ The codebase follows a standard Next.js App Router pattern with Supabase. Phases
 
 ---
 
+## 🔵 Feature Requests
+
+- [ ] **Privacy settings** — Users can control visibility of phone/email from settings page.
+- [ ] **Report post** — Users can report posts that are not related to the rice industry.
+- [ ] **Check post for feed visibility** — Review post display logic to ensure display data is correct .
+- [ ] **Rename "Price" label to "Approximate Price"** — Update label across post creation form and post cards to better reflect that the price is not fixed.
+- [ ] **Change `role` from enum to table** — Replace the `user_role` enum with a `roles` lookup table (like `regions`/`market_status`). Enables adding new roles without migrations, bilingual role names, and ordering. Requires migration to alter `profiles.role` from enum column to FK integer column.
+- [ ] **Change `rice_type` from constant to table** — Replace the hardcoded `riceTypes` constant with a `rice_types` lookup table (like `regions`). Enables adding new rice varieties without code changes, bilingual names, and ordering. Requires migration to create table and alter `posts.rice_type` from text to FK integer column.
+
+---
+
 ## Code Review Findings
 
 ### 🔴 Critical Issues (Must Fix)
 
-- [x] **~~Database column mismatches~~** — Code was actually correct (`author_id`, `url`). `docs/database.md` is wrong. → *Partially done.*
-- [x] **~~Massive code duplication in `posts/actions.ts`~~** — → *Done: extracted shared helpers.*
-- [ ] **Mock data used in production search** — `search/page.tsx` imports `mockProfiles`, `mockPosts`. Real users get zero results.
-- [ ] **Duplicate utility functions** — `formatPrice`, `formatQuantity`, `timeAgo` in both `lib/utils/format.ts` AND `lib/mock-data.ts`.
-- [ ] **Location/region data architecture** — Two parallel systems: DB tables vs hardcoded `regionTownships` in `mock-data.ts`.
+- ✅ **~~Database column mismatches~~** — Code was actually correct (`author_id`, `url`). `docs/database.md` is wrong. → *Partially done.*
+- ✅ **~~Massive code duplication in `posts/actions.ts`~~** — → *Done: extracted shared helpers.*
+- ✅ **Mock data used in production search** — `search/page.tsx` imports `mockProfiles`, `mockPosts`. Real users get zero results.
+- ✅ **Duplicate utility functions** — `formatPrice`, `formatQuantity`, `timeAgo` in both `lib/utils/format.ts` AND `lib/mock-data.ts`.
+- ✅ **Location/region data architecture** — Two parallel systems: DB tables vs hardcoded `regionTownships` in `mock-data.ts`.
 
 ### 🟡 Major Issues (Should Fix)
 
-- [ ] **Client-side feed filtering** — `getPosts()` returns everything; `useMemo` filters. "Load More" only works for `filter === "all"`.
+- ✅ **Client-side feed filtering** — `getPosts()` returns everything; `useMemo` filters. "Load More" only works for `filter === "all"`.
 - [ ] **Unimplemented features in UI** — Follow button (no `follows` table), follower counts (hardcoded 0), network page (placeholder).
-- [ ] **Race condition in registration** — `getUser()` after `signUp` may not return user yet. (`auth/actions.ts:182-190`)
-- [ ] **Type safety gaps** — Double `as any` cast on `zodResolver`. `fieldErrors as any` in actions.
-- [ ] **`paddy_condition` type mismatch** — Zod: `z.coerce.number()`. DB: `text`. Mock: string `"14"`. Works but fragile.
-- [ ] **No error boundaries** — A thrown error in any server component crashes the whole page. No granular error recovery.
+- ✅ **Race condition in registration** — `getUser()` after `signUp` may not return user yet. (`auth/actions.ts:182-190`)
+- ✅ **Type safety gaps** — Double `as any` cast on `zodResolver`. `fieldErrors as any` in actions.
+- ✅ **`paddy_condition` type mismatch** — Zod: `z.coerce.number()`. DB: `text`. Mock: string `"14"`. Works but fragile.
+- ✅ **No error boundaries** — A thrown error in any server component crashes the whole page. No granular error recovery.
 
 ### 🟢 Minor Issues (Nice to Fix)
 
-- [ ] **`src/proxy.ts`** — Unused file, never imported.
-- [ ] **`generateUsername` uses `Math.random()`** — 4-digit suffix = 9000 collision space. (`auth/actions.ts:31`)
-- [ ] **`updateProfile` manually sets `updated_at`** — DB trigger already handles this. Redundant. (`auth/actions.ts:269`)
-- [ ] **Missing `not-found.tsx`** for `(main)` route group.
-- [ ] **Inconsistent error handling** — Mixed patterns across server actions.
+- ✅ **`src/proxy.ts`** — Unused file, never imported.
+- ✅ **`generateUsername` uses `Math.random()`** — 4-digit suffix = 9000 collision space. (`auth/actions.ts:31`)
+- ✅ **`updateProfile` manually sets `updated_at`** — DB trigger already handles this. Redundant. (`auth/actions.ts:269`)
+- ✅ **Missing `not-found.tsx`** for `(main)` route group.
+- ✅ **Inconsistent error handling** — Mixed patterns across server actions.
 - [ ] **`Comment` type defined but unused** — `types/index.ts:88-95` defines `Comment` interface but no comments table exists yet.
-- [ ] **`PostFormData` type unused** — Defined in `types/index.ts:111-126` but forms use Zod-inferred types directly.
+- ✅ **`PostFormData` type unused** — Defined in `types/index.ts:111-126` but forms use Zod-inferred types directly.
 
 ---
 
 ## Phase 1: Fix Data Layer ✅ DONE
 
-- [x] Verify actual DB columns from `supabase/migrations/`
-- [x] Posts migration rewrite
-- [x] Rename `location` → `region` across codebase
-- [x] Remove `status` field
-- [x] Delete redundant migration
-- [x] Update `user_soft_delete.sql`
-- [x] Update `lib/types/database.ts`
-- [x] Update `types/index.ts`
-- [ ] **Update `docs/database.md`** — DDL, constraints, indexes, RLS all need to match actual migrations.
+- ✅ Verify actual DB columns from `supabase/migrations/`
+- ✅ Posts migration rewrite
+- ✅ Rename `location` → `region` across codebase
+- ✅ Remove `status` field
+- ✅ Delete redundant migration
+- ✅ Update `user_soft_delete.sql`
+- ✅ Update `lib/types/database.ts`
+- ✅ Update `types/index.ts`
+- ✅ **Update `docs/database.md`** — DDL, constraints, indexes, RLS all need to match actual migrations.
 
 ## Phase 2: Extract Shared Helpers ✅ DONE
 
-- [x] Extract `UNKNOWN_PROFILE`, `fetchProfilesMap`, `fetchImagesMap`, `assemblePost`
-- [x] Parallel fetch with `Promise.all`
-- [x] ~220 lines removed
+- ✅ Extract `UNKNOWN_PROFILE`, `fetchProfilesMap`, `fetchImagesMap`, `assemblePost`
+- ✅ Parallel fetch with `Promise.all`
+- ✅ ~220 lines removed
 
 ---
 
@@ -88,30 +99,30 @@ src/app/(main)/profile/[username]/page.tsx → marketStatusLabels, roleLabels, g
 
 ### 3b. Migration steps
 
-- [ ] Move `formatPrice`, `formatQuantity`, `timeAgo` → `lib/utils/format.ts` (canonical)
-- [ ] Move `roleLabels` → use `ROLE_LABELS` from `lib/constants.ts`
-- [ ] Move `marketStatusLabels`, `marketStatusShort`, `marketStatusColors` → `lib/constants.ts`
-- [ ] Replace `regionTownships` / `regionKeys` usage with `useRegions` hook or server-side data
-- [ ] Replace `getLocationLabel` with a version that takes region/township data as params
-- [ ] Replace `search/page.tsx` mock data with real Supabase queries
+- ✅ Move `formatPrice`, `formatQuantity`, `timeAgo` → `lib/utils/format.ts` (canonical)
+- ✅ Move `roleLabels` → use `ROLE_LABELS` from `lib/constants.ts`
+- ✅ Move `marketStatusLabels`, `marketStatusShort`, `marketStatusColors` → market_statues 
+- ✅ Replace `regionTownships` / `regionKeys` usage with `useRegions` hook
+- ✅ Replace `getLocationLabel` with a version that takes region/township data as params
+- ✅ Replace `search/page.tsx` mock data with real Supabase queries
 - [ ] Verify zero imports from `mock-data.ts` in production code (grep check)
 
 ### 3c. Files to update
 
-| File | Current mock imports | Replace with |
-|---|---|---|
-| `post-card.tsx` | `formatPrice`, `formatQuantity`, `timeAgo`, `roleLabels`, `marketStatusLabels`, `regionTownships` | `@/lib/utils/format`, `@/lib/constants` |
-| `trading-form-fields.tsx` | `regionTownships`, `regionKeys` | `useRegions` hook or server component data |
-| `create-post-form.tsx` | `regionTownships`, `regionKeys` | `useRegions` hook or server component data |
-| `profile/[username]/page.tsx` | `marketStatusLabels`, `roleLabels`, `getLocationLabel` | `@/lib/constants` + DB data |
-| `search/page.tsx` | `mockProfiles`, `mockPosts` | Supabase queries |
+| File                          | Current mock imports                                                                              | Replace with                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `post-card.tsx`               | `formatPrice`, `formatQuantity`, `timeAgo`, `roleLabels`, `marketStatusLabels`, `regionTownships` | `@/lib/utils/format`, `@/lib/constants`    |
+| `trading-form-fields.tsx`     | `regionTownships`, `regionKeys`                                                                   | `useRegions` hook or server component data |
+| `create-post-form.tsx`        | `regionTownships`, `regionKeys`                                                                   | `useRegions` hook or server component data |
+| `profile/[username]/page.tsx` | `marketStatusLabels`, `roleLabels`, `getLocationLabel`                                            | `@/lib/constants` + DB data                |
+| `search/page.tsx`             | `mockProfiles`, `mockPosts`                                                                       | Supabase queries                           |
 
 ---
 
 ## Phase 4: Consolidate Duplicate Utilities 🔴 TODO
 
-- [ ] Keep `lib/utils/format.ts` as single source for formatters
-- [ ] Unify `timeAgo` (mock-data) vs `formatRelativeTime` (format.ts) — pick one name
+- ✅ Keep `lib/utils/format.ts` as single source for formatters
+- ✅ Unify `timeAgo` (mock-data) vs `formatRelativeTime` (format.ts) — pick one name
 - [ ] Remove all duplicate exports from `mock-data.ts`
 - [ ] Update every import across the codebase
 
@@ -121,12 +132,12 @@ src/app/(main)/profile/[username]/page.tsx → marketStatusLabels, roleLabels, g
 
 **Goal:** One data source for regions/townships — the database.
 
-- [ ] Remove `regionTownships` hardcoded object from `mock-data.ts`
-- [ ] Remove `regionKeys`, `regionKeyToId`, `townshipKeyToId` mappings
-- [ ] Post forms: use `useRegions` hook (client) or pass data as props from server component
-- [ ] Decision: `posts.region` stores text string ("yangon") — keep as-is or change to FK?
+- ✅ Remove `regionTownships` hardcoded object from `mock-data.ts`
+- ✅ Remove `regionKeys`, `regionKeyToId`, `townshipKeyToId` mappings
+- ✅ Post forms: use `useRegions` hook (client) or pass data as props from server component
+- ✅ Decision: `posts.region` stores text string ("yangon") — keep as-is or change to FK?
   - **Recommendation:** Keep as text for V1 (simpler). FK migration in V2 if needed.
-- [ ] Update `getLocationLabel` to accept region/township data from DB, not mocks
+- ✅ Update `getLocationLabel` to accept region/township data from DB, not mocks
 
 ---
 
@@ -142,9 +153,9 @@ src/app/(main)/profile/[username]/page.tsx → marketStatusLabels, roleLabels, g
     type?: PostType,
   ): Promise<{ posts: Post[]; nextCursor: string | null }>
   ```
-- [ ] Apply `.eq("type", type)` in query when type is provided
-- [ ] Update `FeedContent` to pass filter to server action
-- [ ] Remove client-side `useMemo` filtering
+- ✅ Apply `.eq("type", type)` in query when type is provided
+- ✅ Update `FeedContent` to pass filter to server action
+- ✅ Client-side `useMemo` filtering
 - [ ] Enable "Load More" for all filter types
 
 ---
@@ -206,13 +217,11 @@ const firstError = (parsed.error.flatten().fieldErrors as any);
 
 ## Phase 9: Code Cleanup 🟢 TODO
 
-- [ ] Delete `src/proxy.ts` — unused file
 - [ ] Delete `src/components/post/comment-section.tsx` if no comments table exists
 - [ ] Remove unused `Comment` type from `types/index.ts` (or keep with a TODO)
-- [ ] Remove unused `PostFormData` type from `types/index.ts`
-- [ ] Fix `generateUsername` — replace `Math.random()` with `crypto.randomUUID().slice(0, 8)`
-- [ ] Remove redundant `updated_at` manual set in `updateProfile`
-- [ ] Fix registration avatar race condition — move avatar update to a separate action called after profile creation
+- ✅ Remove unused `PostFormData` type from `types/index.ts`
+- ✅ Remove redundant `updated_at` manual set in `updateProfile`
+- ✅ Fix registration avatar race condition — move avatar update to a separate action called after profile creation
 
 ---
 
@@ -220,35 +229,34 @@ const firstError = (parsed.error.flatten().fieldErrors as any);
 
 ### 10a. Error boundaries
 
-- [ ] Add `error.tsx` to `(main)` route group
-- [ ] Add `error.tsx` to `(main)/feed/` for feed-specific errors
-- [ ] Add `error.tsx` to `(main)/search/` for search errors
+- ✅ Add `error.tsx` to `(main)` route group
+- ✅ Add `error.tsx` to `(main)/feed/` for feed-specific errors
+- ✅ Add `error.tsx` to `(main)/search/` for search errors
 
 ### 10b. Consistent error pattern
 
-- [ ] Standardize server action return type:
+- ✅ Standardize server action return type:
   ```ts
   type ActionResult<T = void> =
-    | { success: true; data?: T }
-    | { success: false; error: string };
+    | { success: true; data?: T; redirect?: string }
+    | { success: false; error: string, redirect?: string };
   ```
-- [ ] Apply to all server actions (`auth/actions.ts`, `posts/actions.ts`)
+- ✅ Apply to all server actions (`auth/actions.ts`, `posts/actions.ts`)
 
 ### 10c. Not-found pages
 
-- [ ] Add `not-found.tsx` to `(main)` route group
-- [ ] Add `not-found.tsx` to `(main)/profile/[username]/` for missing profiles
-- [ ] Add `not-found.tsx` to `(main)/posts/[id]/` for missing posts
+- ✅ Add `not-found.tsx` to `(main)` route group
+- ✅ Add `not-found.tsx` to `(main)/profile/[username]/` for missing profiles
+- ✅ Add `not-found.tsx` to `(main)/posts/[id]/` for missing posts
 
 ---
 
-## Phase 11: Performance 🟢 TODO (V2)
+## Phase 11: Performance 🟢 TODO
 
-- [ ] Add `revalidate` tags to feed queries for ISR
-- [ ] Implement cursor-based pagination properly in feed (currently fetches `pageSize + 1`)
-- [ ] Consider `Suspense` boundaries for feed cards
-- [ ] Profile page: deduplicate profile fetch (layout + page both fetch)
-- [ ] Search: add debounce on client before calling server action
+- ✅ Add `revalidate` tags to feed queries
+- ✅ Implement cursor-based pagination properly in feed (currently fetches `pageSize + 1`)
+- ✅ Profile page: deduplicate profile fetch (layout + page both fetch)
+- ✅ Search: add debounce on client before calling server action
 
 ---
 
@@ -264,49 +272,3 @@ Current docs are stale — they document columns (`user_id`, `title`, `descripti
 
 ---
 
-## Execution Order
-
-```
-Phase 3 (Mock removal)  ──┐
-Phase 4 (Dedup utils)   ──┼── Can be done in parallel
-Phase 5 (Region data)   ──┘
-         │
-         ▼
-Phase 6 (Server-side feed) ── Independent
-Phase 7 (Type safety)      ── Independent
-Phase 8 (Hide features)    ── Independent
-         │
-         ▼
-Phase 9 (Cleanup)          ── After 3-8
-Phase 10 (Error handling)  ── After 9
-Phase 11 (Performance)     ── V2
-Phase 12 (Docs rewrite)    ── Anytime
-```
-
-**Recommended sprint:** Phases 3 → 4 → 5 → 6 → 8 → 9 → 10 → 12
-
----
-
-## Key Files Reference
-
-| File | Purpose | Status |
-|---|---|---|
-| `supabase/migrations/20260618000000_auth_schema.sql` | Extension, reference tables, profiles, auth functions | ✅ |
-| `supabase/migrations/20260618000001_create_profiles_storage.sql` | Storage bucket "profiles" | ✅ |
-| `supabase/migrations/20260618000002_create_posts.sql` | posts + post_images | ✅ |
-| `supabase/migrations/20260618000003_create_post_images_storage.sql` | Storage bucket "post-images" | ✅ |
-| `supabase/migrations/20260619000000_create_saved_posts.sql` | saved_posts junction table | ✅ |
-| `supabase/migrations/20260619000001_user_soft_delete.sql` | profiles.deleted_at, RLS updates | ✅ |
-| `src/lib/posts/actions.ts` | Post server actions (refactored) | ✅ |
-| `src/lib/auth/actions.ts` | Auth server actions | ⚠️ Race condition |
-| `src/lib/validations/post.ts` | Zod schemas for posts | ⚠️ Type mismatch |
-| `src/lib/validations/auth.ts` | Zod schemas for auth | ✅ |
-| `src/lib/types/database.ts` | Generated Supabase types | ✅ |
-| `src/types/index.ts` | App-level types | ⚠️ Unused types |
-| `src/lib/mock-data.ts` | Mock data + helpers | 🔴 Remove from prod |
-| `src/lib/constants.ts` | App constants | ✅ Needs expansion |
-| `src/lib/utils/format.ts` | Formatting utilities | ✅ Canonical |
-| `src/hooks/use-regions.ts` | Client hook for DB regions | ✅ |
-| `src/components/auth/auth-provider.tsx` | Auth context provider | ✅ |
-| `docs/database.md` | DB documentation | 🔴 Stale, needs rewrite |
-| `docs/architecture.md` | Architecture docs | ✅ Good |

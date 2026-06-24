@@ -1,39 +1,38 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
 import { updatePost } from "@/lib/posts/actions";
 import { postSchema, type PostInput } from "@/lib/validations/post";
-import type { Post } from "@/types";
-import { ImagePlus, X, Loader2 } from "lucide-react";
+import { ImagePlus, X, Loader2, Crown } from "lucide-react";
 import { TradingFormFields } from "./trading-form-fields";
-
-interface EditPostModalProps {
-  post: Post;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onUpdated?: () => void;
-}
+import type { Post } from "@/types";
 
 function paddyConditionFromPost(val: unknown): number | null {
   if (typeof val === "number") return val;
+  if (typeof val === "string") {
+    const n = Number(val);
+    return Number.isFinite(n) ? n : null;
+  }
   return null;
 }
 
-export function EditPostModal({ post, open, onOpenChange, onUpdated }: EditPostModalProps) {
+interface EditPostFormProps {
+  post: Post;
+}
+
+export function EditPostForm({ post }: EditPostFormProps) {
+  const { user } = useAuth();
+  const router = useRouter();
   const [images, setImages] = useState<string[]>(post.images.map((i) => i.url));
   const [uploading, setUploading] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -69,23 +68,12 @@ export function EditPostModal({ post, open, onOpenChange, onUpdated }: EditPostM
     handleSubmit,
     watch,
     setValue,
-    reset,
     formState: { errors, isSubmitting },
   } = useForm<PostInput>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(postSchema as any) as any,
     defaultValues: buildDefaults(),
   });
-
-  // Reset state when dialog opens with a new post
-  useEffect(() => {
-    if (open) {
-      setImages(post.images.map((i) => i.url));
-      setServerError("");
-      reset(buildDefaults());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, post, reset]);
 
   const postType = watch("type");
   const isPremium = postType === "buying" || postType === "selling";
@@ -101,11 +89,10 @@ export function EditPostModal({ post, open, onOpenChange, onUpdated }: EditPostM
     setUploading(true);
     const supabase = createClient();
     const uploaded: string[] = [];
-    // Use the same Supabase auth user ID as the first folder (matches RLS policy)
     const {
-      data: { user },
+      data: { user: authUser },
     } = await supabase.auth.getUser();
-    const userId = user?.id;
+    const userId = authUser?.id;
     if (!userId) {
       setUploading(false);
       return;
@@ -164,8 +151,8 @@ export function EditPostModal({ post, open, onOpenChange, onUpdated }: EditPostM
 
     if (result.success) {
       pendingUploads.current = [];
-      onUpdated?.();
-      onOpenChange(false);
+      router.push("/feed");
+      router.refresh();
     } else {
       setServerError(result.error || "Failed to update post.");
       if (pendingUploads.current.length > 0) {
@@ -180,109 +167,148 @@ export function EditPostModal({ post, open, onOpenChange, onUpdated }: EditPostM
   const contentValue = watch("content");
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Post</DialogTitle>
-          <DialogDescription>Update your post below.</DialogDescription>
-        </DialogHeader>
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="flex flex-col h-full"
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => router.back()}
+        >
+          ←
+        </Button>
+        <h1 className="text-base font-semibold">Edit Post</h1>
+        <div className="flex-1" />
+        <Badge
+          variant={
+            postType === "general"
+              ? "outline"
+              : postType === "selling"
+                ? "default"
+                : "secondary"
+          }
+          className="text-xs gap-1"
+        >
+          {isPremium && <Crown className="h-3 w-3" />}
+          {postType === "general"
+            ? "📝 General"
+            : postType === "selling"
+              ? "🛒 Selling"
+              : "💰 Buying"}
+        </Badge>
+      </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          {/* Content */}
-          <div>
-            <Textarea
-              {...register("content")}
-              placeholder="What do you want to share?"
-              className="min-h-[80px] resize-none text-sm"
-            />
-            {errors.content?.message && (
-              <p className="text-xs text-destructive mt-1">
-                {errors.content.message}
-              </p>
-            )}
-          </div>
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Content textarea */}
+        <div>
+          <Textarea
+            placeholder="What do you want to share?"
+            {...register("content")}
+            className="min-h-[100px] resize-none text-sm"
+            autoFocus
+          />
+          {errors.content?.message && (
+            <p className="text-xs text-destructive mt-1">
+              {errors.content.message}
+            </p>
+          )}
+        </div>
 
-          {/* Images */}
-          <div>
-            <Label className="text-xs text-muted-foreground mb-1.5 block">
-              📷 Photos
-            </Label>
-            <div className="flex gap-2 flex-wrap">
-              {images.map((url, idx) => (
-                <div
-                  key={idx}
-                  className="relative w-20 h-20 rounded-md overflow-hidden bg-muted"
-                >
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-0.5 right-0.5 bg-black/50 rounded-full p-0.5 text-white"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-              {images.length < maxImages && (
+        {/* Images */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">
+            📷 Photos <span className="font-medium">(max {maxImages})</span>
+          </Label>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+
+          <div className="flex gap-2 flex-wrap">
+            {images.map((url, idx) => (
+              <div
+                key={idx}
+                className="relative w-20 h-20 rounded-md overflow-hidden bg-muted"
+              >
+                <img
+                  src={url}
+                  alt={`Upload ${idx + 1}`}
+                  className="w-full h-full object-cover"
+                />
                 <button
                   type="button"
-                  onClick={handleAddImageClick}
-                  disabled={uploading}
-                  className="w-20 h-20 rounded-md border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
+                  onClick={() => handleRemoveImage(idx)}
+                  className="absolute top-0.5 right-0.5 bg-black/50 rounded-full p-0.5 text-white"
                 >
-                  {uploading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <ImagePlus className="h-5 w-5" />
-                  )}
+                  <X className="h-3 w-3" />
                 </button>
-              )}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
+              </div>
+            ))}
+            {images.length < maxImages && (
+              <button
+                type="button"
+                onClick={handleAddImageClick}
+                disabled={uploading}
+                className="w-20 h-20 rounded-md border-2 border-dashed border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
+              >
+                {uploading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <ImagePlus className="h-5 w-5" />
+                )}
+              </button>
+            )}
           </div>
+        </div>
 
-          {/* Buying / Selling fields (shared component) */}
-          {isPremium && (
-            <TradingFormFields
-              postType={postType}
-              register={register}
-              watch={watch}
-              setValue={setValue}
-              errors={errors}
-            />
+        {/* Buying / Selling fields */}
+        {isPremium && (
+          <TradingFormFields
+            postType={postType}
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            errors={errors}
+          />
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center gap-2 px-4 py-3 border-t">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => router.back()}
+        >
+          Cancel
+        </Button>
+        <div className="flex-1" />
+        {serverError && (
+          <p className="text-xs text-destructive mr-2">{serverError}</p>
+        )}
+        <Button
+          type="submit"
+          size="sm"
+          disabled={!contentValue?.trim() || isSubmitting}
+        >
+          {isSubmitting && (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
           )}
-
-          {serverError && (
-            <p className="text-xs text-destructive">{serverError}</p>
-          )}
-
-          <DialogFooter showCloseButton={false} className="!border-t-0 !bg-transparent !pt-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!contentValue?.trim() || isSubmitting}
-            >
-              {isSubmitting && (
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              )}
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          Save Changes
+        </Button>
+      </div>
+    </form>
   );
 }

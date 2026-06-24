@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PostActions } from "@/components/feed/post-actions";
-import { EditPostModal } from "@/components/post/edit-post-modal";
 import {
   Dialog,
   DialogClose,
@@ -26,7 +27,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Post } from "@/types";
 import { formatRelativeTime, formatPrice, formatQuantity } from "@/lib/utils/format";
-import { regionTownships, roleLabels, marketStatusLabels } from "@/lib/mock-data";
+import { ROLE_LABELS } from "@/lib/constants";
+import { useMarketStatuses } from "@/hooks/use-market-statuses";
 import { deletePost } from "@/lib/posts/actions";
 import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation } from "lucide-react";
 
@@ -45,11 +47,12 @@ const TYPE_CONFIG = {
 
 export function PostCard({ post, isAuthenticated = false, currentUserId, onRefresh }: PostCardProps) {
   const { author, type, content, rice_type, price, quantity, unit, address, region, township, easy_to_carry, pound_per_bag, paddy_condition, badge, images } = post;
+  const router = useRouter();
   const [displayTime, setDisplayTime] = useState(post.created_at);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const { labels: marketStatusLabels } = useMarketStatuses();
 
   const typeInfo = TYPE_CONFIG[type] || TYPE_CONFIG.general;
   const isPremium = type === "buying" || type === "selling";
@@ -90,7 +93,7 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {roleLabels[author.role] || author.role}
+              {ROLE_LABELS[author.role as keyof typeof ROLE_LABELS] || author.role}
               {author.market_status_id && marketStatusLabels[author.market_status_id] && (
                 <> · {marketStatusLabels[author.market_status_id]}</>
               )}
@@ -111,7 +114,7 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
                 <MoreHorizontal className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setShowEditModal(true)}>
+                <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}/edit`)}>
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
@@ -165,62 +168,71 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
 
         {/* Meta tags — only for buying/selling */}
         {isPremium && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-xs text-muted-foreground">
-            {rice_type && (
-              <span className="inline-flex items-center gap-1">
-                <Wheat className="h-3 w-3" />
-                {rice_type}
-              </span>
-            )}
-            {price != null && (
-              <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                <Banknote className="h-3 w-3" />
-                {formatPrice(price)}/{unit || "basket"}
-              </span>
-            )}
-            {quantity != null && (
-              <span className="inline-flex items-center gap-1">
-                <Package className="h-3 w-3" />
-                {formatQuantity(quantity, unit)}
-              </span>
-            )}
-            {region && (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {township ? `${township}, ` : ""}
-                {regionTownships[region]?.label || region}
-              </span>
-            )}
-            {address && (
-              <span className="inline-flex items-center gap-1">
-                🏠 {address}
-              </span>
-            )}
-            {pound_per_bag != null && (
-              <span className="inline-flex items-center gap-1">
-                🏋️ {pound_per_bag} lb/bag
-              </span>
-            )}
-            {paddy_condition != null && (
-              <span className="inline-flex items-center gap-1">
-                💧 Moisture: {paddy_condition}%
-              </span>
-            )}
-            {easy_to_carry && (
-              <span className="inline-flex items-center gap-1">
-                🚚 Easy to carry
-              </span>
-            )}
-            {post.latitude != null && post.longitude != null && (
-              <button
-                type="button"
-                onClick={() => setShowMapDialog(true)}
-                className="inline-flex items-center gap-1 text-primary hover:underline"
-              >
-                <Navigation className="h-3 w-3" />
-                Get Directions
-              </button>
-            )}
+          <div className="rounded-lg bg-muted/50 p-3 mb-3 space-y-2.5">
+            {/* Primary info: rice type + price */}
+            <div className="flex flex-wrap items-center gap-2">
+              {rice_type && (
+                <Badge variant="secondary" className="gap-1 font-normal">
+                  <Wheat className="h-3 w-3" />
+                  {rice_type}
+                </Badge>
+              )}
+              {price != null && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                  <Banknote className="h-4 w-4" />
+                  {formatPrice(price)}
+                  <span className="text-xs font-normal text-muted-foreground">/ 100 baskets</span>
+                </span>
+              )}
+            </div>
+
+            {/* Secondary info: quantity, location, specs */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {quantity != null && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  <Package className="h-3 w-3" />
+                  {formatQuantity(quantity, "baskets")}
+                </span>
+              )}
+              {region && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  {township ? `${township}, ` : ""}
+                  {region}
+                </span>
+              )}
+              {address && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  🏠 {address}
+                </span>
+              )}
+              {pound_per_bag != null && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  <Image src="/assets/bag.jpeg" alt="" width={14} height={14} className="rounded-sm" />
+                  {pound_per_bag} lb/bag
+                </span>
+              )}
+              {paddy_condition != null && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  ☀️ Moisture: {paddy_condition}%
+                </span>
+              )}
+              {easy_to_carry && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-50 border border-green-200 text-green-700 dark:bg-green-950 dark:border-green-800 dark:text-green-400">
+                  🚚 Easy to carry
+                </span>
+              )}
+              {post.latitude != null && post.longitude != null && (
+                <button
+                  type="button"
+                  onClick={() => setShowMapDialog(true)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <Navigation className="h-3 w-3" />
+                  Get Directions
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -236,15 +248,6 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
           />
         </div>
       </CardContent>
-
-      {showEditModal && (
-        <EditPostModal
-          post={post}
-          open={showEditModal}
-          onOpenChange={setShowEditModal}
-          onUpdated={onRefresh}
-        />
-      )}
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
