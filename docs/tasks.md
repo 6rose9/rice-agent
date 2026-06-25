@@ -316,7 +316,7 @@ MVP is **Phases 1–5, P0 tasks only** (skip T145–T147 which are V2). The targ
 
 ---
 
-## Progress Report — 2026-06-22
+## Progress Report — 2026-06-25
 
 ### Completion by Phase
 
@@ -326,9 +326,9 @@ MVP is **Phases 1–5, P0 tasks only** (skip T145–T147 which are V2). The targ
 | Phase 2 — Professional Identity | 21      | 21      | 100%    | ✅ Done        |
 | Phase 3 — Marketplace           | 32      | 36      | 89%     | 🟡 In Progress |
 | Phase 4 — Discovery             | 0       | 19      | 0%      | 🔴 Not Started |
-| Phase 5 — Network               | 0       | 13      | 0%      | 🔴 Not Started |
+| Phase 5 — Network               | 1       | 13      | 8%      | 🟡 In Progress |
 | Phase 6 — Polish                | 0       | 30      | 0%      | 🔴 Not Started |
-| **Total**                       | **109** | **179** | **61%** |               |
+| **Total**                       | **110** | **179** | **61%** |               |
 
 ### Key Gaps Remaining
 
@@ -336,7 +336,7 @@ MVP is **Phases 1–5, P0 tasks only** (skip T145–T147 which are V2). The targ
 | ------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | **1.1 Scaffolding** | —                                                                   | All done                                                                                    |
 | **1.2 Supabase**    | —                                                                   | All done                                                                                    |
-| **1.3 Migrations**  | T028–T030 (follows table, image trigger)                            | 🔴 **High** — `follows` table is a blocker for Phase 5                                       |
+| **1.3 Migrations**  | T028–T030 (follows table, image trigger)                            | 🔴 **High** — `follows` table is a blocker for follow/unfollow features                     |
 | **1.4 Types**       | T032 generated types                                                | Medium — hand-written types work but drift from schema over time                            |
 | **1.6 App Shell**   | T054 OfflineBanner                                                  | Low — nice-to-have for rural connectivity                                                   |
 | **3.1 Create Post** | T083 desktop modal, T084 `use-posts` hook, T088 cancel confirmation | Medium — desktop UX and code organization                                                   |
@@ -344,6 +344,12 @@ MVP is **Phases 1–5, P0 tasks only** (skip T145–T147 which are V2). The targ
 | **4.x Search**      | T116–T134 (all 19 tasks)                                            | 🔴 **High** — search page uses mock data only, no real Supabase queries                      |
 | **5.x Network**     | T135–T144 (all 10 MVP tasks)                                        | 🔴 **High** — follow/unfollow entirely unimplemented, needs `follows` migration + UI + hooks |
 | **6.x Polish**      | T148–T177 (all 30 tasks)                                            | 🟡 Medium — error boundaries, a11y, deployment all pending                                   |
+
+### Recent Changes (2026-06-25)
+
+- Created `src/lib/network/actions.ts` with `getSuggestedProfiles()` server action — fetches real profiles from DB
+- Rewrote `src/app/(main)/mynetwork/page.tsx` — removed mock data (mockSuggestions, mockInvitations, networkStats), wired real DB queries, removed invitations section (no DB table), fixed market status badge to use full label with color instead of short form
+- Removed `shortLabels` from `src/hooks/use-market-statuses.ts` — unused after mynetwork rewrite
 
 ### Blockers for MVP
 

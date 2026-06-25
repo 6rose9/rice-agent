@@ -24,8 +24,8 @@ const mainItems = [
   { href: "/feed", label: "Home", icon: Home },
   { href: "/search", label: "Search", icon: Search },
   { href: "/posts/create", label: "Create Post", icon: PlusSquare },
-  { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/mynetwork", label: "My Network", icon: Network },
+  { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/pricing", label: "Pricing", icon: Crown },
 ];
 

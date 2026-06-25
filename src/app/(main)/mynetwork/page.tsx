@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { RightRail } from "@/components/layout/right-rail";
 import { useAuth } from "@/components/auth/auth-provider";
 import { SignInGate } from "@/components/auth/sign-in-gate";
@@ -12,40 +11,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ROLE_LABELS } from "@/lib/constants";
-import {
-  mockInvitations,
-  mockSuggestions,
-  networkStats,
-} from "@/lib/mock-data";
+import { getSuggestedProfiles } from "@/lib/network/actions";
 import { useMarketStatuses } from "@/hooks/use-market-statuses";
 import { useRegions } from "@/hooks/use-regions";
-import {
-  Users,
-  UserPlus,
-  UserCheck,
-  Clock,
-  X,
-  Check,
-  MapPin,
-  ChevronRight,
-} from "lucide-react";
-
-function InvitationSkeleton() {
-  return (
-    <div className="flex items-start gap-3 px-4 py-4 sm:px-6">
-      <Skeleton className="h-12 w-12 rounded-full shrink-0" />
-      <div className="flex-1 space-y-2">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-3 w-48" />
-        <Skeleton className="h-3 w-20" />
-        <div className="flex gap-2 pt-1">
-          <Skeleton className="h-8 w-20 rounded-full" />
-          <Skeleton className="h-8 w-20 rounded-full" />
-        </div>
-      </div>
-    </div>
-  );
-}
+import type { Profile } from "@/types";
+import { Users, UserPlus, MapPin, RefreshCw } from "lucide-react";
 
 function SuggestionSkeleton() {
   return (
@@ -69,17 +39,32 @@ function SuggestionSkeleton() {
 
 function NetworkContent() {
   const { isAuthenticated } = useAuth();
+  const { labels, colors } = useMarketStatuses();
   const { getLocationLabel } = useRegions();
 
-  const [phase, setPhase] = useState<"loading" | "ready">("loading");
-  const [invitations, setInvitations] = useState(mockInvitations);
+  const [loading, setLoading] = useState(true);
+  const [suggestions, setSuggestions] = useState<Profile[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setPhase("ready"), 900);
-    return () => clearTimeout(t);
-  }, []);
+    let cancelled = false;
 
-  const loading = phase === "loading";
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const profiles = await getSuggestedProfiles(12);
+        if (!cancelled) setSuggestions(profiles);
+      } catch {
+        if (!cancelled) setError("Failed to load suggestions.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   if (!isAuthenticated) {
     return (
@@ -92,20 +77,6 @@ function NetworkContent() {
     );
   }
 
-  function handleAccept(id: string) {
-    setInvitations((prev) => prev.filter((inv) => inv.id !== id));
-  }
-
-  function handleIgnore(id: string) {
-    setInvitations((prev) => prev.filter((inv) => inv.id !== id));
-  }
-
-  function handleIgnoreAll() {
-    setInvitations([]);
-  }
-
-  const pending = loading ? 3 : invitations.length;
-
   return (
     <div className="flex">
       <div className="flex-1 min-w-0">
@@ -114,177 +85,6 @@ function NetworkContent() {
           <h1 className="text-xl font-bold">My Network</h1>
         </div>
 
-        {/* Stats sub-bar */}
-        <div className="px-4 pb-3 sm:px-6 flex items-center gap-1 text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">
-            {networkStats.connections}
-          </span>{" "}
-          connections
-          <span className="mx-1.5 text-border">·</span>
-          {loading ? (
-            <Skeleton className="h-4 w-24 inline-block" />
-          ) : (
-            <>
-              <span className="font-semibold text-foreground">{pending}</span>{" "}
-              pending invitations
-            </>
-          )}
-        </div>
-
-        {/* MOBILE: quick-jump tabs */}
-        <div className="md:hidden flex border-b overflow-x-auto no-scrollbar">
-          <a
-            href="#invitations"
-            className="px-4 py-2.5 text-sm font-medium whitespace-nowrap hover:text-primary transition-colors"
-          >
-            Invitations
-            {pending > 0 && (
-              <span className="ml-1 text-xs text-muted-foreground">
-                ({pending} new)
-              </span>
-            )}
-          </a>
-          <a
-            href="#people-you-may-know"
-            className="px-4 py-2.5 text-sm font-medium whitespace-nowrap hover:text-primary transition-colors"
-          >
-            People You May Know
-          </a>
-        </div>
-
-        {/* INVITATIONS SECTION */}
-        <section id="invitations">
-          <div className="flex items-center justify-between px-4 py-3 sm:px-6">
-            <h2 className="text-base font-semibold flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              Invitations
-              {!loading && pending > 0 && (
-                <Badge variant="secondary" className="text-xs h-5">
-                  {pending} new
-                </Badge>
-              )}
-            </h2>
-            {!loading && pending > 0 && (
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs"
-                onClick={handleIgnoreAll}
-              >
-                Ignore All
-              </Button>
-            )}
-          </div>
-
-          {loading ? (
-            <div className="divide-y">
-              <InvitationSkeleton />
-              <InvitationSkeleton />
-              <InvitationSkeleton />
-            </div>
-          ) : invitations.length === 0 ? (
-            <div className="text-center py-12 px-4">
-              <UserCheck className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-sm font-medium">No pending invitations</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                All caught up! Invitations you receive will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {invitations.map((inv) => (
-                <Card
-                  key={inv.id}
-                  className="border-0 border-b rounded-none shadow-none last:border-b-0"
-                >
-                  <CardContent className="p-4 sm:px-6">
-                    <div className="flex items-start gap-3">
-                      <Link
-                        href={`/profile/${inv.from.username}`}
-                        className="shrink-0"
-                      >
-                        <Avatar className="h-12 w-12">
-                          <AvatarFallback className="text-lg bg-accent">
-                            {inv.from.full_name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <Link
-                              href={`/profile/${inv.from.username}`}
-                              className="text-sm font-semibold hover:text-primary hover:underline transition-colors"
-                            >
-                              {inv.from.full_name}
-                            </Link>
-                            <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
-                              <span>{ROLE_LABELS[inv.from.role as keyof typeof ROLE_LABELS]}</span>
-                              {getLocationLabel(inv.from) && (
-                                <>
-                                  <span>·</span>
-                                  <MapPin className="h-2.5 w-2.5" />
-                                  <span>{getLocationLabel(inv.from).split(",")[0]}</span>
-                                </>
-                              )}
-                            </p>
-                          </div>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                            {inv.mutual_connections} mutual
-                          </span>
-                        </div>
-                        {inv.message && (
-                          <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">
-                            &quot;{inv.message}&quot;
-                          </p>
-                        )}
-                        <p className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
-                          <Clock className="h-2.5 w-2.5" />
-                          {new Date(inv.created_at).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </p>
-                        <div className="flex gap-2 mt-2.5">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 rounded-full text-xs"
-                            onClick={() => handleIgnore(inv.id)}
-                          >
-                            <X className="h-3 w-3 mr-1" />
-                            Ignore
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="h-8 rounded-full text-xs"
-                            onClick={() => handleAccept(inv.id)}
-                          >
-                            <Check className="h-3 w-3 mr-1" />
-                            Accept
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {!loading && (
-            <div className="px-4 py-2.5 sm:px-6 border-t">
-              <Link
-                href="/mynetwork/invitations"
-                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
-              >
-                See all invitation history
-                <ChevronRight className="h-3 w-3" />
-              </Link>
-            </div>
-          )}
-        </section>
-
         {/* PEOPLE YOU MAY KNOW SECTION */}
         <section id="people-you-may-know" className="py-4 sm:py-5">
           <div className="flex items-center justify-between px-4 sm:px-6 mb-3">
@@ -292,34 +92,52 @@ function NetworkContent() {
               <Users className="h-4 w-4" />
               People You May Know
             </h2>
-            <Button variant="link" size="sm" className="h-auto p-0 text-xs">
-              See All →
-            </Button>
           </div>
+
+          {error && (
+            <div className="px-4 sm:px-6 mb-4">
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-sm text-muted-foreground">{error}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => window.location.reload()}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    Retry
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 px-4 sm:px-6">
             {loading
               ? Array.from({ length: 6 }).map((_, i) => (
                   <SuggestionSkeleton key={i} />
                 ))
-              : mockSuggestions.map((profile) => (
-                  <SuggestionCard key={profile.id} profile={profile} />
+              : suggestions.map((profile) => (
+                  <SuggestionCard
+                    key={profile.id}
+                    profile={profile}
+                    labels={labels}
+                    colors={colors}
+                    getLocationLabel={getLocationLabel}
+                  />
                 ))}
           </div>
-        </section>
 
-        {/* Mobile-only stats */}
-        <section className="lg:hidden px-4 pb-8 sm:px-6">
-          <h3 className="text-sm font-semibold text-muted-foreground mb-2">
-            Your Network Stats
-          </h3>
-          <Card>
-            <CardContent className="p-4 space-y-2.5 text-sm">
-              <StatRow label="Connections" value={networkStats.connections} />
-              <StatRow label="Following" value={networkStats.following} />
-              <StatRow label="Followers" value={networkStats.followers} />
-              <StatRow label="Pending" value={pending} />
-            </CardContent>
-          </Card>
+          {!loading && !error && suggestions.length === 0 && (
+            <div className="text-center py-12 px-4">
+              <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-sm font-medium">No suggestions yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                As more people join, they will appear here.
+              </p>
+            </div>
+          )}
         </section>
       </div>
 
@@ -328,72 +146,73 @@ function NetworkContent() {
   );
 }
 
-function SuggestionCard({ profile }: { profile: (typeof mockSuggestions)[number] }) {
-  const { isAuthenticated } = useAuth();
-  const router = useRouter();
-  const { shortLabels: marketStatusShort } = useMarketStatuses();
-  const { getLocationLabel } = useRegions();
-
-  function handleConnect() {
-    if (!isAuthenticated) {
-      router.push("/login?redirect=%2Fmynetwork");
-      return;
-    }
-    // TODO: send connection request
-  }
-
+function SuggestionCard({
+  profile,
+  labels,
+  colors,
+  getLocationLabel,
+}: {
+  profile: Profile;
+  labels: Record<number, string>;
+  colors: Record<number, string>;
+  getLocationLabel: (p: { region_id: number; township_id: number | null }) => string;
+}) {
   return (
-    <Card className="overflow-hidden border hover:shadow-sm transition-shadow">
-      <div className="h-14 bg-gradient-to-r from-emerald-100 to-green-50 dark:from-emerald-900 dark:to-green-950" />
-      <CardContent className="p-4 pt-0">
-        <div className="flex justify-center -mt-7 mb-2">
-          <Avatar className="h-14 w-14 ring-2 ring-card">
-            <AvatarFallback className="text-lg bg-accent">
-              {profile.full_name.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
-        </div>
-        <div className="text-center">
-          <Link
-            href={`/profile/${profile.username}`}
-            className="text-sm font-semibold hover:text-primary hover:underline transition-colors"
-          >
-            {profile.full_name}
-          </Link>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS]}
-          </p>
-          {getLocationLabel(profile) && (
-            <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center justify-center gap-0.5">
-              <MapPin className="h-2.5 w-2.5" />
-              {getLocationLabel(profile).split(",")[0]}
+    <Link href={`/profile/${profile.username}`} className="block">
+      <Card className="overflow-hidden border hover:shadow-sm transition-shadow h-full">
+        <div className="h-14 bg-gradient-to-r from-emerald-100 to-green-50 dark:from-emerald-900 dark:to-green-950" />
+        <CardContent className="p-4 pt-0">
+          <div className="flex justify-center -mt-7 mb-2">
+            <Avatar className="h-14 w-14 ring-2 ring-card">
+              <AvatarFallback className="text-lg bg-accent">
+                {profile.full_name.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-semibold hover:text-primary hover:underline transition-colors">
+              {profile.full_name}
             </p>
-          )}
-          {profile.market_status_id != null && (
-            <Badge variant="outline" className="mt-1.5 text-[10px] h-5">
-              {marketStatusShort[profile.market_status_id] ?? ""}
-            </Badge>
-          )}
-        </div>
-        <Button
-          variant="outline"
-          className="w-full mt-3 h-8 rounded-full text-xs font-medium"
-          onClick={handleConnect}
-        >
-          <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-          Connect
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-function StatRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex justify-between items-center">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-semibold">{value}</span>
-    </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {ROLE_LABELS[profile.role as keyof typeof ROLE_LABELS]}
+            </p>
+            {getLocationLabel(profile) && (
+              <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center justify-center gap-0.5">
+                <MapPin className="h-2.5 w-2.5" />
+                {getLocationLabel(profile).split(",")[0]}
+              </p>
+            )}
+            <div className="mt-1.5 h-5 flex items-center justify-center">
+              {profile.market_status_id != null && labels[profile.market_status_id] && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] h-5"
+                  style={
+                    colors[profile.market_status_id]
+                      ? {
+                          backgroundColor: `${colors[profile.market_status_id]}20`,
+                          color: colors[profile.market_status_id],
+                          borderColor: `${colors[profile.market_status_id]}40`,
+                        }
+                      : undefined
+                  }
+                >
+                  {labels[profile.market_status_id]}
+                </Badge>
+              )}
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            className="w-full mt-3 h-8 rounded-full text-xs font-medium relative z-10"
+            onClick={(e) => e.preventDefault()}
+          >
+            <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+            Connect
+          </Button>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 

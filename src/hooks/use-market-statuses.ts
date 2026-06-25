@@ -32,20 +32,6 @@ export function useMarketStatuses() {
     return map;
   }, [statuses]);
 
-  const shortLabels = useMemo(() => {
-    const map: Record<number, string> = {};
-    for (const s of statuses) {
-      const en = (s.name as { en: string }).en;
-      map[s.id] = en
-        .split(/\s+/)
-        .map((w) => w[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 5);
-    }
-    return map;
-  }, [statuses]);
-
   const colors = useMemo(() => {
     const map: Record<number, string> = {};
     for (const s of statuses) {
@@ -56,5 +42,5 @@ export function useMarketStatuses() {
     return map;
   }, [statuses]);
 
-  return { statuses, labels, shortLabels, colors, loading };
+  return { statuses, labels, colors, loading };
 }
