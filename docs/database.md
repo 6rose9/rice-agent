@@ -677,6 +677,92 @@ tin
 
 ---
 
+### `follows`
+
+Social graph junction table. Each row means "follower_id follows following_id".
+
+| Column | Type | Notes |
+|---|---|---|
+| `follower_id` | `UUID` | PK, FK → `profiles.id` ON DELETE CASCADE |
+| `following_id` | `UUID` | PK, FK → `profiles.id` ON DELETE CASCADE |
+| `created_at` | `TIMESTAMPTZ` | DEFAULT `now()` |
+
+**Constraints:**
+- Composite primary key `(follower_id, following_id)`
+- `CHECK (follower_id <> following_id)` — no self-follow
+- Unique by design (composite PK)
+
+**Indexes:**
+- `idx_follows_following` on `following_id` — fast "who follows this user" queries
+- `idx_follows_follower` on `follower_id` — fast "who does this user follow" queries
+
+**RLS Policies:**
+| Policy | Operation | Rule |
+|---|---|---|
+| `follows_select_all` | SELECT | Public — anyone can see follow relationships |
+| `follows_insert_own` | INSERT | Authenticated user can only insert as `follower_id = auth.uid()` |
+| `follows_delete_own` | DELETE | Authenticated user can only delete their own follows |
+
+---
+
+### `connection_requests`
+
+Connection request lifecycle. Sender sends, receiver accepts/declines. When accepted, a row is created in `connections`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `UUID` | PK, default `gen_random_uuid()` |
+| `sender_id` | `UUID` | FK → `profiles.id` ON DELETE CASCADE |
+| `receiver_id` | `UUID` | FK → `profiles.id` ON DELETE CASCADE |
+| `status` | `TEXT` | DEFAULT `'pending'`, CHECK IN ('pending', 'accepted', 'declined') |
+| `created_at` | `TIMESTAMPTZ` | DEFAULT `now()` |
+| `updated_at` | `TIMESTAMPTZ` | DEFAULT `now()` |
+
+**Constraints:**
+- `CHECK (sender_id <> receiver_id)` — no self-requests
+- `UNIQUE (sender_id, receiver_id)` — one request per pair
+
+**Indexes:**
+- `idx_connection_requests_receiver` on `(receiver_id, status)` — fast "my pending requests" queries
+- `idx_connection_requests_sender` on `(sender_id, status)` — fast "my sent requests" queries
+
+**RLS Policies:**
+| Policy | Operation | Rule |
+|---|---|---|
+| `connection_requests_select_own` | SELECT | Authenticated user sees requests they sent or received |
+| `connection_requests_insert_own` | INSERT | Authenticated user can only send as `sender_id = auth.uid()` |
+| `connection_requests_update_own` | UPDATE | Sender or receiver can update (accept/decline/cancel) |
+| `connection_requests_delete_own` | DELETE | Sender or receiver can delete |
+
+---
+
+### `connections`
+
+Mutual/accepted connections. Created when a connection request is accepted. Uses canonical ordering (`user1_id < user2_id`) to prevent duplicates.
+
+| Column | Type | Notes |
+|---|---|---|
+| `user1_id` | `UUID` | PK, FK → `profiles.id` ON DELETE CASCADE |
+| `user2_id` | `UUID` | PK, FK → `profiles.id` ON DELETE CASCADE |
+| `created_at` | `TIMESTAMPTZ` | DEFAULT `now()` |
+
+**Constraints:**
+- Composite primary key `(user1_id, user2_id)`
+- `CHECK (user1_id < user2_id)` — canonical ordering
+
+**Indexes:**
+- `idx_connections_user1` on `user1_id`
+- `idx_connections_user2` on `user2_id`
+
+**RLS Policies:**
+| Policy | Operation | Rule |
+|---|---|---|
+| `connections_select_all` | SELECT | Public — anyone can see connections |
+| `connections_insert_auth` | INSERT | Authenticated users can insert |
+| `connections_delete_own` | DELETE | Either user in the connection can delete |
+
+---
+
 ## Schema Migration Structure
 
 ```
@@ -687,7 +773,10 @@ supabase/
     ├── 20260618000002_create_posts.sql          — update_updated_at_column function, posts, post_images
     ├── 20260618000003_create_post_images_storage.sql — Storage bucket "post-images" with RLS policies
     ├── 20260619000000_create_saved_posts.sql    — saved_posts table
-    └── 20260619000001_user_soft_delete.sql      — idempotent soft-delete migration (deleted_at column, soft_delete_account function, updated RLS)
+    ├── 20260619000001_user_soft_delete.sql      — idempotent soft-delete migration (deleted_at column, soft_delete_account function, updated RLS)
+    ├── 20260625000000_create_follows.sql        — follows table (social graph junction)
+    ├── 20260625000001_create_connection_requests.sql — connection_requests table (request lifecycle)
+    └── 20260625000002_create_connections.sql    — connections table (accepted mutual connections)
 ```
 
 ---
@@ -696,7 +785,6 @@ supabase/
 
 | Enhancement | Detail |
 |---|---|
-| `follows` table | Social-graph junction table (follower_id, following_id) |
 | `conversations` table | Direct messaging between users |
 | `messages` table | Individual messages within a conversation |
 | `reviews` table | Ratings and reviews between users |

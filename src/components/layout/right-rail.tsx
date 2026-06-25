@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ROLE_LABELS } from "@/lib/constants";
 import { mockProfiles } from "@/lib/mock-data";
 import { useRegions } from "@/hooks/use-regions";
-import { Clock, TrendingUp, Bookmark, Sprout } from "lucide-react";
+import { Clock, TrendingUp, Bookmark, Sprout, Users, UserPlus, UserCheck, Mail } from "lucide-react";
 
 type RightRailVariant = "feed" | "profile" | "search" | "network";
 
@@ -16,9 +16,11 @@ interface RightRailProps {
   variant?: RightRailVariant;
   /** Profile-specific: pass the viewed user's data for Quick Stats */
   profileStats?: { posts: number; followers: number; topCategory?: string };
+  /** Network-specific: pass real counts */
+  networkStats?: { connections: number; followers: number; following: number; pending: number };
 }
 
-export function RightRail({ variant = "feed", profileStats }: RightRailProps) {
+export function RightRail({ variant = "feed", profileStats, networkStats }: RightRailProps) {
   const { getLocationLabel } = useRegions();
   const suggestions = mockProfiles.slice(0, 3);
 
@@ -194,41 +196,42 @@ export function RightRail({ variant = "feed", profileStats }: RightRailProps) {
           </CardHeader>
           <CardContent className="p-0 space-y-2">
             <Link
-              href="/mynetwork"
-              className="flex items-center justify-between text-sm py-1 hover:text-primary transition-colors"
+              href="/mynetwork/connections"
+              className="flex items-center justify-between text-sm py-1.5 hover:text-primary transition-colors"
             >
-              <span>🔗 Connections</span>
-              <span className="font-semibold">156</span>
+              <span className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                Connections
+              </span>
+              <span className="font-semibold">{networkStats?.connections ?? 0}</span>
             </Link>
             <Link
-              href="/mynetwork"
-              className="flex items-center justify-between text-sm py-1 hover:text-primary transition-colors"
+              href="/mynetwork/following"
+              className="flex items-center justify-between text-sm py-1.5 hover:text-primary transition-colors"
             >
-              <span>📥 Following</span>
-              <span className="font-semibold">89</span>
+              <span className="flex items-center gap-2">
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+                Following
+              </span>
+              <span className="font-semibold">{networkStats?.following ?? 0}</span>
             </Link>
+            <div className="flex items-center justify-between text-sm py-1.5 text-muted-foreground">
+              <span className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Followers
+              </span>
+              <span className="font-semibold">{networkStats?.followers ?? 0}</span>
+            </div>
             <Link
-              href="/mynetwork"
-              className="flex items-center justify-between text-sm py-1 hover:text-primary transition-colors"
+              href="/mynetwork/invitations"
+              className="flex items-center justify-between text-sm py-1.5 hover:text-primary transition-colors"
             >
-              <span>📤 Followers</span>
-              <span className="font-semibold">42</span>
+              <span className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                Invitations
+              </span>
+              <span className="font-semibold">{networkStats?.pending ?? 0}</span>
             </Link>
-          </CardContent>
-        </Card>
-
-        {/* Pending Invitations */}
-        <Card className={cardClasses}>
-          <CardHeader className="pb-2 pt-0">
-            <CardTitle className="text-sm font-semibold text-muted-foreground">
-              Pending
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <p className="text-sm">
-              <span className="font-medium">3</span>{" "}
-              <span className="text-muted-foreground">invitations</span>
-            </p>
           </CardContent>
         </Card>
 

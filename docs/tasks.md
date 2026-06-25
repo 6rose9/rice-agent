@@ -41,8 +41,8 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 - ✅ T025: Migration: `posts` RLS — SELECT public (anon read), INSERT author, UPDATE author, DELETE author
 - ✅ T026: Migration: `post_images` table — DDL, FK to posts, index on `post_id`
 - ✅ T027: Migration: `post_images` RLS — SELECT public, INSERT author, DELETE author
-- [ ] T028: Migration: `follows` table — DDL, UNIQUE(follower_id, following_id), CHECK(no self-follow), FKs
-- [ ] T029: Migration: `follows` RLS — SELECT all, INSERT as follower, DELETE as follower
+- ✅ T028: Migration: `follows` table — DDL, UNIQUE(follower_id, following_id), CHECK(no self-follow), FKs (`20260625000000_create_follows.sql`)
+- ✅ T029: Migration: `follows` RLS — SELECT all, INSERT as follower, DELETE as follower (`20260625000000_create_follows.sql`)
 - [ ] T030: Create `post_images` count trigger — enforce max 5 images per post at database level
 - ✅ T031: Run migrations against Supabase — `auth_schema.sql`, `20260618000000`–`20260619000001`, `user_soft_delete.sql` applied
 - ✅ T031a: Migration: `saved_posts` table — composite PK (user_id, post_id), RLS owner-only (`20260619000000_create_saved_posts.sql`)
@@ -67,7 +67,7 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 - ✅ T041: Add form validation to login form —  phone number, password min 6 chars, disable button while loading, show inline errors
 - ✅ T042: Add form validation to register form — phone number, password min 6 chars, confirm match, disable button while loading, show inline errors
 - ✅ T043: Handle auth errors — wrong password, email already exists, network error (show Toast)
-- ✅ T044: Redirect after login — proxy.ts redirects authenticated users to `/feed`, unauthenticated away from protected routes (⚠️ file is `src/proxy.ts`, should be `src/middleware.ts` for Next.js to pick it up)
+- ✅ T044: Redirect after login — proxy.ts redirects authenticated users to `/feed`, unauthenticated away from protected routes
 - ✅ T045: Add logout button to sidebar (desktop) and settings menu (mobile) — calls `signOut()`, redirects to `/login`
 
 ### 1.6 App Shell & Layout
@@ -214,25 +214,39 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 
 ### 5.1 Follow / Unfollow
 
-- [ ] T135: Create `src/components/network/follow-button.tsx` — FollowButton: "Follow" (outline) / "Following" (filled), toggles on click
-- [ ] T136: Create `src/hooks/use-follow.ts` — `follow(userId)`, `unfollow(userId)`, `isFollowing(userId)`, `fetchFollowerCount(userId)`, `fetchFollowingCount(userId)`
-- [ ] T137: Add FollowButton to ProfileHeader — visible only when viewing other user's profile; hidden on own profile
+- ✅ T135: Create `src/components/network/follow-button.tsx` — FollowButton: "Follow" (outline) / "Following" (filled), toggles on click
+- ✅ T136: Create `src/hooks/use-follow.ts` — `follow(userId)`, `unfollow(userId)`, `isFollowing(userId)`, `fetchFollowerCount(userId)`, `fetchFollowingCount(userId)`
+- ✅ T137: Add FollowButton to ProfileHeader — visible only when viewing other user's profile; hidden on own profile
 - [ ] T138: Add FollowButton to user search results — visible on each user row
-- [ ] T139: Follow optimistic update — button changes to "Following" immediately; revert on error with Toast
-- [ ] T140: Unfollow — ConfirmDialog guard (or just toggle with optimistic update)
-- [ ] T141: Handle follow/unfollow error — if not authenticated, redirect to login; if already following, ignore; if not following, ignore
+- ✅ T139: Follow optimistic update — button changes to "Following" immediately; revert on error with Toast
+- ✅ T140: Unfollow — ConfirmDialog guard (or just toggle with optimistic update)
+- ✅ T141: Handle follow/unfollow error — if not authenticated, redirect to login; if already following, ignore; if not following, ignore
 
 ### 5.2 Profile Stats
 
-- [ ] T142: Add follower/following counts to ProfileHeader — `fetchFollowerCount()` + `fetchFollowingCount()`, display in stats row
+- ✅ T142: Add follower/following counts to ProfileHeader — `fetchFollowerCount()` + `fetchFollowingCount()`, display in stats row
 - [ ] T143: Stats click — tap follower count opens modal/list showing followers; tap following count shows following (deferred full pages to V2, but inline modal is MVP)
-- [ ] T144: "Following" indicator on profile — when viewing another profile, show "Following" badge if current user follows them (in addition to FollowButton state)
+- ✅ T144: "Following" indicator on profile — when viewing another profile, show "Following" badge if current user follows them (in addition to FollowButton state)
 
 ### 5.3 Network Pages (V2 — deferred)
 
 - [ ] T145: (V2) Create `/network` page — my network overview, follower/following counts
 - [ ] T146: (V2) Create `/network/followers` page — list of followers with FollowButton
 - [ ] T147: (V2) Create `/network/following` page — list of who I follow with FollowButton
+
+### 5.4 Connections (LinkedIn-style)
+
+- ✅ T148: Migration: `connection_requests` table — DDL, RLS, indexes (`20260625000001_create_connection_requests.sql`)
+- ✅ T149: Migration: `connections` table — DDL, RLS, canonical ordering (`20260625000002_create_connections.sql`)
+- ✅ T150: Create `src/components/network/connect-button.tsx` — ConnectButton: "Connect" / "Pending" / "Connected" states
+- ✅ T151: Create `src/hooks/use-connection.ts` — connection status hook with optimistic updates
+- ✅ T152: Create `src/components/network/invitation-card.tsx` — InvitationCard with Accept/Decline buttons
+- ✅ T153: Add connection server actions — `sendConnectionRequest`, `acceptConnectionRequest`, `declineConnectionRequest`, `getConnectionStatus`, `getPendingRequests`
+- ✅ T154: MyNetwork page — Invitations section with real pending requests + Accept/Decline
+- ✅ T155: MyNetwork page — "People You May Know" cards use ConnectButton instead of FollowButton
+- ✅ T156: Profile page — show both Connect and Follow buttons for other users
+- ✅ T157: Profile page — add Connections count to stats bar
+- ✅ T158: Right rail — accept networkStats prop, show real connection/follower/following/pending counts
 
 ---
 
@@ -322,41 +336,51 @@ MVP is **Phases 1–5, P0 tasks only** (skip T145–T147 which are V2). The targ
 
 | Phase                           | Done    | Total   | %       | Status        |
 | ------------------------------- | ------- | ------- | ------- | ------------- |
-| Phase 1 — Foundation            | 56      | 60      | 93%     | 🟡 In Progress |
+| Phase 1 — Foundation            | 58      | 60      | 97%     | 🟡 In Progress |
 | Phase 2 — Professional Identity | 21      | 21      | 100%    | ✅ Done        |
 | Phase 3 — Marketplace           | 32      | 36      | 89%     | 🟡 In Progress |
 | Phase 4 — Discovery             | 0       | 19      | 0%      | 🔴 Not Started |
-| Phase 5 — Network               | 1       | 13      | 8%      | 🟡 In Progress |
+| Phase 5 — Network               | 20      | 24      | 83%     | 🟡 In Progress |
 | Phase 6 — Polish                | 0       | 30      | 0%      | 🔴 Not Started |
-| **Total**                       | **110** | **179** | **61%** |               |
+| **Total**                       | **131** | **190** | **69%** |               |
 
 ### Key Gaps Remaining
 
 | Area                | Missing Tasks                                                       | Impact                                                                                      |
 | ------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| **1.1 Scaffolding** | —                                                                   | All done                                                                                    |
-| **1.2 Supabase**    | —                                                                   | All done                                                                                    |
-| **1.3 Migrations**  | T028–T030 (follows table, image trigger)                            | 🔴 **High** — `follows` table is a blocker for follow/unfollow features                     |
-| **1.4 Types**       | T032 generated types                                                | Medium — hand-written types work but drift from schema over time                            |
-| **1.6 App Shell**   | T054 OfflineBanner                                                  | Low — nice-to-have for rural connectivity                                                   |
+| **1.3 Migrations**  | T030 (post_images count trigger)                                    | Low — nice-to-have constraint                                                               |
 | **3.1 Create Post** | T083 desktop modal, T084 `use-posts` hook, T088 cancel confirmation | Medium — desktop UX and code organization                                                   |
 | **3.4 Feed**        | T110 real-time new posts banner                                     | Medium — users must manually refresh to see new posts                                       |
 | **4.x Search**      | T116–T134 (all 19 tasks)                                            | 🔴 **High** — search page uses mock data only, no real Supabase queries                      |
-| **5.x Network**     | T135–T144 (all 10 MVP tasks)                                        | 🔴 **High** — follow/unfollow entirely unimplemented, needs `follows` migration + UI + hooks |
+| **5.x Network**     | T138 (search results follow), T143 (stats modal), T145-T147 (V2)   | Low — core follow/connect system works, these are enhancements                              |
 | **6.x Polish**      | T148–T177 (all 30 tasks)                                            | 🟡 Medium — error boundaries, a11y, deployment all pending                                   |
 
 ### Recent Changes (2026-06-25)
 
-- Created `src/lib/network/actions.ts` with `getSuggestedProfiles()` server action — fetches real profiles from DB
-- Rewrote `src/app/(main)/mynetwork/page.tsx` — removed mock data (mockSuggestions, mockInvitations, networkStats), wired real DB queries, removed invitations section (no DB table), fixed market status badge to use full label with color instead of short form
-- Removed `shortLabels` from `src/hooks/use-market-statuses.ts` — unused after mynetwork rewrite
+**Connection System (LinkedIn-style)**
+- Created `connection_requests` table migration — request lifecycle with pending/accepted/declined status
+- Created `connections` table migration — mutual accepted connections with canonical ordering
+- Added connection server actions: `sendConnectionRequest`, `acceptConnectionRequest`, `declineConnectionRequest`, `getConnectionStatus`, `getPendingRequests`, `getConnectionCount`
+- Created `src/hooks/use-connection.ts` — client hook with optimistic status updates
+- Created `src/components/network/connect-button.tsx` — ConnectButton with 4 states (none/pending_sent/pending_received/connected)
+- Created `src/components/network/invitation-card.tsx` — InvitationCard with Accept/Decline buttons
+- Updated MyNetwork page — Invitations section with real pending requests, Connect buttons on suggestion cards
+- Updated Profile page — both Connect and Follow buttons, Connections count in stats bar
+- Updated RightRail — accepts networkStats prop for real counts
+
+**Follow System (Twitter-style, earlier)**
+- Created `follows` table migration
+- Created FollowButton, useFollow hook, server actions
+- Wired into profile page and mynetwork page
+
+**Other**
+- Removed mock data from mynetwork page, wired real DB queries
+- Fixed market status badge to use full label + color instead of short form
+- Updated docs/database.md with all new tables
 
 ### Blockers for MVP
 
-1. **`follows` table migration** (T028–T029) — must exist before any follow/unfollow work
-2. **Real search queries** (T116–T134) — search is entirely mock data
-3. **Follow/unfollow system** (T135–T144) — core MVP user story requires this
-4. **⚠️ Middleware filename** — `src/proxy.ts` must be renamed to `src/middleware.ts` for Next.js to use it as middleware
+1. **Real search queries** (T116–T134) — search is entirely mock data
 
 ### Audit Notes (2026-06-22)
 
