@@ -8,6 +8,10 @@ import { PostCard } from "@/components/feed/post-card";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
 import { getPostsByAuthor } from "@/lib/posts/actions";
+import { getFollowInfo, getConnectionStatus, getConnectionCount } from "@/lib/network/actions";
+import type { ConnectionStatus } from "@/lib/network/actions";
+import { FollowButton } from "@/components/network/follow-button";
+import { ConnectButton } from "@/components/network/connect-button";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +36,15 @@ function ProfileContent() {
   const [loadError, setLoadError] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [followInfo, setFollowInfo] = useState<{
+    followerCount: number;
+    followingCount: number;
+    isFollowing: boolean;
+  }>({ followerCount: 0, followingCount: 0, isFollowing: false });
+  const [connectionInfo, setConnectionInfo] = useState<{
+    status: ConnectionStatus;
+    connectionCount: number;
+  }>({ status: "none", connectionCount: 0 });
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -167,9 +180,16 @@ function ProfileContent() {
       const profile = data as Profile;
       setDisplayProfile(profile);
 
-      // Fetch posts by this author (pass profile to avoid redundant query)
-      const posts = await getPostsByAuthor(profile.id, profile);
+      // Fetch posts, follow info, and connection info in parallel
+      const [posts, info, connStatus, connCount] = await Promise.all([
+        getPostsByAuthor(profile.id, profile),
+        getFollowInfo(profile.id),
+        getConnectionStatus(profile.id),
+        getConnectionCount(profile.id),
+      ]);
       setUserPosts(posts);
+      setFollowInfo(info);
+      setConnectionInfo({ status: connStatus, connectionCount: connCount });
 
       setIsLoading(false);
     }
@@ -463,12 +483,17 @@ function ProfileContent() {
                   </Link>
                 </>
               ) : isAuthenticated ? (
-                <Button
-                  size="sm"
-                  variant="default"
-                >
-                  Follow
-                </Button>
+                <>
+                  <ConnectButton
+                    targetUserId={displayProfile.id}
+                    initialStatus={connectionInfo.status}
+                  />
+                  <FollowButton
+                    targetUserId={displayProfile.id}
+                    initialIsFollowing={followInfo.isFollowing}
+                    variant="outline"
+                  />
+                </>
               ) : (
                 <Link
                   href={`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`}
@@ -477,7 +502,7 @@ function ProfileContent() {
                     size="sm"
                     variant="default"
                   >
-                    Follow
+                    Connect
                   </Button>
                 </Link>
               )}
@@ -488,11 +513,15 @@ function ProfileContent() {
                 <p className="text-xs text-muted-foreground">Posts</p>
               </div>
               <div className="text-center">
-                <p className="font-bold text-sm">0</p>
+                <p className="font-bold text-sm">{connectionInfo.connectionCount}</p>
+                <p className="text-xs text-muted-foreground">Connections</p>
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-sm">{followInfo.followerCount}</p>
                 <p className="text-xs text-muted-foreground">Followers</p>
               </div>
               <div className="text-center">
-                <p className="font-bold text-sm">0</p>
+                <p className="font-bold text-sm">{followInfo.followingCount}</p>
                 <p className="text-xs text-muted-foreground">Following</p>
               </div>
             </div>
