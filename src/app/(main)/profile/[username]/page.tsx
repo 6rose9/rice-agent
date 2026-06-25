@@ -17,7 +17,7 @@ import { useMarketStatuses } from "@/hooks/use-market-statuses";
 import { useRegions } from "@/hooks/use-regions";
 import { MarketStatusSelector } from "@/components/profile/market-status-selector";
 import type { Profile, Post } from "@/types";
-import { MapPin, Calendar, Sprout, Users, Loader2, Camera } from "lucide-react";
+import { MapPin, Calendar, Sprout, Users, Loader2, Camera, Phone, Mail, Lock } from "lucide-react";
 
 function ProfileContent() {
   const params = useParams();
@@ -38,6 +38,28 @@ function ProfileContent() {
 
   const isOwnProfile =
     isAuthenticated && currentUser?.profile.username === username;
+
+  /** Check if the current viewer can see a field based on its visibility setting */
+  function canSeeField(visibility: string | undefined): boolean {
+    if (isOwnProfile) return true;
+    if (!visibility || visibility === "public") return true;
+    // "followers" is treated as private until the follows feature is built
+    return false;
+  }
+
+  /** Get the display value for a contact field, respecting privacy */
+  function getContactDisplay(
+    value: string | null | undefined,
+    visibility: string | undefined,
+  ): { show: boolean; text: string; locked: boolean } {
+    if (!value) return { show: false, text: "", locked: false };
+    if (canSeeField(visibility)) {
+      return { show: true, text: value, locked: false };
+    }
+    // Hidden — show a placeholder
+    const label = visibility === "followers" ? "Followers only" : "Hidden";
+    return { show: true, text: label, locked: true };
+  }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -211,6 +233,49 @@ function ProfileContent() {
           </div>
         )}
         <div className="space-y-1.5 text-sm">
+          {/* Contact info with privacy controls */}
+          {(() => {
+            const profile = displayProfile as Record<string, unknown>;
+            const phoneDisplay = getContactDisplay(
+              displayProfile.phone,
+              profile.phone_visibility as string | undefined,
+            );
+            const emailDisplay = getContactDisplay(
+              displayProfile.email,
+              profile.email_visibility as string | undefined,
+            );
+
+            return (
+              <>
+                {phoneDisplay.show && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    {phoneDisplay.locked ? (
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-3 w-3" />
+                        {phoneDisplay.text}
+                      </span>
+                    ) : (
+                      <span>{phoneDisplay.text}</span>
+                    )}
+                  </div>
+                )}
+                {emailDisplay.show && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                    {emailDisplay.locked ? (
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-3 w-3" />
+                        {emailDisplay.text}
+                      </span>
+                    ) : (
+                      <span>{emailDisplay.text}</span>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
           {getLocationLabel(displayProfile) && (
             <div className="flex items-center gap-2">
               <MapPin className="h-3.5 w-3.5 text-muted-foreground" />

@@ -156,6 +156,8 @@ export type Database = {
           market_status_id: number | null
           phone: string
           phone_verified: boolean
+          phone_visibility: string
+          email_visibility: string
           region_id: number
           role: string
           township_id: number
@@ -173,6 +175,8 @@ export type Database = {
           market_status_id?: number | null
           phone: string
           phone_verified?: boolean
+          phone_visibility?: string
+          email_visibility?: string
           region_id: number
           role?: string
           township_id: number
@@ -190,6 +194,8 @@ export type Database = {
           market_status_id?: number | null
           phone?: string
           phone_verified?: boolean
+          phone_visibility?: string
+          email_visibility?: string
           region_id?: number
           role?: string
           township_id?: number

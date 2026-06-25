@@ -5,6 +5,7 @@ import {
   loginSchema,
   registerSchema,
   profileUpdateSchema,
+  privacySettingsSchema,
 } from "@/lib/validations/auth";
 import {
   ActionResult,
@@ -270,6 +271,54 @@ export async function updateProfile(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to update profile.",
+    };
+  }
+}
+
+// ── Privacy Settings ──────────────────────────────────────────────────
+
+export async function updatePrivacySettings(
+  _prevState: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const rawData = {
+    phone_visibility: formData.get("phone_visibility") as string,
+    email_visibility: formData.get("email_visibility") as string,
+  };
+
+  // Validate
+  const parsed = privacySettingsSchema.safeParse(rawData);
+  if (!parsed.success) {
+    const fe = parsed.error.flatten().fieldErrors;
+    const msg =
+      extractFirstFieldError(fe, "phone_visibility", "email_visibility") ||
+      "Invalid input.";
+    return { success: false, error: msg };
+  }
+
+  // Get authenticated user
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+  const { user, supabase } = auth;
+
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        phone_visibility: parsed.data.phone_visibility,
+        email_visibility: parsed.data.email_visibility,
+      })
+      .eq("id", user.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update privacy settings.",
     };
   }
 }

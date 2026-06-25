@@ -210,6 +210,7 @@ create policy "Market status viewable by everyone"
 - `market_status_id` is nullable — NULL by default at signup. Users set their status later from the `market_status` reference table.
 - `phone_verified` defaults to false; set true after verification.
 - `deleted_at` for soft deletion; non-null means the account is deactivated.
+- `phone_visibility` and `email_visibility` control who can see contact info: `'public'` (everyone), `'followers'` (followers only — requires future follows table), `'private'` (owner only). Defaults to `'private'`.
 
 ### DDL
 
@@ -229,6 +230,10 @@ create table profiles (
     township_id      smallint    not null references townships(id),
     market_status_id smallint    references market_status(id),
     phone_verified   boolean     not null default false,
+    phone_visibility text        not null default 'private'
+                   check (phone_visibility in ('public', 'followers', 'private')),
+    email_visibility text        not null default 'private'
+                   check (email_visibility in ('public', 'followers', 'private')),
     deleted_at       timestamptz,
     created_at       timestamptz not null default now(),
     updated_at       timestamptz not null default now()
@@ -243,6 +248,8 @@ create table profiles (
 | `profiles_phone_key` | UNIQUE | `phone` | Myanmar phone format |
 | `profiles_username_key` | UNIQUE | `username` | URL-safe, 3–30 chars |
 | `profiles_role_check` | CHECK | `role` | `role in ('farmer', 'trader', 'agent', 'general_user')` |
+| `profiles_phone_visibility_check` | CHECK | `phone_visibility` | `phone_visibility in ('public', 'followers', 'private')` |
+| `profiles_email_visibility_check` | CHECK | `email_visibility` | `email_visibility in ('public', 'followers', 'private')` |
 | `profiles_region_id_fkey` | FK | `region_id` | → `regions(id)`. No cascade — reference data |
 | `profiles_township_id_fkey` | FK | `township_id` | → `townships(id)`. No cascade — reference data |
 | `profiles_market_status_id_fkey` | FK | `market_status_id` | → `market_status(id)`. Nullable — user sets later |
