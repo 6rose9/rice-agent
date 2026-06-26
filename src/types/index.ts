@@ -59,7 +59,7 @@ export interface Profile extends ProfileRow {
 }
 
 /** Post with joined relations and computed fields */
-export interface Post extends Omit<PostRow, 'type' | 'address' | 'badge' | 'easy_to_carry' | 'region' | 'paddy_condition' | 'pound_per_bag' | 'price' | 'quantity' | 'rice_name' | 'rice_type' | 'township' | 'unit' | 'is_active' | 'latitude' | 'longitude'> {
+export interface Post extends Omit<PostRow, 'type' | 'address' | 'badge' | 'easy_to_carry' | 'region' | 'paddy_condition' | 'pound_per_bag' | 'price' | 'quantity' | 'rice_name' | 'rice_type' | 'township' | 'unit' | 'is_active' | 'latitude' | 'longitude' | 'location'> {
   type: PostType;
   author: Profile;
   images: PostImageRow[];
@@ -75,6 +75,7 @@ export interface Post extends Omit<PostRow, 'type' | 'address' | 'badge' | 'easy
   rice_type?: string | null;
   township?: string | null;
   unit?: string | null;
+  location?: string | null;
   is_active?: boolean;
   latitude?: number | null;
   longitude?: number | null;

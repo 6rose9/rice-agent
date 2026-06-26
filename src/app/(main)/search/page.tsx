@@ -8,16 +8,18 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FollowButton } from "@/components/network/follow-button";
 import { useSearch } from "@/hooks/use-search";
 import { useRegions } from "@/hooks/use-regions";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
+import { useAuth } from "@/components/auth/auth-provider";
 import { ROLE_LABELS } from "@/lib/constants";
-import type { UserRole } from "@/types";
-import { Search, X, Clock, User, MessageCircle, Loader2 } from "lucide-react";
+import type { UserRole, Profile } from "@/types";
+import { Search, X, Clock, User, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
-const QUICK_FILTERS: { label: string; value: UserRole | "all" }[] = [
-  { label: "🌾 All", value: "all" },
+const QUICK_FILTERS: { label: string; value: UserRole }[] = [
   { label: "🧑‍🌾 Farmers", value: "farmer" },
   { label: "🏭 Traders", value: "trader" },
   { label: "🤝 Agents", value: "agent" },
@@ -30,8 +32,11 @@ function getLocationLabel(regionId: number | null, regions: { id: number; name: 
 }
 
 function SearchContent() {
-  const [activeFilter, setActiveFilter] = useState<UserRole | "all">("all");
+  const [activeFilter, setActiveFilter] = useState<UserRole>("farmer");
+  const [browseUsers, setBrowseUsers] = useState<Profile[]>([]);
+  const [browseLoading, setBrowseLoading] = useState(false);
   const recentSearches = useRecentSearches();
+  const { user: currentUser } = useAuth();
 
   const { regions } = useRegions();
   const searchFilters = useMemo(
@@ -50,6 +55,39 @@ function SearchContent() {
     }
   }, [query, results, recentSearches.add]);
 
+  // Fetch browse users when tab changes (no search query)
+  useEffect(() => {
+    if (query.trim()) return; // Skip if searching
+
+    async function fetchBrowseUsers() {
+      setBrowseLoading(true);
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("role", activeFilter)
+          .is("deleted_at", null)
+          .limit(20);
+
+        if (error) {
+          console.error("Failed to fetch browse users:", error);
+          setBrowseUsers([]);
+        } else {
+          // Exclude current user from results
+          setBrowseUsers((data as Profile[]).filter((p) => p.id !== currentUser?.profile.id));
+        }
+      } catch (err) {
+        console.error("Failed to fetch browse users:", err);
+        setBrowseUsers([]);
+      } finally {
+        setBrowseLoading(false);
+      }
+    }
+
+    fetchBrowseUsers();
+  }, [activeFilter, query, currentUser?.profile.id]);
+
   return (
     <div className="flex">
       <div className="flex-1 min-w-0">
@@ -59,7 +97,7 @@ function SearchContent() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search traders, rice types..."
+              placeholder="Search people, posts, rices..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-9 pr-8 h-10 rounded-full bg-muted/50"
@@ -94,7 +132,7 @@ function SearchContent() {
         {!query.trim() && (
           <div className="px-4 py-4">
             {recentSearches.items.length > 0 && (
-              <Card>
+              <Card className="mb-4 lg:hidden">
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
@@ -124,17 +162,60 @@ function SearchContent() {
               </Card>
             )}
 
-            <div className="mt-4 lg:hidden">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-2">
-                Trending Topics
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                <Badge variant="secondary" className="cursor-pointer">🌾 Paw San</Badge>
-                <Badge variant="secondary" className="cursor-pointer">📍 Delta</Badge>
-                <Badge variant="secondary" className="cursor-pointer">💰 &lt;15K</Badge>
-                <Badge variant="secondary" className="cursor-pointer">🍚 Shwe Bo</Badge>
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+              {QUICK_FILTERS.find((f) => f.value === activeFilter)?.label}
+            </h3>
+
+            {browseLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                    <Skeleton className="h-7 w-20 rounded-full" />
+                  </div>
+                ))}
               </div>
-            </div>
+            ) : browseUsers.length > 0 ? (
+              <div className="space-y-1">
+                {browseUsers.map((profile) => (
+                  <div
+                    key={profile.id}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <Link href={`/profile/${profile.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={profile.avatar_url ?? undefined} alt={profile.full_name} />
+                        <AvatarFallback className="bg-accent text-sm">
+                          {profile.full_name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{profile.full_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {ROLE_LABELS[profile.role as UserRole]} · {getLocationLabel(profile.region_id, regions)}
+                        </p>
+                      </div>
+                    </Link>
+                    <FollowButton
+                      targetUserId={profile.id}
+                      initialIsFollowing={false}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <User className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <p className="text-sm font-medium">No {activeFilter}s found</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Try a different category.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -317,7 +398,7 @@ function SearchContent() {
         )}
       </div>
 
-      <RightRail variant="search" />
+      <RightRail variant="search" onSearchSelect={setQuery} />
     </div>
   );
 }

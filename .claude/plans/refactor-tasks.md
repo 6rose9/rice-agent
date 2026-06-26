@@ -23,10 +23,10 @@ The codebase follows a standard Next.js App Router pattern with Supabase. Phases
 
 ## 🔵 Feature Requests
 
-- [ ] **Privacy settings** — Users can control visibility of phone/email from settings page.
-- [ ] **Report post** — Users can report posts that are not related to the rice industry.
-- [ ] **Check post for feed visibility** — Review post display logic to ensure display data is correct .
-- [ ] **Rename "Price" label to "Approximate Price"** — Update label across post creation form and post cards to better reflect that the price is not fixed.
+- ✅ **Privacy settings** — Users can control visibility of phone/email from settings page.
+- ✅ **Report post** — Users can report posts that are not related to the rice industry.
+- ✅ **Check post for feed visibility** — Review post display logic to ensure display data is correct .
+- ✅ **Rename "Price" label to "Approximate Price"** — Update label across post creation form and post cards to better reflect that the price is not fixed.
 - [ ] **Change `role` from enum to table** — Replace the `user_role` enum with a `roles` lookup table (like `regions`/`market_status`). Enables adding new roles without migrations, bilingual role names, and ordering. Requires migration to alter `profiles.role` from enum column to FK integer column.
 - [ ] **Change `rice_type` from constant to table** — Replace the hardcoded `riceTypes` constant with a `rice_types` lookup table (like `regions`). Enables adding new rice varieties without code changes, bilingual names, and ordering. Requires migration to create table and alter `posts.rice_type` from text to FK integer column.
 
@@ -58,7 +58,7 @@ The codebase follows a standard Next.js App Router pattern with Supabase. Phases
 - ✅ **`updateProfile` manually sets `updated_at`** — DB trigger already handles this. Redundant. (`auth/actions.ts:269`)
 - ✅ **Missing `not-found.tsx`** for `(main)` route group.
 - ✅ **Inconsistent error handling** — Mixed patterns across server actions.
-- [ ] **`Comment` type defined but unused** — `types/index.ts:88-95` defines `Comment` interface but no comments table exists yet.
+- ✅ **`Comment` type defined but unused** — `types/index.ts:88-95` defines `Comment` interface but no comments table exists yet.
 - ✅ **`PostFormData` type unused** — Defined in `types/index.ts:111-126` but forms use Zod-inferred types directly.
 
 ---
@@ -105,7 +105,7 @@ src/app/(main)/profile/[username]/page.tsx → marketStatusLabels, roleLabels, g
 - ✅ Replace `regionTownships` / `regionKeys` usage with `useRegions` hook
 - ✅ Replace `getLocationLabel` with a version that takes region/township data as params
 - ✅ Replace `search/page.tsx` mock data with real Supabase queries
-- [ ] Verify zero imports from `mock-data.ts` in production code (grep check)
+- ✅ Verify zero imports from `mock-data.ts` in production code (grep check)
 
 ### 3c. Files to update
 
@@ -123,8 +123,8 @@ src/app/(main)/profile/[username]/page.tsx → marketStatusLabels, roleLabels, g
 
 - ✅ Keep `lib/utils/format.ts` as single source for formatters
 - ✅ Unify `timeAgo` (mock-data) vs `formatRelativeTime` (format.ts) — pick one name
-- [ ] Remove all duplicate exports from `mock-data.ts`
-- [ ] Update every import across the codebase
+- ✅ Remove all duplicate exports from `mock-data.ts`
+- ✅ Update every import across the codebase
 
 ---
 
@@ -203,22 +203,22 @@ const firstError = (parsed.error.flatten().fieldErrors as any);
 
 ### 8a. Follow/Network features
 
-- [ ] Follow button: add "Coming Soon" tooltip or disable with message
-- [ ] Follower/following counts: hide or show "—" instead of hardcoded 0
-- [ ] Network page (`/mynetwork`): add "Coming Soon" banner or redirect to `/feed`
+- ✅ Follow button
+- ✅ Follower/following counts: hide or show "—" instead of hardcoded 0
+- ✅ Network page (`/mynetwork`)
 - [ ] Following feed filter: show "Coming Soon" or disable tab
 
 ### 8b. Messages page
 
 - [ ] `/messages` route exists but has no implementation
-- [ ] Add "Coming Soon" placeholder or remove from nav
+- ✅ Add "Coming Soon" placeholder or remove from nav
 
 ---
 
 ## Phase 9: Code Cleanup 🟢 TODO
 
-- [ ] Delete `src/components/post/comment-section.tsx` if no comments table exists
-- [ ] Remove unused `Comment` type from `types/index.ts` (or keep with a TODO)
+- ✅ Delete `src/components/post/comment-section.tsx` if no comments table exists
+- ✅ Remove unused `Comment` type from `types/index.ts` (or keep with a TODO)
 - ✅ Remove unused `PostFormData` type from `types/index.ts`
 - ✅ Remove redundant `updated_at` manual set in `updateProfile`
 - ✅ Fix registration avatar race condition — move avatar update to a separate action called after profile creation
@@ -264,11 +264,11 @@ const firstError = (parsed.error.flatten().fieldErrors as any);
 
 Current docs are stale — they document columns (`user_id`, `title`, `description`, `variety`, `quantity_unit`, `price_unit`) that don't exist in actual migrations.
 
-- [ ] Rewrite to match actual `supabase/migrations/` DDL
-- [ ] Include all 7 tables: regions, townships, market_status, profiles, posts, post_images, saved_posts
-- [ ] Include all indexes, constraints, RLS policies, triggers, functions
-- [ ] Include storage bucket docs
-- [ ] Verify against running Supabase instance
+- ✅ Rewrite to match actual `supabase/migrations/` DDL
+- ✅ Include all 7 tables: regions, townships, market_status, profiles, posts, post_images, saved_posts
+- ✅ Include all indexes, constraints, RLS policies, triggers, functions
+- ✅ Include storage bucket docs
+- ✅ Verify against running Supabase instance
 
 ---
 

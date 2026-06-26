@@ -18,7 +18,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useState } from "react";
 
 const mainItems = [
   { href: "/feed", label: "Home", icon: Home },
@@ -32,6 +40,7 @@ const mainItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user, isLoading, signOut } = useAuth();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   const profileHref = user ? `/profile/${user.profile.username}` : "/login";
   const isOwnProfile = user && pathname === profileHref;
@@ -121,14 +130,35 @@ export function Sidebar() {
           </Button>
         </Link>
         {user && (
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-10"
-            onClick={() => signOut()}
-          >
-            <LogOut className="h-5 w-5" strokeWidth={1.8} />
-            <span>Logout</span>
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-10"
+              onClick={() => setShowLogoutDialog(true)}
+            >
+              <LogOut className="h-5 w-5" strokeWidth={1.8} />
+              <span>Logout</span>
+            </Button>
+            <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Logout?</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to logout?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowLogoutDialog(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={signOut}>Logout</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </>
         )}
         <p className="text-[10px] text-muted-foreground mt-3 px-3">
           © 2026 စပါးအောင်သွယ်

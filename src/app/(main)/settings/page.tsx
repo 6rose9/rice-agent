@@ -253,7 +253,7 @@ export default function SettingsPage() {
             <Select
               value={phoneVisibility}
               onValueChange={(v) => {
-                setPhoneVisibility(v);
+                if (v) setPhoneVisibility(v);
                 setPrivacySaved(false);
               }}
             >
@@ -279,7 +279,7 @@ export default function SettingsPage() {
             <Select
               value={emailVisibility}
               onValueChange={(v) => {
-                setEmailVisibility(v);
+                if (v) setEmailVisibility(v);
                 setPrivacySaved(false);
               }}
             >

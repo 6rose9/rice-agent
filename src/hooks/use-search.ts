@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Profile, Post, UserRole } from "@/types";
 
 interface SearchFilters {
-  role?: UserRole | "all";
+  role?: UserRole;
   region?: string;
 }
 
@@ -76,7 +76,7 @@ export function useSearch(filters?: SearchFilters) {
         }
         profileQuery = profileQuery.or(orParts.join(","));
 
-        if (filters?.role && filters.role !== "all") {
+        if (filters?.role) {
           profileQuery = profileQuery.eq("role", filters.role);
         }
 

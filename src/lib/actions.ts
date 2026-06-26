@@ -28,7 +28,10 @@ type AuthSuccess = {
 
 type AuthFailure = {
   ok: false;
-} & ActionResult;
+  success: false;
+  error: string;
+  redirect?: string;
+};
 
 /** Get the authenticated user or return an ActionResult error */
 export async function requireAuth(): Promise<AuthSuccess | AuthFailure> {
