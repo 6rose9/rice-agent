@@ -7,7 +7,7 @@ import {
   type ConnectionStatus,
 } from "@/lib/network/actions";
 
-export function useConnection(initialStatus: ConnectionStatus) {
+export function useConnection(initialStatus: ConnectionStatus, onStatusChange?: (status: ConnectionStatus) => void) {
   const [status, setStatus] = useState<ConnectionStatus>(initialStatus);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -19,15 +19,17 @@ export function useConnection(initialStatus: ConnectionStatus) {
 
       // Optimistic
       setStatus("pending_sent");
+      onStatusChange?.("pending_sent");
 
       const result = await sendConnectionRequest(targetUserId);
       if (!result.success) {
         setStatus(prev);
+        onStatusChange?.(prev);
       }
 
       setIsLoading(false);
     },
-    [isLoading, status],
+    [isLoading, status, onStatusChange],
   );
 
   const declineRequest = useCallback(

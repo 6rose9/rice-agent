@@ -11,6 +11,7 @@ import type { ConnectionStatus } from "@/lib/network/actions";
 interface ConnectButtonProps {
   targetUserId: string;
   initialStatus: ConnectionStatus;
+  onStatusChange?: (status: ConnectionStatus) => void;
   variant?: "default" | "outline";
   size?: "sm" | "default";
   className?: string;
@@ -19,13 +20,14 @@ interface ConnectButtonProps {
 export function ConnectButton({
   targetUserId,
   initialStatus,
+  onStatusChange,
   variant = "default",
   size = "sm",
   className,
 }: ConnectButtonProps) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
-  const { status, isLoading, sendRequest } = useConnection(initialStatus);
+  const { status, isLoading, sendRequest } = useConnection(initialStatus, onStatusChange);
 
   function handleClick(e: React.MouseEvent) {
     e.stopPropagation();

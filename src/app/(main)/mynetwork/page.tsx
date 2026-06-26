@@ -435,6 +435,7 @@ function NetworkContent() {
                     colors={colors}
                     getLocationLabel={getLocationLabel}
                     connectionStatus={item.connectionStatus}
+                    onStatusChange={loadData}
                   />
                 ))}
           </div>
@@ -472,6 +473,7 @@ function SuggestionCard({
   colors,
   getLocationLabel,
   connectionStatus,
+  onStatusChange,
 }: {
   profile: Profile;
   labels: Record<number, string>;
@@ -481,6 +483,7 @@ function SuggestionCard({
     township_id: number | null;
   }) => string;
   connectionStatus: ConnectionStatus;
+  onStatusChange?: () => void;
 }) {
   return (
     <Card className="overflow-hidden border hover:shadow-sm transition-shadow h-full">
@@ -543,6 +546,7 @@ function SuggestionCard({
         <ConnectButton
           targetUserId={profile.id}
           initialStatus={connectionStatus}
+          onStatusChange={onStatusChange}
           variant="outline"
           size="sm"
           className="w-full h-8 rounded-full text-xs"
