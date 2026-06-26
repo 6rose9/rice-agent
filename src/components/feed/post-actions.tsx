@@ -4,6 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Handshake, MessageCircle, Share2, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { savePost, unsavePost, likePost, unlikePost } from "@/lib/posts/actions";
 
@@ -97,17 +103,13 @@ export function PostActions({
     });
   }
 
-  function handleShare() {
-    if (navigator.share) {
-      navigator.share({
-        title: "စပါးအောင်သွယ် Post",
-        url: `${window.location.origin}/post/${postId}`,
-      });
-    } else {
-      navigator.clipboard.writeText(
-        `${window.location.origin}/post/${postId}`
-      );
-    }
+  const [copied, setCopied] = useState(false);
+
+  function handleCopyLink() {
+    const url = `${window.location.origin}/post/${postId}`;
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -136,14 +138,18 @@ export function PostActions({
         {commentCount > 0 && <span className="text-xs">{commentCount}</span>}
       </Button>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        className="gap-1.5 h-8 px-2"
-        onClick={handleShare}
-      >
-        <Share2 className="h-4 w-4" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="inline-flex items-center justify-center gap-1.5 rounded-md h-8 px-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+        >
+          <Share2 className="h-4 w-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={handleCopyLink}>
+            {copied ? "Copied!" : "Copy Link"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <div className="flex-1" />
 
