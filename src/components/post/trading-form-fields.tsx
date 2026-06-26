@@ -108,7 +108,7 @@ export function TradingFormFields({
 
         {/* Price Slider */}
         <div className="space-y-1.5 md:col-span-2">
-          <Label className="text-xs">💰 Price</Label>
+          <Label className="text-xs">💰 Approximate Price</Label>
           <div className="space-y-1">
             <input
               type="range"

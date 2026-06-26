@@ -24,6 +24,7 @@ interface PostRow {
   address: string | null;
   region: string | null;
   township: string | null;
+  location: string | null;
   easy_to_carry: boolean | null;
   pound_per_bag: number | null;
   paddy_condition: string | null;
@@ -73,6 +74,8 @@ const UNKNOWN_PROFILE: Profile = {
   township_id: 0,
   market_status_id: null,
   phone_verified: false,
+  phone_visibility: "private",
+  email_visibility: "private",
   created_at: "",
   updated_at: "",
 };
@@ -161,6 +164,7 @@ function assemblePost(
     address: row.address ?? undefined,
     region: row.region ?? undefined,
     township: row.township ?? null,
+    location: row.location ?? null,
     easy_to_carry: row.easy_to_carry ?? undefined,
     pound_per_bag: row.pound_per_bag ?? null,
     paddy_condition: (row.paddy_condition as Post["paddy_condition"]) ?? undefined,
@@ -880,4 +884,67 @@ export async function reportPost(postId: string, reason?: string): Promise<Actio
       error: err instanceof Error ? err.message : "Failed to report post.",
     };
   }
+}
+
+// ── Trending Topics ───────────────────────────────────────────────
+
+export interface TrendingTopic {
+  label: string;
+  emoji: string;
+  value: string;
+  count: number;
+}
+
+export async function getTrendingTopics(limit = 6): Promise<TrendingTopic[]> {
+  const supabase = await createClient();
+
+  // Fetch active posts from the last 30 days
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: posts, error } = await supabase
+    .from("posts")
+    .select("rice_type, region")
+    .eq("is_active", true)
+    .gte("created_at", thirtyDaysAgo);
+
+  if (error || !posts || posts.length === 0) {
+    return [];
+  }
+
+  // Count occurrences of rice_type and region
+  const counts = new Map<string, { count: number; type: "rice" | "region" }>();
+
+  for (const post of posts) {
+    if (post.rice_type) {
+      const key = post.rice_type;
+      const existing = counts.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        counts.set(key, { count: 1, type: "rice" });
+      }
+    }
+    if (post.region) {
+      const key = post.region;
+      const existing = counts.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        counts.set(key, { count: 1, type: "region" });
+      }
+    }
+  }
+
+  // Sort by count descending and take top N
+  const sorted = Array.from(counts.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, limit);
+
+  // Map to TrendingTopic with emojis
+  return sorted.map(([value, { count, type }]) => ({
+    label: value,
+    emoji: type === "rice" ? "🌾" : "📍",
+    value,
+    count,
+  }));
 }

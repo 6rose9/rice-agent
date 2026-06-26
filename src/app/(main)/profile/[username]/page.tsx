@@ -323,18 +323,20 @@ function ProfileContent() {
       </p>
       <div className="space-y-2">
         <Link
-          href="/mynetwork"
+          href="/mynetwork/connections"
           className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
         >
           <span className="text-sm font-medium">View All Connections</span>
-          <span className="text-sm font-semibold text-muted-foreground">0</span>
+          <span className="text-sm font-semibold text-muted-foreground">{connectionInfo.connectionCount}</span>
         </Link>
         <Link
-          href="/mynetwork"
+          href="/mynetwork/invitations"
           className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
         >
           <span className="text-sm font-medium">Pending Invitations</span>
-          <span className="text-sm font-semibold text-muted-foreground">0</span>
+          <span className="text-sm font-semibold text-muted-foreground">
+            <Mail className="h-4 w-4" />
+          </span>
         </Link>
       </div>
       <Link href="/mynetwork">
@@ -597,8 +599,18 @@ function ProfileContent() {
         variant="profile"
         profileStats={{
           posts: userPosts.length,
-          followers: 0,
-          topCategory: "Selling",
+          followers: followInfo.followerCount,
+          topCategory: (() => {
+            // Find most common rice_type from user's trading posts
+            const tradingPosts = userPosts.filter((p) => p.rice_type);
+            if (tradingPosts.length === 0) return undefined;
+            const counts: Record<string, number> = {};
+            for (const p of tradingPosts) {
+              const key = p.rice_type!;
+              counts[key] = (counts[key] || 0) + 1;
+            }
+            return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+          })(),
         }}
       />
     </div>

@@ -7,27 +7,34 @@ import {
   type ConnectionStatus,
 } from "@/lib/network/actions";
 
-export function useConnection(initialStatus: ConnectionStatus) {
+export function useConnection(initialStatus: ConnectionStatus, onStatusChange?: (status: ConnectionStatus) => void) {
   const [status, setStatus] = useState<ConnectionStatus>(initialStatus);
   const [isLoading, setIsLoading] = useState(false);
 
   const sendRequest = useCallback(
     async (targetUserId: string) => {
       if (isLoading) return;
-      setIsLoading(true);
       const prev = status;
 
-      // Optimistic
+      // Optimistic — UI updates instantly before server call
       setStatus("pending_sent");
+      onStatusChange?.("pending_sent");
+      setIsLoading(true);
 
-      const result = await sendConnectionRequest(targetUserId);
-      if (!result.success) {
+      try {
+        const result = await sendConnectionRequest(targetUserId);
+        if (!result.success) {
+          setStatus(prev);
+          onStatusChange?.(prev);
+        }
+      } catch {
         setStatus(prev);
+        onStatusChange?.(prev);
+      } finally {
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
     },
-    [isLoading, status],
+    [isLoading, status, onStatusChange],
   );
 
   const declineRequest = useCallback(

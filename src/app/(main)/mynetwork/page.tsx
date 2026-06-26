@@ -157,6 +157,18 @@ function NetworkContent() {
     setInvitations((prev) => prev.filter((r) => r.id !== requestId));
   }
 
+  function handleSuggestionStatusChange(profileId: string, newStatus: ConnectionStatus) {
+    setSuggestions((prev) => {
+      if (newStatus === "connected") {
+        // Remove connected users from suggestions
+        return prev.filter((s) => s.profile.id !== profileId);
+      }
+      return prev.map((s) =>
+        s.profile.id === profileId ? { ...s, connectionStatus: newStatus } : s,
+      );
+    });
+  }
+
   async function handleWithdrawRequest(requestId: string) {
     const result = await declineConnectionRequest(requestId);
     if (result.success) {
@@ -435,6 +447,7 @@ function NetworkContent() {
                     colors={colors}
                     getLocationLabel={getLocationLabel}
                     connectionStatus={item.connectionStatus}
+                    onStatusChange={(status) => handleSuggestionStatusChange(item.profile.id, status)}
                   />
                 ))}
           </div>
@@ -472,6 +485,7 @@ function SuggestionCard({
   colors,
   getLocationLabel,
   connectionStatus,
+  onStatusChange,
 }: {
   profile: Profile;
   labels: Record<number, string>;
@@ -481,14 +495,20 @@ function SuggestionCard({
     township_id: number | null;
   }) => string;
   connectionStatus: ConnectionStatus;
+  onStatusChange?: (status: ConnectionStatus) => void;
 }) {
   return (
-    <Card className="overflow-hidden border hover:shadow-sm transition-shadow h-full">
+    <Card className="overflow-hidden border hover:shadow-sm transition-shadow h-full pt-0">
       <Link
         href={`/profile/${profile.username}`}
         className="block"
       >
-        <div className="h-10 sm:h-14 bg-gradient-to-r from-emerald-100 to-green-50 dark:from-emerald-900 dark:to-green-950" />
+        <div className="h-10 sm:h-14 bg-gradient-to-r from-emerald-100 to-green-50 dark:from-emerald-900 dark:to-green-950">
+          {profile.cover_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={profile.cover_url} alt="" className="h-full w-full object-cover" />
+          )}
+        </div>
         <CardContent className="p-3 sm:p-4 pt-0">
           <div className="flex justify-center -mt-6 sm:-mt-7 mb-2">
             <Avatar className="h-12 w-12 sm:h-14 sm:w-14 ring-2 ring-card">
@@ -543,6 +563,7 @@ function SuggestionCard({
         <ConnectButton
           targetUserId={profile.id}
           initialStatus={connectionStatus}
+          onStatusChange={onStatusChange}
           variant="outline"
           size="sm"
           className="w-full h-8 rounded-full text-xs"

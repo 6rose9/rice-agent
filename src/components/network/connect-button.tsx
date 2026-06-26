@@ -11,6 +11,7 @@ import type { ConnectionStatus } from "@/lib/network/actions";
 interface ConnectButtonProps {
   targetUserId: string;
   initialStatus: ConnectionStatus;
+  onStatusChange?: (status: ConnectionStatus) => void;
   variant?: "default" | "outline";
   size?: "sm" | "default";
   className?: string;
@@ -19,13 +20,14 @@ interface ConnectButtonProps {
 export function ConnectButton({
   targetUserId,
   initialStatus,
+  onStatusChange,
   variant = "default",
   size = "sm",
   className,
 }: ConnectButtonProps) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
-  const { status, isLoading, sendRequest } = useConnection(initialStatus);
+  const { status, isLoading, sendRequest } = useConnection(initialStatus, onStatusChange);
 
   function handleClick(e: React.MouseEvent) {
     e.stopPropagation();
@@ -56,7 +58,7 @@ export function ConnectButton({
     );
   }
 
-  // Request sent, waiting for response
+  // Request sent, waiting for response — always show Clock, never spinner
   if (status === "pending_sent") {
     return (
       <Button
@@ -65,11 +67,7 @@ export function ConnectButton({
         className={cn("rounded-full font-medium", className)}
         disabled
       >
-        {isLoading ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Clock className="h-3.5 w-3.5 mr-1.5" />
-        )}
+        <Clock className="h-3.5 w-3.5 mr-1.5" />
         Pending
       </Button>
     );

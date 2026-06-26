@@ -32,6 +32,8 @@ const UNKNOWN_PROFILE: Profile = {
   township_id: 0,
   market_status_id: null,
   phone_verified: false,
+  phone_visibility: "private",
+  email_visibility: "private",
   created_at: "",
   updated_at: "",
 };
@@ -98,7 +100,7 @@ export async function getComments(
 
 export async function createComment(
   postId: string,
-  _prevState: ActionResult | null,
+  _prevState: ActionResult<Comment> | null,
   formData: FormData,
 ): Promise<ActionResult<Comment>> {
   const rawData = {

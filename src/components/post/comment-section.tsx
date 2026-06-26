@@ -41,7 +41,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
 
   // Server action for creating comments
   const [createState, createAction, createPending] = useActionState(
-    async (_prev: ActionResult | null, formData: FormData): Promise<ActionResult> => {
+    async (_prev: ActionResult<Comment> | null, formData: FormData): Promise<ActionResult<Comment>> => {
       const result = await createComment(postId, _prev, formData);
       if (result.success && result.data) {
         setComments((prev) => [...prev, result.data!]);
@@ -96,7 +96,7 @@ export function CommentSection({ postId }: CommentSectionProps) {
                   <span className="text-[10px] text-muted-foreground">
                     {formatRelativeTime(comment.created_at)}
                   </span>
-                  {user?.profile.id === comment.author_id && (
+                  {user?.profile.id === comment.author.id && (
                     <button
                       type="button"
                       onClick={() => handleDelete(comment.id)}

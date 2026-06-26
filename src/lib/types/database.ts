@@ -77,7 +77,10 @@ export type Database = {
           created_at: string
           easy_to_carry: boolean | null
           id: string
+          is_active: boolean
+          latitude: number | null
           location: string | null
+          longitude: number | null
           paddy_condition: string | null
           pound_per_bag: number | null
           price: number | null
@@ -99,7 +102,10 @@ export type Database = {
           created_at?: string
           easy_to_carry?: boolean | null
           id?: string
+          is_active?: boolean
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           paddy_condition?: string | null
           pound_per_bag?: number | null
           price?: number | null
@@ -121,7 +127,10 @@ export type Database = {
           created_at?: string
           easy_to_carry?: boolean | null
           id?: string
+          is_active?: boolean
+          latitude?: number | null
           location?: string | null
+          longitude?: number | null
           paddy_condition?: string | null
           pound_per_bag?: number | null
           price?: number | null
@@ -222,6 +231,48 @@ export type Database = {
             columns: ["township_id"]
             isOneToOne: false
             referencedRelation: "townships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comments: {
+        Row: {
+          id: string
+          post_id: string
+          author_id: string
+          content: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          author_id: string
+          content: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          author_id?: string
+          content?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
