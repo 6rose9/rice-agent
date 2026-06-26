@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Share2, Bookmark } from "lucide-react";
+import { Handshake, MessageCircle, Share2, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { savePost, unsavePost } from "@/lib/posts/actions";
+import { savePost, unsavePost, likePost, unlikePost } from "@/lib/posts/actions";
 
 interface PostActionsProps {
   postId: string;
@@ -13,7 +13,6 @@ interface PostActionsProps {
   commentCount: number;
   isLiked?: boolean;
   isSaved?: boolean;
-  onLike?: (postId: string) => void;
   onComment?: (postId: string) => void;
   onSave?: (postId: string) => void;
   /** If false, actions that require auth will navigate to /login */
@@ -26,7 +25,6 @@ export function PostActions({
   commentCount,
   isLiked = false,
   isSaved = false,
-  onLike,
   onComment,
   onSave,
   isAuthenticated = false,
@@ -36,6 +34,7 @@ export function PostActions({
   const [saved, setSaved] = useState(isSaved);
   const [likes, setLikes] = useState(reactionCount);
   const [saving, setSaving] = useState(false);
+  const [liking, setLiking] = useState(false);
 
   function requireAuth(action: () => void) {
     if (isAuthenticated) {
@@ -46,16 +45,26 @@ export function PostActions({
     }
   }
 
-  function handleLike() {
-    requireAuth(() => {
-      if (liked) {
-        setLiked(false);
-        setLikes((c) => c - 1);
-      } else {
-        setLiked(true);
-        setLikes((c) => c + 1);
+  async function handleLike() {
+    requireAuth(async () => {
+      if (liking) return;
+      setLiking(true);
+      const newLiked = !liked;
+      setLiked(newLiked);
+      setLikes((c) => newLiked ? c + 1 : c - 1);
+      try {
+        if (newLiked) {
+          await likePost(postId);
+        } else {
+          await unlikePost(postId);
+        }
+      } catch (err) {
+        console.error("Failed to toggle like:", err);
+        setLiked(!newLiked);
+        setLikes((c) => newLiked ? c - 1 : c + 1);
+      } finally {
+        setLiking(false);
       }
-      onLike?.(postId);
     });
   }
 
@@ -107,12 +116,13 @@ export function PostActions({
         variant="ghost"
         size="sm"
         className={cn(
-          "gap-1.5 h-8 px-2",
-          liked && "text-red-500 hover:text-red-600"
+          "gap-1.5 h-8 px-2 transition-transform hover:scale-110",
+          liked && "text-yellow-500 hover:text-yellow-600"
         )}
         onClick={handleLike}
+        disabled={liking}
       >
-        <Heart className={cn("h-4 w-4", liked && "fill-current")} />
+        <Handshake className="h-5 w-5" />
         {likes > 0 && <span className="text-xs">{likes}</span>}
       </Button>
 
