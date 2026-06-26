@@ -2,7 +2,7 @@
 
 ## Overview
 
-Six tables on Supabase PostgreSQL plus two storage buckets. Three reference tables (`market_status`, `regions`, `townships`) seeded by migration and read-only at runtime. Three application tables (`profiles`, `posts`, `post_images`, `saved_posts`) with full Row-Level Security.
+Nine tables on Supabase PostgreSQL plus two storage buckets. Three reference tables (`market_status`, `regions`, `townships`) seeded by migration and read-only at runtime. Five application tables (`profiles`, `posts`, `post_images`, `saved_posts`, `post_reports`) with full Row-Level Security.
 
 `profiles` extends `auth.users` (Supabase-managed identity) via a 1:1 FK relationship. All policies reference `auth.uid()` for row-level access control.
 
@@ -16,12 +16,12 @@ Six tables on Supabase PostgreSQL plus two storage buckets. Three reference tabl
 │  (15 rows)│       │ (~200 rows)│       │ (0...*)  │
 └──────────┘       └──────────┘       └──────────┘
                                              │
-                         ┌───────────────────┼───────────────────┐
-                   1:many│             1:many│                   │
-                    ┌──────────┐       ┌─────────────┐    ┌────────────┐
-                    │  posts   │       │market_status │    │saved_posts │
-                    │ (0...*)  │       │  (4 rows)    │    │ (0...*)    │
-                    └──────────┘       └─────────────┘    └────────────┘
+                         ┌───────────────────┼───────────────────┬───────────────────┐
+                   1:many│             1:many│                   │                   │
+                    ┌──────────┐       ┌─────────────┐    ┌────────────┐    ┌──────────────┐
+                    │  posts   │       │market_status │    │saved_posts │    │ post_reports  │
+                    │ (0...*)  │       │  (4 rows)    │    │ (0...*)    │    │   (0...*)     │
+                    └──────────┘       └─────────────┘    └────────────┘    └──────────────┘
                          │
                    1:many│
                     ┌──────────┐
@@ -586,6 +586,65 @@ create policy "Users can unsave posts"
 
 ---
 
+## Table 8: `post_reports`
+
+**Purpose:** Community moderation — users report posts that are not related to the rice industry.
+**Key design:** One report per user per post (enforced by UNIQUE constraint). When a post reaches 5 reports, it is automatically hidden (`is_active = false`).
+
+### DDL
+
+```sql
+create table post_reports (
+    id          uuid        primary key default gen_random_uuid(),
+    post_id     uuid        not null references posts(id) on delete cascade,
+    reporter_id uuid        not null references profiles(id) on delete cascade,
+    reason      text,           -- optional: user explains why
+    created_at  timestamptz not null default now(),
+    unique (post_id, reporter_id)
+);
+```
+
+### Constraints
+
+| Constraint | Type | Column | Detail |
+|---|---|---|---|
+| `post_reports_pkey` | PK | `id` | UUID v4 |
+| `post_reports_post_id_fkey` | FK | `post_id` | → `posts(id)` ON DELETE CASCADE |
+| `post_reports_reporter_id_fkey` | FK | `reporter_id` | → `profiles(id)` ON DELETE CASCADE |
+| `post_reports_post_id_reporter_id_key` | UNIQUE | `(post_id, reporter_id)` | One report per user per post |
+
+### Indexes
+
+| Index | Columns | Type | Rationale |
+|---|---|---|---|
+| `idx_post_reports_post_id` | `post_id` | BTREE | Count reports per post |
+
+### RLS
+
+```sql
+alter table post_reports enable row level security;
+
+-- Users can see reports they created
+create policy "post_reports_select_own"
+    on post_reports for select
+    to authenticated
+    using ((select auth.uid()) = reporter_id);
+
+-- Authenticated users can report posts
+create policy "post_reports_insert_own"
+    on post_reports for insert
+    to authenticated
+    with check ((select auth.uid()) = reporter_id);
+
+-- Users can delete their own reports (undo)
+create policy "post_reports_delete_own"
+    on post_reports for delete
+    to authenticated
+    using ((select auth.uid()) = reporter_id);
+```
+
+---
+
 ## Storage Buckets (Supabase)
 
 ### `profiles` bucket
@@ -638,8 +697,9 @@ post-images/
 | `post_images` | `idx_post_images_post_id` | `(post_id, sort_order)` | Load images for a post |
 | `saved_posts` | `idx_saved_posts_user_created` | `(user_id, created_at DESC)` | User's saved posts feed |
 | `saved_posts` | `idx_saved_posts_post_id` | `post_id` | Count saves per post |
+| `post_reports` | `idx_post_reports_post_id` | `post_id` | Count reports per post |
 
-**Total: 10 indexes on 7 tables.**
+**Total: 11 indexes on 8 tables.**
 
 ---
 
@@ -783,7 +843,8 @@ supabase/
     ├── 20260619000001_user_soft_delete.sql      — idempotent soft-delete migration (deleted_at column, soft_delete_account function, updated RLS)
     ├── 20260625000000_create_follows.sql        — follows table (social graph junction)
     ├── 20260625000001_create_connection_requests.sql — connection_requests table (request lifecycle)
-    └── 20260625000002_create_connections.sql    — connections table (accepted mutual connections)
+    ├── 20260625000002_create_connections.sql    — connections table (accepted mutual connections)
+    └── 20260626000000_create_post_reports.sql   — post_reports table (community moderation)
 ```
 
 ---

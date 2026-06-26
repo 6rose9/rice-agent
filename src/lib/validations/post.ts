@@ -45,6 +45,13 @@ export const postSchema = z.discriminatedUnion("type", [
   tradingPostSchema,
 ]);
 
+export const reportPostSchema = z.object({
+  post_id: z.string().uuid("Invalid post ID"),
+  reason: z.string().max(500, "Reason must be under 500 characters").optional(),
+});
+
+export type ReportPostInput = z.infer<typeof reportPostSchema>;
+
 export type PostInput = z.infer<typeof postSchema>;
 export type GeneralPostInput = z.infer<typeof generalPostSchema>;
 export type TradingPostInput = z.infer<typeof tradingPostSchema>;

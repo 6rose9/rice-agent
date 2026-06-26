@@ -5,6 +5,7 @@ import { postSchema } from "@/lib/validations/post";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Post, PostImage, Profile } from "@/types";
 import { ActionResult, extractFirstFieldError, requireAuth } from "@/lib/actions";
+import { reportPostSchema } from "@/lib/validations/post";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -335,6 +336,7 @@ export async function getPosts(
   let query = supabase
     .from("posts")
     .select("*")
+    .eq("is_active", true)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(pageSize + 1); // fetch one extra to detect if there are more
@@ -399,6 +401,7 @@ export async function getPostsByAuthor(
     .from("posts")
     .select("*")
     .eq("author_id", authorId)
+    .eq("is_active", true)
     .order("created_at", { ascending: false });
 
   if (postError || !postRows) {
@@ -629,7 +632,8 @@ export async function getSavedPosts(): Promise<Post[]> {
   const { data: postRows, error: postError } = await supabase
     .from("posts")
     .select("*")
-    .in("id", postIds);
+    .in("id", postIds)
+    .eq("is_active", true);
 
   if (postError || !postRows) {
     return [];
@@ -720,6 +724,77 @@ export async function deletePost(postId: string): Promise<ActionResult> {
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to delete post.",
+    };
+  }
+}
+
+// ── Report Post ─────────────────────────────────────────────────────
+
+const REPORT_THRESHOLD = 10;
+
+export async function reportPost(postId: string, reason?: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
+
+    const parsed = reportPostSchema.safeParse({ post_id: postId, reason });
+    if (!parsed.success) {
+      return { success: false, error: "Invalid post ID." };
+    }
+
+    // Check if post exists
+    const { data: existing } = await supabase
+      .from("posts")
+      .select("id, is_active")
+      .eq("id", postId)
+      .maybeSingle();
+
+    if (!existing) {
+      return { success: false, error: "Post not found." };
+    }
+
+    if (!existing.is_active) {
+      return { success: false, error: "This post has already been removed." };
+    }
+
+    // Insert report (UNIQUE constraint prevents duplicates)
+    const { error: insertError } = await supabase
+      .from("post_reports")
+      .insert({
+        post_id: postId,
+        reporter_id: user.id,
+        reason: reason || null,
+      });
+
+    if (insertError) {
+      // Unique violation = already reported
+      if (insertError.code === "23505") {
+        return { success: false, error: "You have already reported this post." };
+      }
+      return { success: false, error: insertError.message };
+    }
+
+    // Count reports for this post
+    const { count } = await supabase
+      .from("post_reports")
+      .select("id", { count: "exact", head: true })
+      .eq("post_id", postId);
+
+    // Auto-hide post if threshold reached
+    if (count && count >= REPORT_THRESHOLD) {
+      await supabase
+        .from("posts")
+        .update({ is_active: false })
+        .eq("id", postId);
+    }
+
+    revalidatePath("/feed");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to report post.",
     };
   }
 }
