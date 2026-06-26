@@ -25,20 +25,22 @@ export function RightRail({ variant = "feed", profileStats, networkStats }: Righ
   const suggestions = mockProfiles.slice(0, 3);
 
   const baseClasses =
-    "hidden lg:flex flex-col w-[260px] xl:w-[300px] gap-4 sticky top-0 h-screen pt-4 px-2";
+    "hidden lg:flex flex-col w-[260px] xl:w-[300px] gap-4 sticky top-0 h-screen pt-4 pl-4 pr-2 border-l";
   
   const cardClasses = "border-0 shadow-none bg-transparent px-2";
 
   const footerLinks = (
-    <div className="text-[10px] text-muted-foreground space-y-1 pt-2">
-      <div className="flex flex-wrap gap-x-3 gap-y-1">
-        <Link href="/about" className="hover:underline">About</Link>
-        <Link href="/terms" className="hover:underline">Terms</Link>
-        <Link href="/privacy" className="hover:underline">Privacy</Link>
-        <Link href="/help" className="hover:underline">Help</Link>
-      </div>
-      <p>© 2026 စပါးအောင်သွယ်</p>
-    </div>
+    <Card className="border-0 shadow-none bg-transparent px-2 mt-auto">
+      <CardContent className="p-3 rounded-lg bg-muted/40 space-y-2">
+        <div className="flex flex-wrap gap-x-3 gap-y-1.5 text-xs">
+          <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link>
+          <Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms</Link>
+          <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy</Link>
+          <Link href="/help" className="text-muted-foreground hover:text-foreground transition-colors">Help</Link>
+        </div>
+        <p className="text-[10px] text-muted-foreground/70">© 2026 စပါးအောင်သွယ်</p>
+      </CardContent>
+    </Card>
   );
 
   // --- Feed variant (default) ---
