@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "context7-mcp",
+      "args": [],
+      "env": {}
+    },
+    "magic": {
+      "type": "stdio",
+      "command": "magic",
+      "args": [],
+      "env": {}
+    },
+    "next-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "next-devtools-mcp@latest"
+      ]
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=YOUR_PROJECT_REF"
+    }
+  }
+}

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PostActions } from "@/components/feed/post-actions";
-import { EditPostModal } from "@/components/post/edit-post-modal";
+import { CommentSection } from "@/components/post/comment-section";
 import {
   Dialog,
   DialogClose,
@@ -20,14 +22,17 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Post } from "@/types";
-import { timeAgo, formatPrice, formatQuantity, regionTownships } from "@/lib/mock-data";
-import { deletePost } from "@/lib/posts/actions";
-import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation } from "lucide-react";
+import { formatRelativeTime, formatPrice, formatQuantity } from "@/lib/utils/format";
+import { ROLE_LABELS } from "@/lib/constants";
+import { useMarketStatuses } from "@/hooks/use-market-statuses";
+import { deletePost, reportPost } from "@/lib/posts/actions";
+import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation, Flag } from "lucide-react";
 
 interface PostCardProps {
   post: Post;
@@ -43,19 +48,26 @@ const TYPE_CONFIG = {
 };
 
 export function PostCard({ post, isAuthenticated = false, currentUserId, onRefresh }: PostCardProps) {
-  const { author, type, content, rice_type, price, quantity, unit, address, location, township, easy_to_carry, pound_per_bag, paddy_condition, badge, images } = post;
+  const { author, type, content, rice_type, price, quantity, unit, address, region, township, easy_to_carry, pound_per_bag, paddy_condition, badge, images } = post;
+  const router = useRouter();
   const [displayTime, setDisplayTime] = useState(post.created_at);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showMapDialog, setShowMapDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [showComments, setShowComments] = useState(false);
+  const { labels: marketStatusLabels } = useMarketStatuses();
 
   const typeInfo = TYPE_CONFIG[type] || TYPE_CONFIG.general;
   const isPremium = type === "buying" || type === "selling";
   const isAuthor = isAuthenticated && currentUserId === post.author_id;
 
   useEffect(() => {
-    setDisplayTime(timeAgo(post.created_at));
+    setDisplayTime(formatRelativeTime(post.created_at));
   }, [post.created_at]);
 
   return (
@@ -87,14 +99,19 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
                   {typeInfo.label}
                 </Badge>
               )}
-
             </div>
+            <p className="text-xs text-muted-foreground">
+              {ROLE_LABELS[author.role as keyof typeof ROLE_LABELS] || author.role}
+              {author.market_status_id && marketStatusLabels[author.market_status_id] && (
+                <> · {marketStatusLabels[author.market_status_id]}</>
+              )}
+            </p>
             <p className="text-xs text-muted-foreground mt-0.5" suppressHydrationWarning>
               {displayTime}
             </p>
           </div>
 
-          {isAuthor && (
+          {isAuthenticated && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 className={cn(
@@ -105,16 +122,25 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
                 <MoreHorizontal className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setShowEditModal(true)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => setShowDeleteDialog(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                {isAuthor && (
+                  <>
+                    <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}/edit`)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
+                  <Flag className="h-4 w-4 mr-2" />
+                  Report
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -159,62 +185,71 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
 
         {/* Meta tags — only for buying/selling */}
         {isPremium && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-3 text-xs text-muted-foreground">
-            {rice_type && (
-              <span className="inline-flex items-center gap-1">
-                <Wheat className="h-3 w-3" />
-                {rice_type}
-              </span>
-            )}
-            {price != null && (
-              <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                <Banknote className="h-3 w-3" />
-                {formatPrice(price)}/{unit || "basket"}
-              </span>
-            )}
-            {quantity != null && (
-              <span className="inline-flex items-center gap-1">
-                <Package className="h-3 w-3" />
-                {formatQuantity(quantity, unit)}
-              </span>
-            )}
-            {location && (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {township ? `${township}, ` : ""}
-                {regionTownships[location]?.label || location}
-              </span>
-            )}
-            {address && (
-              <span className="inline-flex items-center gap-1">
-                🏠 {address}
-              </span>
-            )}
-            {pound_per_bag != null && (
-              <span className="inline-flex items-center gap-1">
-                🏋️ {pound_per_bag} lb/bag
-              </span>
-            )}
-            {paddy_condition != null && (
-              <span className="inline-flex items-center gap-1">
-                💧 Moisture: {paddy_condition}%
-              </span>
-            )}
-            {easy_to_carry && (
-              <span className="inline-flex items-center gap-1">
-                🚚 Easy to carry
-              </span>
-            )}
-            {post.latitude != null && post.longitude != null && (
-              <button
-                type="button"
-                onClick={() => setShowMapDialog(true)}
-                className="inline-flex items-center gap-1 text-primary hover:underline"
-              >
-                <Navigation className="h-3 w-3" />
-                Get Directions
-              </button>
-            )}
+          <div className="rounded-lg bg-muted/50 p-3 mb-3 space-y-2.5">
+            {/* Primary info: rice type + price */}
+            <div className="flex flex-wrap items-center gap-2">
+              {rice_type && (
+                <Badge variant="secondary" className="gap-1 font-normal">
+                  <Wheat className="h-3 w-3" />
+                  {rice_type}
+                </Badge>
+              )}
+              {price != null && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                  <Banknote className="h-4 w-4" />
+                  {formatPrice(price)}
+                  <span className="text-xs font-normal text-muted-foreground">/ 100 baskets</span>
+                </span>
+              )}
+            </div>
+
+            {/* Secondary info: quantity, location, specs */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {quantity != null && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  <Package className="h-3 w-3" />
+                  {formatQuantity(quantity, "baskets")}
+                </span>
+              )}
+              {region && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  {township ? `${township}, ` : ""}
+                  {region}
+                </span>
+              )}
+              {address && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  🏠 {address}
+                </span>
+              )}
+              {pound_per_bag != null && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  <Image src="/assets/bag.jpeg" alt="" width={14} height={14} className="rounded-sm" />
+                  {pound_per_bag} lb/bag
+                </span>
+              )}
+              {paddy_condition != null && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                  ☀️ Moisture: {paddy_condition}%
+                </span>
+              )}
+              {easy_to_carry && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-50 border border-green-200 text-green-700 dark:bg-green-950 dark:border-green-800 dark:text-green-400">
+                  🚚 Easy to carry
+                </span>
+              )}
+              {post.latitude != null && post.longitude != null && (
+                <button
+                  type="button"
+                  onClick={() => setShowMapDialog(true)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <Navigation className="h-3 w-3" />
+                  Get Directions
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -227,18 +262,13 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
             isLiked={post.is_liked}
             isSaved={post.is_saved}
             isAuthenticated={isAuthenticated}
+            onComment={() => setShowComments((prev) => !prev)}
           />
         </div>
-      </CardContent>
 
-      {showEditModal && (
-        <EditPostModal
-          post={post}
-          open={showEditModal}
-          onOpenChange={setShowEditModal}
-          onUpdated={onRefresh}
-        />
-      )}
+        {/* Comments section */}
+        {showComments && <CommentSection postId={post.id} />}
+      </CardContent>
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
@@ -249,8 +279,8 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose>
-              <Button variant="outline">Cancel</Button>
+            <DialogClose render={<Button variant="outline" />}>
+              Cancel
             </DialogClose>
             <Button
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -293,6 +323,68 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
           <div className="mt-3 flex justify-end">
             <Button variant="outline" size="sm" onClick={() => setShowMapDialog(false)}>Close</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report dialog */}
+      <Dialog
+        open={showReportDialog}
+        onOpenChange={(open) => {
+          setShowReportDialog(open);
+          if (!open) {
+            setReportReason("");
+            setReportSuccess(false);
+            setReportError("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report Post</DialogTitle>
+            <DialogDescription>
+              Why are you reporting this post? Reports help keep the community focused on the rice industry.
+            </DialogDescription>
+          </DialogHeader>
+          {reportSuccess ? (
+            <div className="py-4 text-center">
+              <p className="text-sm text-muted-foreground">Thank you. Your report has been submitted.</p>
+            </div>
+          ) : (
+            <>
+              <textarea
+                className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="Optional: tell us why (e.g. not rice-related, spam, inappropriate)"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                maxLength={500}
+              />
+              {reportError && (
+                <p className="text-sm text-destructive">{reportError}</p>
+              )}
+              <DialogFooter>
+                <DialogClose render={<Button variant="outline" />}>
+                  Cancel
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    setReporting(true);
+                    setReportError("");
+                    const result = await reportPost(post.id, reportReason || undefined);
+                    if (result.success) {
+                      setReportSuccess(true);
+                    } else {
+                      setReportError(result.error);
+                    }
+                    setReporting(false);
+                  }}
+                  disabled={reporting}
+                >
+                  {reporting ? "Reporting..." : "Report"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </Card>

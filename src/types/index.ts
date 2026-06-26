@@ -1,29 +1,46 @@
+// Import generated database types
+import { Tables, TablesInsert, TablesUpdate } from '@/lib/types/database'
+
+// ── Re-export database types for convenience ─────────────────────────────
+
+/** Raw database row types */
+export type ProfileRow = Tables<'profiles'>
+export type PostRow = Tables<'posts'>
+export type PostImageRow = Tables<'post_images'>
+export type SavedPostRow = Tables<'saved_posts'>
+
+/** Bilingual name type for reference tables */
+export type BilingualName = { en: string; my: string }
+
+/** Region with typed name */
+export interface RegionRow extends Omit<Tables<'regions'>, 'name'> {
+  name: BilingualName
+}
+
+/** Township with typed name */
+export interface TownshipRow extends Omit<Tables<'townships'>, 'name'> {
+  name: BilingualName
+}
+
+/** Market status with typed name and color */
+export interface MarketStatusRow extends Omit<Tables<'market_status'>, 'name'> {
+  name: BilingualName
+  color: string | null
+}
+
+/** Insert types */
+export type ProfileInsert = TablesInsert<'profiles'>
+export type PostInsert = TablesInsert<'posts'>
+export type PostImageInsert = TablesInsert<'post_images'>
+
+/** Update types */
+export type ProfileUpdate = TablesUpdate<'profiles'>
+export type PostUpdate = TablesUpdate<'posts'>
+
+// ── Application-specific types ────────────────────────────────────────────
+
 // User roles in the rice industry
 export type UserRole = "farmer" | "trader" | "agent" | "general_user";
-
-// ── Reference Table Types ─────────────────────────────────────────────
-
-/** Row from public.market_status */
-export interface MarketStatusRow {
-  id: number;
-  name: { en: string; my: string };
-  sort_order: number;
-}
-
-/** Row from public.regions */
-export interface RegionRow {
-  id: number;
-  name: { en: string; my: string };
-  sort_order: number;
-}
-
-/** Row from public.townships */
-export interface TownshipRow {
-  id: number;
-  name: { en: string; my: string };
-  region_id: number;
-  sort_order: number;
-}
 
 // Post types
 export type PostType = "general" | "selling" | "buying";
@@ -31,77 +48,62 @@ export type PostType = "general" | "selling" | "buying";
 // Subscription badge tiers for premium posts
 export type SubscriptionBadge = "free" | "pro" | "pro_plus";
 
-// Profile (matches public.profiles table)
-export interface Profile {
-  id: string;
-  phone: string;
-  email?: string | null;
-  username: string;
-  full_name: string;
-  role: UserRole;
-  avatar_url?: string | null;
-  cover_url?: string | null;
-  bio?: string | null;
-  region_id: number;
-  township_id: number;
-  market_status_id?: number | null;
-  phone_verified: boolean;
-  deleted_at?: string | null;
-  created_at: string;
-  updated_at: string;
+// Feed filter
+export type FeedFilter = "all" | "buying" | "selling" | "following";
+
+// ── Extended types with relations ─────────────────────────────────────────
+
+/** Profile with convenience fields */
+export interface Profile extends ProfileRow {
+  // Add any computed/extended fields here if needed
 }
 
-// Post
-export interface Post {
-  id: string;
-  author_id: string;
-  author: Profile;
+/** Post with joined relations and computed fields */
+export interface Post extends Omit<PostRow, 'type' | 'address' | 'badge' | 'easy_to_carry' | 'region' | 'paddy_condition' | 'pound_per_bag' | 'price' | 'quantity' | 'rice_name' | 'rice_type' | 'township' | 'unit' | 'is_active' | 'latitude' | 'longitude' | 'location'> {
   type: PostType;
-  content: string;
-  // General post fields
-  // (no extra fields beyond content & images)
-  // Buying / Selling fields
-  rice_type?: string;
-  rice_name?: string;
+  author: Profile;
+  images: PostImageRow[];
+  address?: string | null;
+  badge?: SubscriptionBadge | null;
+  easy_to_carry?: boolean | null;
+  region?: string | null;
+  paddy_condition?: string | null;
+  pound_per_bag?: number | null;
   price?: number | null;
   quantity?: number | null;
-  unit?: string;
-  address?: string;
-  location?: string;
+  rice_name?: string | null;
+  rice_type?: string | null;
   township?: string | null;
-  easy_to_carry?: boolean;
-  pound_per_bag?: number | null;
-  paddy_condition?: number | null;
-  // Subscription badge
-  badge?: SubscriptionBadge;
-  images: PostImage[];
-  reaction_count: number;
-  comment_count: number;
+  unit?: string | null;
+  location?: string | null;
+  is_active?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   is_liked?: boolean;
   is_saved?: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
-// Post image
-export interface PostImage {
-  id: string;
-  post_id: string;
-  url: string;
-  sort_order: number;
-}
+/** Post image (same as database row) */
+export type PostImage = PostImageRow;
 
-// Comment
-export interface Comment {
-  id: string;
-  post_id: string;
-  author_id: string;
+/** Comment row types */
+export type CommentRow = Tables<'comments'>
+export type CommentInsert = TablesInsert<'comments'>
+
+/** Comment with joined author profile */
+export interface Comment extends Omit<CommentRow, 'author_id'> {
   author: Profile;
-  content: string;
-  created_at: string;
 }
 
-// Feed filter
-export type FeedFilter = "all" | "buying" | "selling" | "following";
+// ── Form types ────────────────────────────────────────────────────────────
+
+/** Profile form data (for create/edit) */
+export interface ProfileFormData {
+  full_name: string;
+  username: string;
+  role: UserRole;
+  region_id: number;
+  township_id: number;
+  market_status_id?: number | null;
+  bio?: string;
+}

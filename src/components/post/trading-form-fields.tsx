@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { regionTownships, regionKeys } from "@/lib/mock-data";
+import { useRegions } from "@/hooks/use-regions";
 
 const LocationPicker = dynamic(
   () => import("@/components/post/location-picker").then((mod) => mod.LocationPicker),
@@ -51,7 +51,14 @@ export function TradingFormFields({
   setValue,
   errors,
 }: TradingFormFieldsProps) {
-  const watchedLocation = watch("location");
+  const watchedLocation = watch("region");
+  const { regions, getTownshipsForRegion, loading } = useRegions();
+
+  // Find selected region ID from the stored English name
+  const selectedRegion = regions.find((r) => r.name.en === watchedLocation);
+  const townships = selectedRegion
+    ? getTownshipsForRegion(selectedRegion.id)
+    : [];
 
   return (
     <div className="space-y-3 pt-4 border-t">
@@ -59,7 +66,7 @@ export function TradingFormFields({
         📋 Listing Details
       </p>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {/* Rice Type */}
         <div className="space-y-1.5">
           <Label className="text-xs">🌾 Rice Type *</Label>
@@ -69,7 +76,7 @@ export function TradingFormFields({
               if (v) setValue("rice_type", v, { shouldValidate: true });
             }}
           >
-            <SelectTrigger className="h-9 text-xs">
+            <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue placeholder="Select rice type" />
             </SelectTrigger>
             <SelectContent>
@@ -100,8 +107,8 @@ export function TradingFormFields({
         </div>
 
         {/* Price Slider */}
-        <div className="space-y-1.5 col-span-2">
-          <Label className="text-xs">💰 Price</Label>
+        <div className="space-y-1.5 md:col-span-2">
+          <Label className="text-xs">💰 Approximate Price</Label>
           <div className="space-y-1">
             <input
               type="range"
@@ -123,10 +130,9 @@ export function TradingFormFields({
         </div>
 
         {/* Quantity Slider */}
-        <div className="space-y-1.5 col-span-2">
+        <div className="space-y-1.5 md:col-span-2">
           <Label className="text-xs">
-            📦 How many do you want to{" "}
-            {postType === "buying" ? "buy" : "sell"}?
+            📦 How many do you want to {postType === "buying" ? "buy" : "sell"}?
           </Label>
           <div className="space-y-1">
             <input
@@ -154,21 +160,22 @@ export function TradingFormFields({
         <div className="space-y-1.5">
           <Label className="text-xs">📍 Region</Label>
           <Select
-            value={watch("location") ?? ""}
+            value={watch("region") ?? ""}
             onValueChange={(v) => {
               if (v) {
-                setValue("location", v, { shouldValidate: true });
+                setValue("region", v, { shouldValidate: true });
                 setValue("township", "", { shouldValidate: false });
               }
             }}
+            disabled={loading}
           >
-            <SelectTrigger className="h-9 text-xs">
+            <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue placeholder="Select region" />
             </SelectTrigger>
             <SelectContent>
-              {regionKeys.map((key) => (
-                <SelectItem key={key} value={key}>
-                  {regionTownships[key].label}
+              {regions.map((r) => (
+                <SelectItem key={r.id} value={r.name.en}>
+                  {r.name.en}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -182,9 +189,9 @@ export function TradingFormFields({
             onValueChange={(v) => {
               if (v) setValue("township", v, { shouldValidate: true });
             }}
-            disabled={!watchedLocation}
+            disabled={!watchedLocation || loading}
           >
-            <SelectTrigger className="h-9 text-xs">
+            <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue
                 placeholder={
                   watchedLocation
@@ -194,20 +201,19 @@ export function TradingFormFields({
               />
             </SelectTrigger>
             <SelectContent>
-              {watchedLocation &&
-                regionTownships[watchedLocation]?.townships.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
+              {townships.map((t) => (
+                <SelectItem key={t.id} value={t.name.en}>
+                  {t.name.en}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
       {/* Pound per bag + Measuring */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5 col-span-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="space-y-1.5 md:col-span-2">
           <Label className="text-xs">
             How many pounds per bag of paddy?
           </Label>
@@ -239,7 +245,7 @@ export function TradingFormFields({
               if (v) setValue("unit", v, { shouldValidate: true });
             }}
           >
-            <SelectTrigger className="h-9 text-xs min-w-[150px]">
+            <SelectTrigger className="h-9 text-xs min-w-[300px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -254,7 +260,7 @@ export function TradingFormFields({
 
         {/* Moisture Level (paddy_condition as range slider) */}
         <div className="space-y-1.5">
-          <Label className="text-xs">💧 Moisture Level</Label>
+          <Label className="text-xs">☀️ Moisture Level</Label>
           <div className="space-y-1">
             <input
               type="range"
@@ -286,7 +292,7 @@ export function TradingFormFields({
 
       {/* Address */}
       <div className="space-y-1.5">
-        <Label className="text-xs">🏠 Address</Label>
+          <Label className="text-xs">🏠 Address</Label>
         <Input
           placeholder="e.g. No. 123, Hlaingthaya, Yangon"
           {...register("address")}
@@ -296,7 +302,7 @@ export function TradingFormFields({
 
       {/* Pin Location */}
       <div className="space-y-1.5">
-        <Label className="text-xs">📍 Pin Location</Label>
+          <Label className="text-xs">📍 Pin Location</Label>
         <LocationPicker
           value={
             watch("latitude") != null && watch("longitude") != null

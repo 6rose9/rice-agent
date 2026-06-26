@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { RightRail } from "@/components/layout/right-rail";
 import { FeedFilter } from "@/components/feed/feed-filter";
@@ -22,58 +22,57 @@ function FeedContent() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const result = await getPosts();
-      setPosts(result.posts);
-      setNextCursor(result.nextCursor);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchPosts = useCallback(
+    async (filterType?: FeedFilterType) => {
+      setLoading(true);
+      setError(false);
+      try {
+        const type =
+          filterType === "buying" || filterType === "selling"
+            ? filterType
+            : undefined;
+        const result = await getPosts(undefined, 20, type);
+        setPosts(result.posts);
+        setNextCursor(result.nextCursor);
+      } catch (err) {
+        console.error("Failed to fetch posts:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchPosts();
-  }, [fetchPosts]);
+    fetchPosts(filter);
+  }, [fetchPosts, filter]);
 
   async function handleLoadMore() {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const result = await getPosts(nextCursor);
+      const type =
+        filter === "buying" || filter === "selling" ? filter : undefined;
+      const result = await getPosts(nextCursor, 20, type);
       setPosts((prev) => [...prev, ...result.posts]);
       setNextCursor(result.nextCursor);
-    } catch {
-      // Silently fail — posts already loaded stay visible
+    } catch (err) {
+      console.error("Failed to load more posts:", err);
     } finally {
       setLoadingMore(false);
     }
   }
 
   const filteredPosts = useMemo(() => {
-    if (loading) return [];
-    if (error) return [];
-
-    let result = posts;
-
-    if (filter === "buying") {
-      result = result.filter((p) => p.type === "buying");
-    } else if (filter === "selling") {
-      result = result.filter((p) => p.type === "selling");
-    } else if (filter === "following") {
+    if (filter === "following") {
       if (!isAuthenticated) return [];
       // Fix #5: following feed requires follow-join — not implemented yet
-      // Return empty to trigger the "no posts" empty state below
       return [];
     }
-
-    return result;
-  }, [posts, filter, loading, error, isAuthenticated]);
+    return posts;
+  }, [posts, filter, isAuthenticated]);
 
   return (
     <div className="flex">
@@ -91,22 +90,23 @@ function FeedContent() {
             <SkeletonCard />
           </>
         ) : error ? (
-          <ErrorCard onRetry={fetchPosts} />
+          <ErrorCard onRetry={() => fetchPosts(filter)} />
+        ) : filter === "following" && !isAuthenticated ? (
+          <EmptyCard
+            message="Sign in to see posts from people you follow"
+            subtext="Follow rice traders to see their updates in your feed."
+          />
         ) : filteredPosts.length === 0 ? (
           <EmptyCard
             message={
-              filter === "following" && !isAuthenticated
-                ? "Sign in to see posts from people you follow"
-                : filter === "following"
-                  ? "Follow some users to see their posts here"
-                  : "No posts yet"
+              filter === "following"
+                ? "Follow some users to see their posts here"
+                : "No posts yet"
             }
             subtext={
-              filter === "following" && !isAuthenticated
-                ? "Follow rice traders to see their updates in your feed."
-                : filter === "following"
-                  ? "Visit profiles of traders, farmers, and agents you're interested in."
-                  : "Be the first to share a post in the rice community."
+              filter === "following"
+                ? "Visit profiles of traders, farmers, and agents you're interested in."
+                : "Be the first to share a post in the rice community."
             }
           />
         ) : (
@@ -118,7 +118,7 @@ function FeedContent() {
                 isAuthenticated={isAuthenticated}
               />
             ))}
-            {nextCursor && filter === "all" && (
+            {nextCursor && (
               <div className="flex justify-center py-4">
                 <Button
                   variant="outline"

@@ -19,8 +19,8 @@ export default function SavedPage() {
     try {
       const result = await getSavedPosts();
       setPosts(result);
-    } catch {
-      // leave posts as-is
+    } catch (err) {
+      console.error("Failed to fetch saved posts:", err);
     } finally {
       setLoading(false);
     }

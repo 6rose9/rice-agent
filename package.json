@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:posts": "tsx scripts/seed-posts.ts"
+    "seed:posts": "tsx scripts/seed-posts.ts",
+    "gen:types": "npx supabase gen types typescript --project-id bldpkjoiqzkilviwtaph > src/lib/types/database.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

@@ -8,28 +8,42 @@ import {
   Search,
   PlusSquare,
   MessageCircle,
-  User,
   Settings,
   Network,
   Bookmark,
   LogIn,
   LogOut,
+  Crown,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/components/auth/auth-provider";
+import { useState } from "react";
 
 const mainItems = [
   { href: "/feed", label: "Home", icon: Home },
   { href: "/search", label: "Search", icon: Search },
   { href: "/posts/create", label: "Create Post", icon: PlusSquare },
-  { href: "/messages", label: "Messages", icon: MessageCircle },
   { href: "/mynetwork", label: "My Network", icon: Network },
+  { href: "/messages", label: "Messages", icon: MessageCircle },
+  { href: "/pricing", label: "Pricing", icon: Crown },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user, isLoading, signOut } = useAuth();
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+
+  const profileHref = user ? `/profile/${user.profile.username}` : "/login";
+  const isOwnProfile = user && pathname === profileHref;
 
   return (
     <aside className="hidden md:flex flex-col w-[240px] h-screen sticky top-0 border-r bg-background px-3 py-4">
@@ -76,20 +90,22 @@ export function Sidebar() {
             <span>Saved Posts</span>
           </Button>
         </Link>
-        {isLoading ? null : user ? (
-          <Link href={`/profile/${user.profile.username}`}>
+        {/* Profile */}
+        {user && (
+          <Link href={profileHref}>
             <Button
-              variant={pathname.startsWith("/profile") ? "secondary" : "ghost"}
+              variant={isOwnProfile ? "secondary" : "ghost"}
               className={cn(
                 "w-full justify-start gap-3 h-10",
-                pathname.startsWith("/profile") && "font-semibold"
+                isOwnProfile && "font-semibold"
               )}
             >
-              <User className="h-5 w-5" strokeWidth={pathname.startsWith("/profile") ? 2.5 : 1.8} />
+              <User className="h-5 w-5" strokeWidth={isOwnProfile ? 2.5 : 1.8} />
               <span>Profile</span>
             </Button>
           </Link>
-        ) : (
+        )}
+        {!isLoading && !user && (
           <Link href="/login">
             <Button
               variant={pathname === "/login" ? "secondary" : "ghost"}
@@ -114,14 +130,35 @@ export function Sidebar() {
           </Button>
         </Link>
         {user && (
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 h-10"
-            onClick={() => signOut()}
-          >
-            <LogOut className="h-5 w-5" strokeWidth={1.8} />
-            <span>Logout</span>
-          </Button>
+          <>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 h-10"
+              onClick={() => setShowLogoutDialog(true)}
+            >
+              <LogOut className="h-5 w-5" strokeWidth={1.8} />
+              <span>Logout</span>
+            </Button>
+            <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Logout?</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to logout?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-end gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowLogoutDialog(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={signOut}>Logout</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </>
         )}
         <p className="text-[10px] text-muted-foreground mt-3 px-3">
           © 2026 စပါးအောင်သွယ်

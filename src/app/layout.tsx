@@ -38,6 +38,9 @@ export const metadata: Metadata = {
   title: "စပါးအောင်သွယ် — Rice Network",
   description:
     "A professional networking and marketplace platform for Myanmar's rice industry. Connect farmers, traders, and agents.",
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

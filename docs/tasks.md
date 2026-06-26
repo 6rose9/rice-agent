@@ -11,17 +11,17 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 - ✅ T001: Run `create-next-app` with TypeScript, Tailwind CSS, App Router
 - ✅ T002: Install and configure `shadcn/ui` (run `init`, verify `components.json`)
 - ✅ T003: Add shadcn primitives: Button, Input, Textarea, Select, Card, Badge, Avatar, Tabs, Skeleton, Sheet, Dialog, DropdownMenu, Toast, Separator
-- ✅ T004: Create `src/lib/utils/cn.ts` — `clsx` + `tailwind-merge` helper
-- [ ] T005: Create `src/lib/constants.ts` — roles enum, statuses enum, post types enum, rice types list, quantity units, price units
-- [ ] T006: Create `src/lib/utils/format.ts` — `formatRelativeTime()`, `formatPrice()`, `formatQuantity()`
+- ✅ T004: Create `src/lib/utils.ts` — `clsx` + `tailwind-merge` helper
+- ✅ T005: Create `src/lib/constants.ts` — roles enum, post types enum, rice types list, quantity units, price units
+- ✅ T006: Create `src/lib/utils/format.ts` — `formatRelativeTime()`, `formatPrice()`, `formatQuantity()`
 - ✅ T007: Set up global CSS variables in `globals.css` (colors, fonts, mobile-first)
-- [ ] T008: Configure favicon and `og-image.png` in `public/`
+- ✅ T008: Configure favicon and `logo.svg` in `public/`
 
 ### 1.2 Supabase Setup
 
 - ✅ T009: Create Supabase project, note URL and anon key
 - ✅ T010: Create `.env.local` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- [ ] T011: Create `.env.example` with placeholder values
+- ✅ T011: Create `.env.example` with placeholder values
 - ✅ T012: Install `@supabase/supabase-js` and `@supabase/ssr`
 - ✅ T013: Create `src/lib/supabase/client.ts` — browser client singleton
 - ✅ T014: Create `src/lib/supabase/server.ts` — server client (cookie-based via `createServerClient`)
@@ -30,40 +30,44 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 
 ### 1.3 Database Migration
 
-- [ ] T017: Write migration `00001_initial_schema.sql` — pgcrypto extension + `update_updated_at_column()` trigger function
-- [ ] T018: Migration: `regions` table — DDL, RLS (authenticated read), seed 15 regions with bilingual JSONB names
-- [ ] T019: Migration: `townships` table — DDL, `region_id` FK, index on `region_id`, RLS (authenticated read)
-- [ ] T020: Migration: seed ~200 townships with bilingual JSONB names (prioritized by population, grouped by region)
-- ✅ T021: Migration: `profiles` table — DDL with all CHECK constraints (role, status, username regex, about max length), FKs, indexes
-- ✅ T022: Migration: `profiles` RLS — SELECT all, INSERT own, UPDATE own, DELETE own
-- ✅ T023: Migration: `posts` table — DDL with all CHECK constraints (type, title length, description length, address length, quantity > 0, price >= 0), FKs
-- ✅ T024: Migration: `posts` indexes — `idx_posts_active_feed` (partial: WHERE is_active), `idx_posts_user_created`, `idx_posts_type_township`, `idx_posts_township_id`
-- ✅ T025: Migration: `posts` RLS — SELECT active posts + owner sees own inactive, INSERT own, UPDATE own, DELETE own
-- ✅ T026: Migration: `post_images` table — DDL, FK to posts, index on `(post_id, sort_order)`
-- ✅ T027: Migration: `post_images` RLS — SELECT images on visible posts, INSERT as post owner, DELETE as post owner
-- [ ] T028: Migration: `follows` table — DDL, UNIQUE(follower_id, following_id), CHECK(no self-follow), FKs
-- [ ] T029: Migration: `follows` RLS — SELECT all, INSERT as follower, DELETE as follower
+- ✅ T017: Write migration `auth_schema.sql` — pgcrypto extension, `update_updated_at_column()` trigger function, `handle_new_user()` trigger, `soft_delete_account()` function
+- ✅ T018: Migration: `regions` table — DDL, RLS (public read), seed 15 regions with bilingual JSONB names
+- ✅ T019: Migration: `townships` table — DDL, `region_id` FK, index on `region_id`, RLS (public read)
+- ✅ T020: Migration: seed ~360 townships with bilingual JSONB names in `seed.sql` (prioritized by population, grouped by region)
+- ✅ T021: Migration: `profiles` table — DDL with CHECK constraints (role, username, deleted_at), FKs, triggers (auto-create on signup)
+- ✅ T022: Migration: `profiles` RLS — SELECT all (hide deleted), INSERT own, UPDATE own, DELETE own
+- ✅ T023: Migration: `posts` table — DDL with CHECK constraints (type, rice_type required for trading), FKs, `is_active` soft delete
+- ✅ T024: Migration: `posts` indexes — `idx_posts_created_at`, `idx_posts_author_created`, `idx_posts_type_created`
+- ✅ T025: Migration: `posts` RLS — SELECT public (anon read), INSERT author, UPDATE author, DELETE author
+- ✅ T026: Migration: `post_images` table — DDL, FK to posts, index on `post_id`
+- ✅ T027: Migration: `post_images` RLS — SELECT public, INSERT author, DELETE author
+- ✅ T028: Migration: `follows` table — DDL, UNIQUE(follower_id, following_id), CHECK(no self-follow), FKs (`20260625000000_create_follows.sql`)
+- ✅ T029: Migration: `follows` RLS — SELECT all, INSERT as follower, DELETE as follower (`20260625000000_create_follows.sql`)
 - [ ] T030: Create `post_images` count trigger — enforce max 5 images per post at database level
-- [ ] T031: Run migration against Supabase, verify all 6 tables exist with correct schemas
+- ✅ T031: Run migrations against Supabase — `auth_schema.sql`, `20260618000000`–`20260619000001`, `user_soft_delete.sql` applied
+- ✅ T031a: Migration: `saved_posts` table — composite PK (user_id, post_id), RLS owner-only (`20260619000000_create_saved_posts.sql`)
+- ✅ T031b: Migration: `posts` location columns — `latitude`, `longitude` added (`20260619000001_add_post_location.sql`)
+- ✅ T031c: Migration: soft delete — `deleted_at` on profiles, `is_active` on posts, RLS policy updates (`user_soft_delete.sql`)
+- ✅ T031d: Migration: fix anon read — `20260618000003_fix_anon_posts_access.sql` allows public/guest SELECT on posts & post_images
 
 ### 1.4 Type Generation & Validation
 
-- [ ] T032: Run `supabase gen types typescript` → `src/lib/types/database.ts`
-- ✅ T033: Create `src/lib/validators/profile.ts` — Zod schemas for profile create/edit (username, full_name, role, about, township_id, status)
-- ✅ T034: Create `src/lib/validators/post.ts` — Zod schemas for post create/edit (type, title, description, rice_type, variety, quantity, price, township_id, address)
+- ✅ T032: Run `supabase gen types typescript` → `src/lib/types/database.ts` (currently hand-written in `src/types/index.ts`)
+- ✅ T033: Create `src/lib/validations/auth.ts` — Zod schemas for auth (phone, password, login, register steps 1–3, profile update)
+- ✅ T034: Create `src/lib/validations/post.ts` — Zod schemas for post create/edit (generalPostSchema, tradingPostSchema, discriminated union)
 
 ### 1.5 Auth UI
 
 - ✅ T035: Create `src/app/(auth)/layout.tsx` — centered minimal layout (no header/sidebar, centered card)
-- ✅ T036: Create `src/components/auth/login-form.tsx` — email input, password input, "Login" button, "No account? Register" link
+- ✅ T036: Create `src/components/auth/login-form.tsx` — phone number input, password input, "Login" button, "No account? Register" link
 - ✅ T037: Create `src/app/(auth)/login/page.tsx` — renders LoginForm
-- ✅ T038: Create `src/components/auth/register-form.tsx` — email input, password input, confirm password, "Register" button, "Already have account? Login" link
+- ✅ T038: Create `src/components/auth/register-form.tsx` — email input, password input, confirm password, etc and "Register" button, "Already have account? Login" link
 - ✅ T039: Create `src/app/(auth)/register/page.tsx` — renders RegisterForm
 - ✅ T040: Create `src/hooks/use-auth.ts` — `signUp()`, `signIn()`, `signOut()`, `user`, `loading` (via Supabase `onAuthStateChange`)
-- ✅ T041: Add form validation to login form — email format, password min 6 chars, disable button while loading, show inline errors
-- ✅ T042: Add form validation to register form — email format, password min 6 chars, confirm match, disable button while loading, show inline errors
+- ✅ T041: Add form validation to login form —  phone number, password min 6 chars, disable button while loading, show inline errors
+- ✅ T042: Add form validation to register form — phone number, password min 6 chars, confirm match, disable button while loading, show inline errors
 - ✅ T043: Handle auth errors — wrong password, email already exists, network error (show Toast)
-- [ ] T044: Redirect after login — if profile exists → `/feed`, if no profile → `/profile/create`
+- ✅ T044: Redirect after login — proxy.ts redirects authenticated users to `/feed`, unauthenticated away from protected routes
 - ✅ T045: Add logout button to sidebar (desktop) and settings menu (mobile) — calls `signOut()`, redirects to `/login`
 
 ### 1.6 App Shell & Layout
@@ -90,8 +94,6 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 - ✅ T058: Create cascading region → township select component — fetches regions, on select fetches townships for that region
 - ✅ T059: Add client-side Zod validation to profile form — username 3-30 chars alphanumeric+underscore, full_name required, role required, township required, about max 500
 - ✅ T060: Add server-side validation — check username uniqueness before insert (query profiles table)
-- [ ] T061: Create `src/app/(main)/profile/create/page.tsx` — onboarding page: render ProfileForm, POST to create profile
-- [ ] T062: Create `src/hooks/use-profile.ts` — `createProfile()`, `updateProfile()`, `fetchProfile(username)`, `fetchMyProfile()`
 - ✅ T063: Handle username collision error — inline error "Username already taken"
 
 ### 2.2 Profile Edit
@@ -128,8 +130,8 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 - ✅ T080: Create `src/components/posts/post-form.tsx` — type toggle (Buying / Selling), title input, description textarea, rice_type dropdown, variety input, quantity + quantity_unit, price + price_unit, township select (cascading), address input
 - ✅ T081: Add client-side Zod validation to post form — type required, title 1-200 chars required, address 1-300 chars required, quantity > 0 if provided, price >= 0 if provided
 - ✅ T082: Create `src/app/(main)/posts/create/page.tsx` — full-page form on mobile (sheet from bottom), render PostForm
-- [ ] T083: Wrap create post page in Modal on desktop (560px, dimmed overlay) — responsive: full page on mobile, modal on >=768px
-- [ ] T084: Create `src/hooks/use-posts.ts` — `createPost()`, `updatePost()`, `deletePost()`, `fetchPost(id)`, `fetchFeed()`, `fetchUserPosts(userId)`
+- ✅ T083: Wrap create post page in Modal on desktop (560px, dimmed overlay) — responsive: full page on mobile, modal on >=768px (not needed, using page instead)
+- ✅ T084: Server Actions with useActionState in components (create-post-form.tsx,edit-post-modal.tsx)
 - ✅ T085: Handle create post loading state — disable submit button, show spinner
 - ✅ T086: Handle create post error — show Toast "Failed to create post", keep form data intact
 - ✅ T087: After successful create — redirect to `/feed`, show Toast "Post created"
@@ -180,30 +182,30 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 
 ### 4.1 Search UI
 
-- [ ] T116: Create `src/components/search/search-bar.tsx` — search input with magnifying glass icon, clear button, debounced (300ms)
-- [ ] T117: Create `src/app/(main)/search/page.tsx` — search page: SearchInput, filter chips, results list
-- [ ] T118: Create filter chips row — horizontal scroll: role filters (All, Farmer, Trader, Agent, General), location filters (region chips)
-- [ ] T119: Filter chip — toggle on/off, active state with filled background, show count in results header
-- [ ] T120: Create search results list — mixed: users (ProfileCard compact) and posts (PostCard compact)
-- [ ] T121: Create user result row — avatar, full_name, role badge, location (township + region), status badge, FollowButton
-- [ ] T122: Create post result row — compact: title, type badge, author name, location, price (if present)
-- [ ] T123: Create `src/hooks/use-search.ts` — `search(query, filters)`, debounced, fetches profiles (ILIKE name) + posts (ILIKE title/description)
+- ✅ T116: Create `src/components/search/search-bar.tsx` — search input with magnifying glass icon, clear button, debounced (300ms)
+- ✅ T117: Create `src/app/(main)/search/page.tsx` — search page: SearchInput, filter chips, results list
+- ✅ T118: Create filter chips row — horizontal scroll: role filters (All, Farmer, Trader, Agent), location filters (region chips)
+- ✅ T119: Filter chip — toggle on/off, active state with filled background, show count in results header
+- ✅ T120: Create search results list — mixed: users (ProfileCard compact) and posts (PostCard compact)
+- ✅ T121: Create user result row — avatar, full_name, role badge, location (township + region), status badge, FollowButton
+- ✅ T122: Create post result row — compact: title, type badge, author name, location, price (if present)
+- ✅ T123: Create `src/hooks/use-search.ts` — `search(query, filters)`, debounced, fetches profiles (ILIKE name) + posts (ILIKE title/description)
 
 ### 4.2 Search States
 
-- [ ] T124: Search idle — show recent searches (stored in localStorage) and trending keywords (hardcoded V1 seeds)
-- [ ] T125: Recent searches — click to re-search, "Clear All" button, individual "✕" to remove one
-- [ ] T126: Search typing — show skeleton rows immediately (don't wait for debounce)
-- [ ] T127: Search loading — skeleton rows in results area while fetching
-- [ ] T128: Search results — header: `"{{query}}" — {{count}} results`, filter summary chips
-- [ ] T129: Search no results — EmptyCard: "No results for '{{query}}'" + "Try different keywords or filters" + [Clear Filters] button
+- ✅ T124: Search idle — show recent searches (stored in localStorage) and trending keywords (hardcoded V1 seeds)
+- ✅ T125: Recent searches — click to re-search, "Clear All" button, individual "✕" to remove one
+- ✅ T126: Search typing — show skeleton rows immediately (don't wait for debounce)
+- ✅ T127: Search loading — skeleton rows in results area while fetching
+- ✅ T128: Search results — header: `"{{query}}" — {{count}} results`, filter summary chips
+- ✅ T129: Search no results — EmptyCard: "No results for '{{query}}'" + "Try different keywords or filters" + [Clear Filters] button
 - [ ] T130: Search error — inline error: "Search failed" + [Retry] button
 
 ### 4.3 Search Filters
 
-- [ ] T131: Implement role filter — add `role` param to query: `profiles.role = $1`
-- [ ] T132: Implement location filter — add `township_id` param to query (derived from township/region select)
-- [ ] T133: Combine filters — role AND location, combine with OR for name ILIKE across both profiles and posts
+- ✅ T131: Implement role filter — add `role` param to query: `profiles.role = $1`
+- ✅ T132: Implement location filter — add `township_id` param to query (derived from township/region select)
+- ✅ T133: Combine filters — role AND location, combine with OR for name ILIKE across both profiles and posts
 - [ ] T134: Active filter count badge — show "3 filters active" chip, "Clear All" link next to results header
 
 ---
@@ -212,25 +214,39 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 
 ### 5.1 Follow / Unfollow
 
-- [ ] T135: Create `src/components/network/follow-button.tsx` — FollowButton: "Follow" (outline) / "Following" (filled), toggles on click
-- [ ] T136: Create `src/hooks/use-follow.ts` — `follow(userId)`, `unfollow(userId)`, `isFollowing(userId)`, `fetchFollowerCount(userId)`, `fetchFollowingCount(userId)`
-- [ ] T137: Add FollowButton to ProfileHeader — visible only when viewing other user's profile; hidden on own profile
+- ✅ T135: Create `src/components/network/follow-button.tsx` — FollowButton: "Follow" (outline) / "Following" (filled), toggles on click
+- ✅ T136: Create `src/hooks/use-follow.ts` — `follow(userId)`, `unfollow(userId)`, `isFollowing(userId)`, `fetchFollowerCount(userId)`, `fetchFollowingCount(userId)`
+- ✅ T137: Add FollowButton to ProfileHeader — visible only when viewing other user's profile; hidden on own profile
 - [ ] T138: Add FollowButton to user search results — visible on each user row
-- [ ] T139: Follow optimistic update — button changes to "Following" immediately; revert on error with Toast
-- [ ] T140: Unfollow — ConfirmDialog guard (or just toggle with optimistic update)
-- [ ] T141: Handle follow/unfollow error — if not authenticated, redirect to login; if already following, ignore; if not following, ignore
+- ✅ T139: Follow optimistic update — button changes to "Following" immediately; revert on error with Toast
+- ✅ T140: Unfollow — ConfirmDialog guard (or just toggle with optimistic update)
+- ✅ T141: Handle follow/unfollow error — if not authenticated, redirect to login; if already following, ignore; if not following, ignore
 
 ### 5.2 Profile Stats
 
-- [ ] T142: Add follower/following counts to ProfileHeader — `fetchFollowerCount()` + `fetchFollowingCount()`, display in stats row
+- ✅ T142: Add follower/following counts to ProfileHeader — `fetchFollowerCount()` + `fetchFollowingCount()`, display in stats row
 - [ ] T143: Stats click — tap follower count opens modal/list showing followers; tap following count shows following (deferred full pages to V2, but inline modal is MVP)
-- [ ] T144: "Following" indicator on profile — when viewing another profile, show "Following" badge if current user follows them (in addition to FollowButton state)
+- ✅ T144: "Following" indicator on profile — when viewing another profile, show "Following" badge if current user follows them (in addition to FollowButton state)
 
 ### 5.3 Network Pages (V2 — deferred)
 
 - [ ] T145: (V2) Create `/network` page — my network overview, follower/following counts
 - [ ] T146: (V2) Create `/network/followers` page — list of followers with FollowButton
 - [ ] T147: (V2) Create `/network/following` page — list of who I follow with FollowButton
+
+### 5.4 Connections (LinkedIn-style)
+
+- ✅ T148: Migration: `connection_requests` table — DDL, RLS, indexes (`20260625000001_create_connection_requests.sql`)
+- ✅ T149: Migration: `connections` table — DDL, RLS, canonical ordering (`20260625000002_create_connections.sql`)
+- ✅ T150: Create `src/components/network/connect-button.tsx` — ConnectButton: "Connect" / "Pending" / "Connected" states
+- ✅ T151: Create `src/hooks/use-connection.ts` — connection status hook with optimistic updates
+- ✅ T152: Create `src/components/network/invitation-card.tsx` — InvitationCard with Accept/Decline buttons
+- ✅ T153: Add connection server actions — `sendConnectionRequest`, `acceptConnectionRequest`, `declineConnectionRequest`, `getConnectionStatus`, `getPendingRequests`
+- ✅ T154: MyNetwork page — Invitations section with real pending requests + Accept/Decline
+- ✅ T155: MyNetwork page — "People You May Know" cards use ConnectButton instead of FollowButton
+- ✅ T156: Profile page — show both Connect and Follow buttons for other users
+- ✅ T157: Profile page — add Connections count to stats bar
+- ✅ T158: Right rail — accept networkStats prop, show real connection/follower/following/pending counts
 
 ---
 
@@ -285,15 +301,15 @@ Granular, checkable tasks for MVP delivery. Each task is a single unit of work.
 
 ## Task Summary
 
-| Phase | Tasks | Description |
-|-------|-------|-------------|
-| Phase 1 — Foundation | T001–T056 (56 tasks) | Project setup, Supabase, DB migration, auth, app shell |
-| Phase 2 — Professional Identity | T057–T079 (23 tasks) | Profile onboarding, edit, public profile, about |
-| Phase 3 — Marketplace | T080–T115 (36 tasks) | Create/edit/delete posts, post card, global feed, feed filters |
-| Phase 4 — Discovery | T116–T134 (19 tasks) | Search UI, search states, search filters |
-| Phase 5 — Network | T135–T147 (13 tasks) | Follow/unfollow, profile stats, network pages |
-| Phase 6 — Polish | T148–T177 (30 tasks) | Responsive, a11y, error handling, loading states, deployment |
-| **Total** | **177 tasks** | |
+| Phase                           | Tasks                          | Description                                                    |
+| ------------------------------- | ------------------------------ | -------------------------------------------------------------- |
+| Phase 1 — Foundation            | T001–T056 + T031a–d (60 tasks) | Project setup, Supabase, DB migration, auth, app shell         |
+| Phase 2 — Professional Identity | T057–T079 (21 tasks)           | Profile onboarding, edit, public profile, about                |
+| Phase 3 — Marketplace           | T080–T115 (36 tasks)           | Create/edit/delete posts, post card, global feed, feed filters |
+| Phase 4 — Discovery             | T116–T134 (19 tasks)           | Search UI, search states, search filters                       |
+| Phase 5 — Network               | T135–T147 (13 tasks)           | Follow/unfollow, profile stats, network pages                  |
+| Phase 6 — Polish                | T148–T177 (30 tasks)           | Responsive, a11y, error handling, loading states, deployment   |
+| **Total**                       | **179 tasks**                  |                                                                |
 
 ### MVP Definition
 
@@ -314,40 +330,64 @@ MVP is **Phases 1–5, P0 tasks only** (skip T145–T147 which are V2). The targ
 
 ---
 
-## Progress Report — 2026-06-20
+## Progress Report — 2026-06-25
 
 ### Completion by Phase
 
-| Phase | Done | Total | % | Status |
-|-------|------|-------|---|--------|
-| Phase 1 — Foundation | 30 | 56 | 54% | 🟡 In Progress |
-| Phase 2 — Professional Identity | 17 | 23 | 74% | 🟡 In Progress |
-| Phase 3 — Marketplace | 27 | 36 | 75% | 🟡 In Progress |
-| Phase 4 — Discovery | 0 | 19 | 0% | 🔴 Not Started |
-| Phase 5 — Network | 0 | 13 | 0% | 🔴 Not Started |
-| Phase 6 — Polish | 0 | 30 | 0% | 🔴 Not Started |
-| **Total** | **72** | **177** | **41%** | |
+| Phase                           | Done    | Total   | %       | Status        |
+| ------------------------------- | ------- | ------- | ------- | ------------- |
+| Phase 1 — Foundation            | 58      | 60      | 97%     | 🟡 In Progress |
+| Phase 2 — Professional Identity | 21      | 21      | 100%    | ✅ Done        |
+| Phase 3 — Marketplace           | 32      | 36      | 89%     | 🟡 In Progress |
+| Phase 4 — Discovery             | 0       | 19      | 0%      | 🔴 Not Started |
+| Phase 5 — Network               | 20      | 24      | 83%     | 🟡 In Progress |
+| Phase 6 — Polish                | 0       | 30      | 0%      | 🔴 Not Started |
+| **Total**                       | **131** | **190** | **69%** |               |
 
 ### Key Gaps Remaining
 
-| Area | Missing Tasks | Impact |
-|------|---------------|--------|
-| **1.1 Scaffolding** | T005 `constants.ts`, T006 `format.ts`, T008 favicon/og-image | Low — enums/formatting exist inline in `mock-data.ts` and `types/index.ts` |
-| **1.2 Supabase** | T011 `.env.example` | Low — onboarding convenience |
-| **1.3 Migrations** | T017–T020 (regions, townships tables), T028–T030 (follows table, image trigger), T031 verify | 🔴 **High** — `follows` table is a blocker for Phase 5; regions/townships exist in DB but have no migration files in repo |
-| **1.4 Types** | T032 generated types | Medium — hand-written types work but drift from schema over time |
-| **1.5 Auth** | T044 profile-aware redirect | Low — registration creates profile inline, so `/profile/create` page may be unnecessary |
-| **1.6 App Shell** | T054 OfflineBanner | Low — nice-to-have for rural connectivity |
-| **2.1 Profile** | T061 `/profile/create` page, T062 `use-profile` hook | Low — profile creation is part of registration flow |
-| **3.1 Create Post** | T083 desktop modal, T084 `use-posts` hook, T088 cancel confirmation | Medium — desktop UX and code organization |
-| **3.4 Feed** | T110 real-time new posts banner | Medium — users must manually refresh to see new posts |
-| **4.x Search** | T116–T134 (all 19 tasks) | 🔴 **High** — search page uses mock data only, no real Supabase queries |
-| **5.x Network** | T135–T144 (all 10 MVP tasks) | 🔴 **High** — follow/unfollow entirely unimplemented, needs `follows` migration + UI + hooks |
-| **6.x Polish** | T148–T177 (all 30 tasks) | 🟡 Medium — error boundaries, a11y, deployment all pending |
+| Area                | Missing Tasks                                                       | Impact                                                                                      |
+| ------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **1.3 Migrations**  | T030 (post_images count trigger)                                    | Low — nice-to-have constraint                                                               |
+| **3.1 Create Post** | T083 desktop modal, T084 `use-posts` hook, T088 cancel confirmation | Medium — desktop UX and code organization                                                   |
+| **3.4 Feed**        | T110 real-time new posts banner                                     | Medium — users must manually refresh to see new posts                                       |
+| **4.x Search**      | T116–T134 (all 19 tasks)                                            | 🔴 **High** — search page uses mock data only, no real Supabase queries                      |
+| **5.x Network**     | T138 (search results follow), T143 (stats modal), T145-T147 (V2)   | Low — core follow/connect system works, these are enhancements                              |
+| **6.x Polish**      | T148–T177 (all 30 tasks)                                            | 🟡 Medium — error boundaries, a11y, deployment all pending                                   |
+
+### Recent Changes (2026-06-25)
+
+**Connection System (LinkedIn-style)**
+- Created `connection_requests` table migration — request lifecycle with pending/accepted/declined status
+- Created `connections` table migration — mutual accepted connections with canonical ordering
+- Added connection server actions: `sendConnectionRequest`, `acceptConnectionRequest`, `declineConnectionRequest`, `getConnectionStatus`, `getPendingRequests`, `getConnectionCount`
+- Created `src/hooks/use-connection.ts` — client hook with optimistic status updates
+- Created `src/components/network/connect-button.tsx` — ConnectButton with 4 states (none/pending_sent/pending_received/connected)
+- Created `src/components/network/invitation-card.tsx` — InvitationCard with Accept/Decline buttons
+- Updated MyNetwork page — Invitations section with real pending requests, Connect buttons on suggestion cards
+- Updated Profile page — both Connect and Follow buttons, Connections count in stats bar
+- Updated RightRail — accepts networkStats prop for real counts
+
+**Follow System (Twitter-style, earlier)**
+- Created `follows` table migration
+- Created FollowButton, useFollow hook, server actions
+- Wired into profile page and mynetwork page
+
+**Other**
+- Removed mock data from mynetwork page, wired real DB queries
+- Fixed market status badge to use full label + color instead of short form
+- Updated docs/database.md with all new tables
 
 ### Blockers for MVP
 
-1. **`follows` table migration** (T028–T029) — must exist before any follow/unfollow work
-2. **Real search queries** (T116–T134) — search is entirely mock data
-3. **Follow/unfollow system** (T135–T144) — core MVP user story requires this
-4. **Regions/townships migration files** (T018–T020) — tables exist in DB but no versioned migration in repo
+1. **Real search queries** (T116–T134) — search is entirely mock data
+
+### Audit Notes (2026-06-22)
+
+- Migrations actually exist in repo: `auth_schema.sql`, `20260618000000`–`20260619000001`, `user_soft_delete.sql`
+- Seed files: `seed.sql` (361 townships), `seed-posts.sql` (5 dev users + posts)
+- `.env.local` has 4 vars (`URL`, `PUBLISHABLE_KEY`, `SERVICE_ROLE_KEY`, `ANON_KEY`) but `.env.example` only lists 2
+- `SERVICE_ROLE_KEY` is exposed as `NEXT_PUBLIC_` — security concern (visible in client bundle)
+- Auth validators at `src/lib/validations/auth.ts` (not `validators/`)
+- Post validators at `src/lib/validations/post.ts` (not `validators/`)
+- Middleware logic in `src/proxy.ts` — needs rename to `src/middleware.ts`

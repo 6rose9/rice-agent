@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
 import { createPost } from "@/lib/posts/actions";
 import { postSchema, type PostInput } from "@/lib/validations/post";
-import { regionTownships, regionKeys } from "@/lib/mock-data";
+import { useSubscription } from "@/hooks/use-subscription";
 import { ImagePlus, X, Loader2, Crown } from "lucide-react";
 import { TradingFormFields } from "./trading-form-fields";
 
@@ -23,9 +24,11 @@ interface CreatePostFormProps {
 
 export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [serverError, setServerError] = useState("");
+  const { isPro: userIsPro } = useSubscription();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Fix #4: track newly uploaded file paths for cleanup on failure
   const pendingUploads = useRef<string[]>([]);
@@ -47,7 +50,7 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   });
 
   const postType = watch("type");
-  const watchedLocation = watch("location");
+  const watchedLocation = watch("region");
   const isPremium = postType === "buying" || postType === "selling";
   const maxImages = isPremium ? 5 : 2;
 
@@ -120,9 +123,20 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
   async function onSubmit(data: PostInput) {
     setServerError("");
 
+    // Subscription gate at submit time: redirect non-pro users to pricing
+    if ((data.type === "buying" || data.type === "selling") && !userIsPro) {
+      router.push("/pricing?redirect=/posts/create&reason=pro_required");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("type", data.type);
     formData.append("content", data.content);
+
+    // Send subscription tier for server-side validation (buying/selling posts)
+    if (data.type === "buying" || data.type === "selling") {
+      formData.append("subscription_tier", "pro");
+    }
 
     if (data.type !== "general") {
       if (data.rice_type) formData.append("rice_type", data.rice_type);
@@ -132,7 +146,7 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
         formData.append("quantity", String(data.quantity));
       if (data.unit) formData.append("unit", data.unit);
       if (data.address) formData.append("address", data.address);
-      if (data.location) formData.append("location", data.location);
+      if (data.region) formData.append("region", data.region);
       if (data.township) formData.append("township", data.township);
       if (data.pound_per_bag != null)
         formData.append("pound_per_bag", String(data.pound_per_bag));
@@ -147,7 +161,7 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
       formData.append("images", images.join(","));
     }
 
-    const result = await createPost({ success: false }, formData);
+    const result = await createPost(null, formData);
 
     if (!result.success) {
       setServerError(result.error || "Failed to create post.");
@@ -265,13 +279,20 @@ export function CreatePostForm({ onSuccess, onCancel }: CreatePostFormProps) {
         </div>
 
         {/* Premium upsell for non-subscribers */}
-        {isPremium && (
+        {isPremium && !userIsPro && (
           <div className="flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
             <Crown className="h-4 w-4 text-amber-500 shrink-0" />
             <p className="text-[11px] text-amber-700 dark:text-amber-400">
               Buying & Selling posts are for{" "}
-              <span className="font-semibold">Pro subscribers</span>. Upgrade to
-              unlock unlimited listings with up to 5 images.
+              <span className="font-semibold">Pro subscribers</span>.{" "}
+              <button
+                type="button"
+                className="underline font-semibold hover:text-amber-900 dark:hover:text-amber-300"
+                onClick={() => router.push("/pricing")}
+              >
+                Upgrade to unlock
+              </button>{" "}
+              unlimited listings with up to 5 images.
             </p>
           </div>
         )}

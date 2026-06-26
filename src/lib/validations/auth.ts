@@ -92,6 +92,19 @@ export const profileUpdateSchema = z.object({
 
 export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 
+// ── Privacy Settings ────────────────────────────────────────────────────
+export const visibilityEnum = z.enum(
+  ["public", "followers", "private"],
+  { message: "Please select a visibility option" }
+);
+
+export const privacySettingsSchema = z.object({
+  phone_visibility: visibilityEnum,
+  email_visibility: visibilityEnum,
+});
+
+export type PrivacySettingsInput = z.infer<typeof privacySettingsSchema>;
+
 // ── Form state types for useActionState ───────────────────────────────
 export interface AuthFormState {
   errors?: {
@@ -105,6 +118,8 @@ export interface AuthFormState {
     bio?: string[];
     confirm_password?: string[];
     market_status_id?: string[];
+    phone_visibility?: string[];
+    email_visibility?: string[];
   };
   message?: string;
 }

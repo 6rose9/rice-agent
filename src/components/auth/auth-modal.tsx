@@ -28,7 +28,7 @@ import {
   type LoginInput,
   type RegisterInput,
 } from "@/lib/validations/auth";
-import { roleLabels } from "@/lib/mock-data";
+import { ROLE_LABELS } from "@/lib/constants";
 import { useRegions } from "@/hooks/use-regions";
 import { Loader2 } from "lucide-react";
 
@@ -115,7 +115,7 @@ export function AuthModal({
     formData.append("phone", data.phone);
     formData.append("password", data.password);
 
-    const result = await login({ success: false }, formData);
+    const result = await login(null, formData);
 
     if (!result.success) {
       setServerError(result.error || "Login failed. Please try again.");
@@ -141,7 +141,7 @@ export function AuthModal({
     formData.append("password", data.password);
     formData.append("confirm_password", data.confirm_password);
 
-    const result = await registerAction({ success: false }, formData);
+    const result = await registerAction(null, formData);
 
     if (!result.success) {
       setServerError(result.error || "Registration failed. Please try again.");
@@ -295,7 +295,7 @@ export function AuthModal({
                     <SelectValue placeholder="Choose your profile" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(roleLabels).map(([value, label]) => (
+                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
                       <SelectItem key={value} value={value}>
                         {label}
                       </SelectItem>

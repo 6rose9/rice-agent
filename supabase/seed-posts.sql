@@ -50,7 +50,7 @@ WHERE id = uid2;
 
 UPDATE public.profiles SET
   bio              = 'Shwe Bo ဒေသမှာ စပါးစိုက်ပျိုးပြီး အရည်အသွေးကောင်း စပါးများ ရောင်းချပါတယ်။',
-  market_status_id = 1  -- Looking for Buyers
+  market_status_id = 2  -- Selling Rice
 WHERE id = uid3;
 
 UPDATE public.profiles SET

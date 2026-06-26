@@ -8,23 +8,27 @@ import { PostCard } from "@/components/feed/post-card";
 import { useAuth } from "@/components/auth/auth-provider";
 import { createClient } from "@/lib/supabase/client";
 import { getPostsByAuthor } from "@/lib/posts/actions";
+import { getFollowInfo, getConnectionStatus, getConnectionCount } from "@/lib/network/actions";
+import type { ConnectionStatus } from "@/lib/network/actions";
+import { FollowButton } from "@/components/network/follow-button";
+import { ConnectButton } from "@/components/network/connect-button";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import {
-  marketStatusLabels,
-  roleLabels,
-  getLocationLabel,
-} from "@/lib/mock-data";
+import { ROLE_LABELS } from "@/lib/constants";
+import { useMarketStatuses } from "@/hooks/use-market-statuses";
+import { useRegions } from "@/hooks/use-regions";
+import { MarketStatusSelector } from "@/components/profile/market-status-selector";
 import type { Profile, Post } from "@/types";
-import { MapPin, Calendar, Sprout, Users, Loader2, Camera } from "lucide-react";
+import { MapPin, Calendar, Sprout, Users, Loader2, Camera, Phone, Mail, Lock } from "lucide-react";
 
 function ProfileContent() {
   const params = useParams();
   const router = useRouter();
   const username = params.username as string;
   const { isAuthenticated, user: currentUser, refreshProfile } = useAuth();
+  const { getLocationLabel } = useRegions();
 
   const [displayProfile, setDisplayProfile] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
@@ -32,12 +36,43 @@ function ProfileContent() {
   const [loadError, setLoadError] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [followInfo, setFollowInfo] = useState<{
+    followerCount: number;
+    followingCount: number;
+    isFollowing: boolean;
+  }>({ followerCount: 0, followingCount: 0, isFollowing: false });
+  const [connectionInfo, setConnectionInfo] = useState<{
+    status: ConnectionStatus;
+    connectionCount: number;
+  }>({ status: "none", connectionCount: 0 });
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   const isOwnProfile =
     isAuthenticated && currentUser?.profile.username === username;
+
+  /** Check if the current viewer can see a field based on its visibility setting */
+  function canSeeField(visibility: string | undefined): boolean {
+    if (isOwnProfile) return true;
+    if (!visibility || visibility === "public") return true;
+    // "followers" is treated as private until the follows feature is built
+    return false;
+  }
+
+  /** Get the display value for a contact field, respecting privacy */
+  function getContactDisplay(
+    value: string | null | undefined,
+    visibility: string | undefined,
+  ): { show: boolean; text: string; locked: boolean } {
+    if (!value) return { show: false, text: "", locked: false };
+    if (canSeeField(visibility)) {
+      return { show: true, text: value, locked: false };
+    }
+    // Hidden — show a placeholder
+    const label = visibility === "followers" ? "Followers only" : "Hidden";
+    return { show: true, text: label, locked: true };
+  }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -145,9 +180,16 @@ function ProfileContent() {
       const profile = data as Profile;
       setDisplayProfile(profile);
 
-      // Fetch posts by this author
-      const posts = await getPostsByAuthor(profile.id);
+      // Fetch posts, follow info, and connection info in parallel
+      const [posts, info, connStatus, connCount] = await Promise.all([
+        getPostsByAuthor(profile.id, profile),
+        getFollowInfo(profile.id),
+        getConnectionStatus(profile.id),
+        getConnectionCount(profile.id),
+      ]);
       setUserPosts(posts);
+      setFollowInfo(info);
+      setConnectionInfo({ status: connStatus, connectionCount: connCount });
 
       setIsLoading(false);
     }
@@ -211,6 +253,49 @@ function ProfileContent() {
           </div>
         )}
         <div className="space-y-1.5 text-sm">
+          {/* Contact info with privacy controls */}
+          {(() => {
+            const profile = displayProfile as Record<string, unknown>;
+            const phoneDisplay = getContactDisplay(
+              displayProfile.phone,
+              profile.phone_visibility as string | undefined,
+            );
+            const emailDisplay = getContactDisplay(
+              displayProfile.email,
+              profile.email_visibility as string | undefined,
+            );
+
+            return (
+              <>
+                {phoneDisplay.show && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    {phoneDisplay.locked ? (
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-3 w-3" />
+                        {phoneDisplay.text}
+                      </span>
+                    ) : (
+                      <span>{phoneDisplay.text}</span>
+                    )}
+                  </div>
+                )}
+                {emailDisplay.show && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                    {emailDisplay.locked ? (
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Lock className="h-3 w-3" />
+                        {emailDisplay.text}
+                      </span>
+                    ) : (
+                      <span>{emailDisplay.text}</span>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
           {getLocationLabel(displayProfile) && (
             <div className="flex items-center gap-2">
               <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
@@ -238,18 +323,20 @@ function ProfileContent() {
       </p>
       <div className="space-y-2">
         <Link
-          href="/mynetwork"
+          href="/mynetwork/connections"
           className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
         >
           <span className="text-sm font-medium">View All Connections</span>
-          <span className="text-sm font-semibold text-muted-foreground">0</span>
+          <span className="text-sm font-semibold text-muted-foreground">{connectionInfo.connectionCount}</span>
         </Link>
         <Link
-          href="/mynetwork"
+          href="/mynetwork/invitations"
           className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
         >
           <span className="text-sm font-medium">Pending Invitations</span>
-          <span className="text-sm font-semibold text-muted-foreground">0</span>
+          <span className="text-sm font-semibold text-muted-foreground">
+            <Mail className="h-4 w-4" />
+          </span>
         </Link>
       </div>
       <Link href="/mynetwork">
@@ -365,7 +452,7 @@ function ProfileContent() {
           <div className="text-center px-4">
             <h1 className="text-xl font-bold">{displayProfile.full_name}</h1>
             <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-              {roleLabels[displayProfile.role] || displayProfile.role}
+              {ROLE_LABELS[displayProfile.role as keyof typeof ROLE_LABELS] || displayProfile.role}
               {getLocationLabel(displayProfile) && (
                 <>
                   <span>·</span>
@@ -374,17 +461,17 @@ function ProfileContent() {
                 </>
               )}
             </p>
-            {displayProfile.market_status_id != null && (
-              <div className="mt-2">
-                <Badge
-                  variant="outline"
-                  className="text-xs"
-                >
-                  {marketStatusLabels[displayProfile.market_status_id] ||
-                    `Status #${displayProfile.market_status_id}`}
-                </Badge>
-              </div>
-            )}
+            <div className="mt-2">
+              <MarketStatusSelector
+                currentStatusId={displayProfile.market_status_id}
+                isOwnProfile={!!isOwnProfile}
+                onStatusChange={(newStatusId) =>
+                  setDisplayProfile((prev) =>
+                    prev ? { ...prev, market_status_id: newStatusId } : prev,
+                  )
+                }
+              />
+            </div>
             <div className="flex items-center justify-center gap-2 mt-3">
               {isOwnProfile ? (
                 <>
@@ -398,12 +485,17 @@ function ProfileContent() {
                   </Link>
                 </>
               ) : isAuthenticated ? (
-                <Button
-                  size="sm"
-                  variant="default"
-                >
-                  Follow
-                </Button>
+                <>
+                  <ConnectButton
+                    targetUserId={displayProfile.id}
+                    initialStatus={connectionInfo.status}
+                  />
+                  <FollowButton
+                    targetUserId={displayProfile.id}
+                    initialIsFollowing={followInfo.isFollowing}
+                    variant="outline"
+                  />
+                </>
               ) : (
                 <Link
                   href={`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`}
@@ -412,7 +504,7 @@ function ProfileContent() {
                     size="sm"
                     variant="default"
                   >
-                    Follow
+                    Connect
                   </Button>
                 </Link>
               )}
@@ -423,11 +515,15 @@ function ProfileContent() {
                 <p className="text-xs text-muted-foreground">Posts</p>
               </div>
               <div className="text-center">
-                <p className="font-bold text-sm">0</p>
+                <p className="font-bold text-sm">{connectionInfo.connectionCount}</p>
+                <p className="text-xs text-muted-foreground">Connections</p>
+              </div>
+              <div className="text-center">
+                <p className="font-bold text-sm">{followInfo.followerCount}</p>
                 <p className="text-xs text-muted-foreground">Followers</p>
               </div>
               <div className="text-center">
-                <p className="font-bold text-sm">0</p>
+                <p className="font-bold text-sm">{followInfo.followingCount}</p>
                 <p className="text-xs text-muted-foreground">Following</p>
               </div>
             </div>
@@ -503,8 +599,18 @@ function ProfileContent() {
         variant="profile"
         profileStats={{
           posts: userPosts.length,
-          followers: 0,
-          topCategory: "Selling",
+          followers: followInfo.followerCount,
+          topCategory: (() => {
+            // Find most common rice_type from user's trading posts
+            const tradingPosts = userPosts.filter((p) => p.rice_type);
+            if (tradingPosts.length === 0) return undefined;
+            const counts: Record<string, number> = {};
+            for (const p of tradingPosts) {
+              const key = p.rice_type!;
+              counts[key] = (counts[key] || 0) + 1;
+            }
+            return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+          })(),
         }}
       />
     </div>

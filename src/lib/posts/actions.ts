@@ -2,24 +2,237 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { postSchema } from "@/lib/validations/post";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Post, PostImage, Profile } from "@/types";
+import { ActionResult, extractFirstFieldError, requireAuth } from "@/lib/actions";
+import { reportPostSchema } from "@/lib/validations/post";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
-export type PostActionResult = {
-  success: boolean;
-  error?: string;
-  redirect?: string;
+// Raw DB row shapes for joined queries
+interface PostRow {
+  id: string;
+  author_id: string;
+  type: string;
+  content: string;
+  rice_type: string | null;
+  rice_name: string | null;
+  price: number | null;
+  quantity: number | null;
+  unit: string | null;
+  address: string | null;
+  region: string | null;
+  township: string | null;
+  location: string | null;
+  easy_to_carry: boolean | null;
+  pound_per_bag: number | null;
+  paddy_condition: string | null;
+  badge: string | null;
+  reaction_count: number;
+  comment_count: number;
+  is_active?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PostImageRow {
+  id: string;
+  post_id: string;
+  url: string;
+  sort_order: number;
+}
+
+// ── Shared Helpers ────────────────────────────────────────────────────
+
+/** Encode a cursor from created_at + id for composite pagination */
+function encodeCursor(created_at: string, id: string): string {
+  return `${created_at}|${id}`;
+}
+
+/** Decode a composite cursor back into [created_at, id] */
+function decodeCursor(cursor: string): [string, string] {
+  const idx = cursor.lastIndexOf("|");
+  if (idx === -1) return [cursor, ""]; // fallback for legacy single-value cursors
+  return [cursor.slice(0, idx), cursor.slice(idx + 1)];
+}
+
+/** Fallback profile for missing/soft-deleted authors */
+const UNKNOWN_PROFILE: Profile = {
+  id: "",
+  phone: "",
+  email: null,
+  username: "unknown",
+  full_name: "Unknown User",
+  role: "general_user",
+  avatar_url: null,
+  cover_url: null,
+  bio: null,
+  region_id: 0,
+  township_id: 0,
+  market_status_id: null,
+  phone_verified: false,
+  phone_visibility: "private",
+  email_visibility: "private",
+  created_at: "",
+  updated_at: "",
 };
 
-// ── Helpers ──────────────────────────────────────────────────────────
+/** Fetch profiles for a set of author IDs, returned as a Map */
+async function fetchProfilesMap(
+  supabase: SupabaseClient,
+  authorIds: string[],
+): Promise<Map<string, Profile>> {
+  if (authorIds.length === 0) return new Map();
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", authorIds);
+
+  return new Map(
+    (data ?? []).map((p) => [p.id, p as unknown as Profile]),
+  );
+}
+
+/** Fetch images for a set of post IDs, returned as a Map of postId → PostImage[] */
+async function fetchImagesMap(
+  supabase: SupabaseClient,
+  postIds: string[],
+): Promise<Map<string, PostImage[]>> {
+  if (postIds.length === 0) return new Map();
+
+  const { data } = await supabase
+    .from("post_images")
+    .select("*")
+    .in("post_id", postIds)
+    .order("sort_order");
+
+  const map = new Map<string, PostImage[]>();
+  for (const img of (data ?? []) as PostImageRow[]) {
+    const list = map.get(img.post_id) ?? [];
+    list.push({
+      id: img.id,
+      post_id: img.post_id,
+      url: img.url,
+      sort_order: img.sort_order,
+    } as PostImage);
+    map.set(img.post_id, list);
+  }
+  return map;
+}
+
+/** Fetch the set of post IDs that the current user has liked */
+async function fetchLikedPostIds(
+  supabase: SupabaseClient,
+  postIds: string[],
+): Promise<Set<string>> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return new Set();
+
+  const { data } = await supabase
+    .from("post_reactions")
+    .select("post_id")
+    .eq("user_id", user.id)
+    .in("post_id", postIds);
+
+  return new Set((data ?? []).map((r) => r.post_id));
+}
+
+/** Convert a raw PostRow into an application Post object */
+function assemblePost(
+  row: PostRow,
+  author: Profile,
+  images: PostImage[],
+  extra?: Partial<Pick<Post, "is_saved" | "is_liked">>,
+): Post {
+  return {
+    id: row.id,
+    author_id: row.author_id,
+    author,
+    type: row.type as Post["type"],
+    content: row.content,
+    rice_type: row.rice_type ?? undefined,
+    rice_name: row.rice_name ?? undefined,
+    price: row.price ?? null,
+    quantity: row.quantity ?? null,
+    unit: row.unit ?? undefined,
+    address: row.address ?? undefined,
+    region: row.region ?? undefined,
+    township: row.township ?? null,
+    location: row.location ?? null,
+    easy_to_carry: row.easy_to_carry ?? undefined,
+    pound_per_bag: row.pound_per_bag ?? null,
+    paddy_condition: (row.paddy_condition as Post["paddy_condition"]) ?? undefined,
+    badge: (row.badge as Post["badge"]) ?? undefined,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    images,
+    reaction_count: row.reaction_count,
+    comment_count: row.comment_count,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    ...extra,
+  };
+}
+
+// ── Get Single Post ────────────────────────────────────────────────
+
+export async function getPost(postId: string): Promise<Post | null> {
+  const supabase = await createClient();
+
+  const { data: postRow, error } = await supabase
+    .from("posts")
+    .select("*")
+    .eq("id", postId)
+    .maybeSingle();
+
+  if (error || !postRow) {
+    return null;
+  }
+
+  const row = postRow as unknown as PostRow;
+
+  const [{ data: profileData }, imagesMap, likedIds] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", row.author_id).maybeSingle(),
+    fetchImagesMap(supabase, [row.id]),
+    fetchLikedPostIds(supabase, [row.id]),
+  ]);
+
+  const author: Profile = profileData
+    ? (profileData as unknown as Profile)
+    : { ...UNKNOWN_PROFILE, id: row.author_id };
+
+  return assemblePost(row, author, imagesMap.get(row.id) ?? [], {
+    is_liked: likedIds.has(row.id),
+  });
+}
 
 // ── Create Post ──────────────────────────────────────────────────────
 
 export async function createPost(
-  _prevState: PostActionResult | null,
+  _prevState: ActionResult | null,
   formData: FormData,
-): Promise<PostActionResult> {
+): Promise<ActionResult> {
+  const postType = formData.get("type") as string;
+
+  // Subscription gate: buying/selling posts require pro tier
+  // Client sends tier as a hidden field; server validates.
+  // (For demo/localStorage subscription — not cryptographically secure)
+  if (postType === "buying" || postType === "selling") {
+    const tier = formData.get("subscription_tier") as string;
+    if (tier !== "pro" && tier !== "pro_plus") {
+      return {
+        success: false,
+        error: "Buying and selling posts require a Pro subscription. Please upgrade to continue.",
+      };
+    }
+  }
+
   // Extract all fields from FormData
   const rawData: Record<string, unknown> = {
     type: formData.get("type") as string,
@@ -30,7 +243,7 @@ export async function createPost(
     quantity: formData.get("quantity") || undefined,
     unit: (formData.get("unit") as string) || undefined,
     address: (formData.get("address") as string) || undefined,
-    location: (formData.get("location") as string) || undefined,
+    region: (formData.get("region") as string) || undefined,
     township: (formData.get("township") as string) || undefined,
     pound_per_bag: formData.get("pound_per_bag") || undefined,
     paddy_condition: (formData.get("paddy_condition") as string) || undefined,
@@ -42,16 +255,9 @@ export async function createPost(
   // Validate with zod schema
   const parsed = postSchema.safeParse(rawData);
   if (!parsed.success) {
-    // discriminated union — cast to access all possible field errors
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const firstError = (parsed.error.flatten().fieldErrors as any);
+    const fe = parsed.error.flatten().fieldErrors;
     const msg =
-      firstError.content?.[0] ||
-      firstError.rice_type?.[0] ||
-      firstError.price?.[0] ||
-      firstError.quantity?.[0] ||
-      firstError.pound_per_bag?.[0] ||
-      firstError.paddy_condition?.[0] ||
+      extractFirstFieldError(fe, "content", "rice_type", "price", "quantity", "pound_per_bag", "paddy_condition") ||
       "Invalid input.";
     return { success: false, error: msg };
   }
@@ -59,12 +265,9 @@ export async function createPost(
   const supabase = await createClient();
 
   // Get authenticated user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+  const { user } = auth;
 
   // Image URLs (comma-separated string from form)
   const imageUrls = (formData.get("images") as string)
@@ -88,7 +291,7 @@ export async function createPost(
       payload.quantity = parsed.data.quantity ?? null;
       payload.unit = parsed.data.unit || null;
       payload.address = parsed.data.address || null;
-      payload.location = parsed.data.location || null;
+      payload.region = parsed.data.region || null;
       payload.township = parsed.data.township || null;
       payload.easy_to_carry = parsed.data.easy_to_carry ?? null;
       payload.pound_per_bag = parsed.data.pound_per_bag ?? null;
@@ -132,6 +335,10 @@ export async function createPost(
       }
     }
 
+    // Invalidate feed cache so new post appears on next visit
+    revalidatePath("/feed");
+    revalidateTag("posts", "default");
+
     return { success: true, redirect: "/feed" };
   } catch (err) {
     return {
@@ -143,73 +350,34 @@ export async function createPost(
 
 // ── Fetch Posts ──────────────────────────────────────────────────────
 
-// Raw DB row shapes for joined queries
-interface PostRow {
-  id: string;
-  author_id: string;
-  type: string;
-  content: string;
-  rice_type: string | null;
-  rice_name: string | null;
-  price: number | null;
-  quantity: number | null;
-  unit: string | null;
-  address: string | null;
-  location: string | null;
-  township: string | null;
-  easy_to_carry: boolean | null;
-  pound_per_bag: number | null;
-  paddy_condition: string | null;
-  badge: string | null;
-  reaction_count: number;
-  comment_count: number;
-  latitude: number | null;
-  longitude: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface PostImageRow {
-  id: string;
-  post_id: string;
-  url: string;
-  sort_order: number;
-}
-
-interface ProfileRow {
-  id: string;
-  phone: string;
-  email: string | null;
-  username: string;
-  full_name: string;
-  role: string;
-  avatar_url: string | null;
-  cover_url: string | null;
-  bio: string | null;
-  region_id: number;
-  township_id: number;
-  market_status_id: number | null;
-  phone_verified: boolean;
-  deleted_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export async function getPosts(
   cursor?: string,
   pageSize = 20,
+  type?: "buying" | "selling",
 ): Promise<{ posts: Post[]; nextCursor: string | null }> {
   const supabase = await createClient();
 
   // Fetch posts ordered by newest first, with cursor-based pagination
+  // Cursor is a composite "created_at|id" to handle identical timestamps
   let query = supabase
     .from("posts")
     .select("*")
+    .eq("is_active", true)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(pageSize + 1); // fetch one extra to detect if there are more
 
   if (cursor) {
-    query = query.lt("created_at", cursor);
+    const [cursorDate, cursorId] = decodeCursor(cursor);
+    // Filter rows that come strictly before the cursor position
+    // created_at < cursorDate, OR (created_at = cursorDate AND id < cursorId)
+    query = query.or(
+      `created_at.lt.${cursorDate},and(created_at.eq.${cursorDate},id.lt.${cursorId})`,
+    );
+  }
+
+  if (type) {
+    query = query.eq("type", type);
   }
 
   const { data: postRows, error: postError } = await query;
@@ -221,102 +389,47 @@ export async function getPosts(
 
   const hasMore = postRows.length > pageSize;
   const rows = hasMore ? postRows.slice(0, pageSize) : postRows;
-  const nextCursor = hasMore ? rows[rows.length - 1].created_at : null;
+  const lastRow = rows[rows.length - 1];
+  const nextCursor = hasMore
+    ? encodeCursor(lastRow.created_at, lastRow.id)
+    : null;
 
   const posts = rows as unknown as PostRow[];
-
-  // Collect unique author IDs
   const authorIds = [...new Set(posts.map((p) => p.author_id))];
-
-  // Fetch profiles for all authors
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("id", authorIds);
-
-  const profiles = (profileRows ?? []) as unknown as ProfileRow[];
-  const profileMap = new Map(profiles.map((p) => [p.id, p as unknown as Profile]));
-
-  // Fix #9: provide a fallback profile for missing authors
-  function getAuthor(id: string): Profile {
-    return profileMap.get(id) ?? {
-      id,
-      phone: "",
-      username: "unknown",
-      full_name: "Unknown User",
-      role: "general_user",
-      region_id: 0,
-      township_id: 0,
-      phone_verified: false,
-      created_at: "",
-      updated_at: "",
-    };
-  }
-
-  // Collect all post IDs
   const postIds = posts.map((p) => p.id);
 
-  // Fetch images for all posts
-  const { data: imageRows } = await supabase
-    .from("post_images")
-    .select("*")
-    .in("post_id", postIds)
-    .order("sort_order");
+  const [profileMap, imagesMap, likedIds] = await Promise.all([
+    fetchProfilesMap(supabase, authorIds),
+    fetchImagesMap(supabase, postIds),
+    fetchLikedPostIds(supabase, postIds),
+  ]);
 
-  const images = (imageRows ?? []) as unknown as PostImageRow[];
-  const imagesMap = new Map<string, PostImage[]>();
-  for (const img of images) {
-    const list = imagesMap.get(img.post_id) ?? [];
-    list.push({
-      id: img.id,
-      post_id: img.post_id,
-      url: img.url,
-      sort_order: img.sort_order,
-    });
-    imagesMap.set(img.post_id, list);
-  }
-
-  // Assemble Post objects
   return {
-    posts: posts.map((row) => ({
-      id: row.id,
-      author_id: row.author_id,
-      author: getAuthor(row.author_id),
-      type: row.type as Post["type"],
-      content: row.content,
-      rice_type: row.rice_type ?? undefined,
-      rice_name: row.rice_name ?? undefined,
-      price: row.price ?? null,
-      quantity: row.quantity ?? null,
-      unit: row.unit ?? undefined,
-      address: row.address ?? undefined,
-      location: row.location ?? undefined,
-      township: row.township ?? null,
-      easy_to_carry: row.easy_to_carry ?? undefined,
-      pound_per_bag: row.pound_per_bag ?? null,
-      paddy_condition: (row.paddy_condition as Post["paddy_condition"]) ?? undefined,
-      badge: (row.badge as Post["badge"]) ?? undefined,
-      latitude: row.latitude,
-      longitude: row.longitude,
-      images: imagesMap.get(row.id) ?? [],
-      reaction_count: row.reaction_count,
-      comment_count: row.comment_count,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    })),
+    posts: posts.map((row) =>
+      assemblePost(
+        row,
+        profileMap.get(row.author_id) ?? { ...UNKNOWN_PROFILE, id: row.author_id },
+        imagesMap.get(row.id) ?? [],
+        { is_liked: likedIds.has(row.id) },
+      ),
+    ),
     nextCursor,
   };
 }
 
 // ── Fetch Posts by Author ────────────────────────────────────────────
 
-export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
+export async function getPostsByAuthor(
+  authorId: string,
+  authorProfile?: Profile,
+): Promise<Post[]> {
   const supabase = await createClient();
 
   const { data: postRows, error: postError } = await supabase
     .from("posts")
     .select("*")
     .eq("author_id", authorId)
+    .eq("is_active", true)
     .order("created_at", { ascending: false });
 
   if (postError || !postRows) {
@@ -326,84 +439,36 @@ export async function getPostsByAuthor(authorId: string): Promise<Post[]> {
 
   const posts = postRows as unknown as PostRow[];
 
-  // Fetch author profile
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", authorId)
-    .maybeSingle();
-
-  const authorProfile: Profile = profileRows
-    ? (profileRows as unknown as Profile)
-    : {
-        id: authorId,
-        phone: "",
-        username: "unknown",
-        full_name: "Unknown User",
-        role: "general_user",
-        region_id: 0,
-        township_id: 0,
-        phone_verified: false,
-        created_at: "",
-        updated_at: "",
-      };
-
-  // Fetch images for all posts
+  // Fetch the author profile (skip if already provided) + all images in parallel
   const postIds = posts.map((p) => p.id);
-  const { data: imageRows } = await supabase
-    .from("post_images")
-    .select("*")
-    .in("post_id", postIds)
-    .order("sort_order");
+  const profilePromise = authorProfile
+    ? Promise.resolve({ data: authorProfile as unknown as Record<string, unknown> })
+    : supabase.from("profiles").select("*").eq("id", authorId).maybeSingle();
 
-  const images = (imageRows ?? []) as unknown as PostImageRow[];
-  const imagesMap = new Map<string, PostImage[]>();
-  for (const img of images) {
-    const list = imagesMap.get(img.post_id) ?? [];
-    list.push({
-      id: img.id,
-      post_id: img.post_id,
-      url: img.url,
-      sort_order: img.sort_order,
-    });
-    imagesMap.set(img.post_id, list);
-  }
+  const [{ data: profileData }, imagesMap, likedIds] = await Promise.all([
+    profilePromise,
+    fetchImagesMap(supabase, postIds),
+    fetchLikedPostIds(supabase, postIds),
+  ]);
 
-  return posts.map((row) => ({
-    id: row.id,
-    author_id: row.author_id,
-    author: authorProfile,
-    type: row.type as Post["type"],
-    content: row.content,
-    rice_type: row.rice_type ?? undefined,
-    rice_name: row.rice_name ?? undefined,
-    price: row.price ?? null,
-    quantity: row.quantity ?? null,
-    unit: row.unit ?? undefined,
-    address: row.address ?? undefined,
-    location: row.location ?? undefined,
-    township: row.township ?? null,
-    easy_to_carry: row.easy_to_carry ?? undefined,
-    pound_per_bag: row.pound_per_bag ?? null,
-    paddy_condition: (row.paddy_condition as Post["paddy_condition"]) ?? undefined,
-    badge: (row.badge as Post["badge"]) ?? undefined,
-    latitude: row.latitude,
-    longitude: row.longitude,
-    images: imagesMap.get(row.id) ?? [],
-    reaction_count: row.reaction_count,
-    comment_count: row.comment_count,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  }));
+  const resolvedProfile: Profile = profileData
+    ? (profileData as unknown as Profile)
+    : { ...UNKNOWN_PROFILE, id: authorId };
+
+  return posts.map((row) =>
+    assemblePost(row, resolvedProfile, imagesMap.get(row.id) ?? [], {
+      is_liked: likedIds.has(row.id),
+    }),
+  );
 }
 
 // ── Update Post ──────────────────────────────────────────────────────
 
 export async function updatePost(
   postId: string,
-  _prevState: PostActionResult | null,
+  _prevState: ActionResult | null,
   formData: FormData,
-): Promise<PostActionResult> {
+): Promise<ActionResult> {
   const rawData: Record<string, unknown> = {
     type: formData.get("type") as string,
     content: formData.get("content") as string,
@@ -413,7 +478,7 @@ export async function updatePost(
     quantity: formData.get("quantity") || undefined,
     unit: (formData.get("unit") as string) || undefined,
     address: (formData.get("address") as string) || undefined,
-    location: (formData.get("location") as string) || undefined,
+    region: (formData.get("region") as string) || undefined,
     township: (formData.get("township") as string) || undefined,
     pound_per_bag: formData.get("pound_per_bag") || undefined,
     paddy_condition: (formData.get("paddy_condition") as string) || undefined,
@@ -424,26 +489,17 @@ export async function updatePost(
 
   const parsed = postSchema.safeParse(rawData);
   if (!parsed.success) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const firstError = (parsed.error.flatten().fieldErrors as any);
+    const fe = parsed.error.flatten().fieldErrors;
     const msg =
-      firstError.content?.[0] ||
-      firstError.rice_type?.[0] ||
-      firstError.price?.[0] ||
-      firstError.quantity?.[0] ||
-      firstError.pound_per_bag?.[0] ||
-      firstError.paddy_condition?.[0] ||
+      extractFirstFieldError(fe, "content", "rice_type", "price", "quantity", "pound_per_bag", "paddy_condition") ||
       "Invalid input.";
     return { success: false, error: msg };
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+  const { user } = auth;
 
   // Verify ownership
   const { data: existing } = await supabase
@@ -469,7 +525,7 @@ export async function updatePost(
       payload.quantity = parsed.data.quantity ?? null;
       payload.unit = parsed.data.unit || null;
       payload.address = parsed.data.address || null;
-      payload.location = parsed.data.location || null;
+      payload.region = parsed.data.region || null;
       payload.township = parsed.data.township || null;
       payload.easy_to_carry = parsed.data.easy_to_carry ?? null;
       payload.pound_per_bag = parsed.data.pound_per_bag ?? null;
@@ -491,6 +547,11 @@ export async function updatePost(
     if (updateError) {
       return { success: false, error: updateError.message };
     }
+
+    // Invalidate feed and profile caches
+    revalidatePath("/feed");
+    revalidatePath("/saved");
+    revalidateTag("posts", "default");
 
     // Handle images: remove old, insert new
     const imageUrls = (formData.get("images") as string)
@@ -520,44 +581,58 @@ export async function updatePost(
 
 // ── Save / Unsave Post ──────────────────────────────────────────────
 
-export async function savePost(postId: string): Promise<PostActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+export async function savePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
 
-  const { error } = await supabase
-    .from("saved_posts")
-    .upsert({ user_id: user.id, post_id: postId }, { onConflict: "user_id,post_id" });
+    const { error } = await supabase
+      .from("saved_posts")
+      .upsert({ user_id: user.id, post_id: postId }, { onConflict: "user_id,post_id" });
 
-  if (error) {
-    return { success: false, error: error.message };
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/feed");
+    revalidatePath("/saved");
+    revalidateTag("posts", "default");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to save post.",
+    };
   }
-  return { success: true };
 }
 
-export async function unsavePost(postId: string): Promise<PostActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
+export async function unsavePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
 
-  const { error } = await supabase
-    .from("saved_posts")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("post_id", postId);
+    const { error } = await supabase
+      .from("saved_posts")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("post_id", postId);
 
-  if (error) {
-    return { success: false, error: error.message };
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/feed");
+    revalidatePath("/saved");
+    revalidateTag("posts", "default");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to unsave post.",
+    };
   }
-  return { success: true };
 }
 
 // ── Fetch Saved Posts ────────────────────────────────────────────────
@@ -588,7 +663,8 @@ export async function getSavedPosts(): Promise<Post[]> {
   const { data: postRows, error: postError } = await supabase
     .from("posts")
     .select("*")
-    .in("id", postIds);
+    .in("id", postIds)
+    .eq("is_active", true);
 
   if (postError || !postRows) {
     return [];
@@ -600,138 +676,275 @@ export async function getSavedPosts(): Promise<Post[]> {
   const orderMap = new Map(savedRows.map((r, i) => [r.post_id, i]));
   posts.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
 
-  // Collect unique author IDs
   const authorIds = [...new Set(posts.map((p) => p.author_id))];
+  const [profileMap, imagesMap] = await Promise.all([
+    fetchProfilesMap(supabase, authorIds),
+    fetchImagesMap(supabase, postIds),
+  ]);
 
-  // Fetch profiles for all authors
-  const { data: profileRows } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("id", authorIds);
+  return posts.map((row) =>
+    assemblePost(
+      row,
+      profileMap.get(row.author_id) ?? { ...UNKNOWN_PROFILE, id: row.author_id },
+      imagesMap.get(row.id) ?? [],
+      { is_saved: true },
+    ),
+  );
+}
 
-  const profiles = (profileRows ?? []) as unknown as ProfileRow[];
-  const profileMap = new Map(profiles.map((p) => [p.id, p as unknown as Profile]));
+// ── Like / Unlike Post ──────────────────────────────────────────────
 
-  function getAuthor(id: string): Profile {
-    return profileMap.get(id) ?? {
-      id,
-      phone: "",
-      username: "unknown",
-      full_name: "Unknown User",
-      role: "general_user",
-      region_id: 0,
-      township_id: 0,
-      phone_verified: false,
-      created_at: "",
-      updated_at: "",
+export async function likePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
+
+    const { error } = await supabase
+      .from("post_reactions")
+      .insert({ post_id: postId, user_id: user.id });
+
+    if (error) {
+      // Unique violation = already liked
+      if (error.code === "23505") {
+        return { success: true }; // already liked, no-op
+      }
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/feed");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to like post.",
     };
   }
+}
 
-  // Fetch images for all posts
-  const { data: imageRows } = await supabase
-    .from("post_images")
-    .select("*")
-    .in("post_id", postIds)
-    .order("sort_order");
+export async function unlikePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
 
-  const images = (imageRows ?? []) as unknown as PostImageRow[];
-  const imagesMap = new Map<string, PostImage[]>();
-  for (const img of images) {
-    const list = imagesMap.get(img.post_id) ?? [];
-    list.push({
-      id: img.id,
-      post_id: img.post_id,
-      url: img.url,
-      sort_order: img.sort_order,
-    });
-    imagesMap.set(img.post_id, list);
+    const { error } = await supabase
+      .from("post_reactions")
+      .delete()
+      .eq("post_id", postId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/feed");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to unlike post.",
+    };
   }
-
-  // Assemble Post objects
-  return posts.map((row) => ({
-    id: row.id,
-    author_id: row.author_id,
-    author: getAuthor(row.author_id),
-    type: row.type as Post["type"],
-    content: row.content,
-    rice_type: row.rice_type ?? undefined,
-    rice_name: row.rice_name ?? undefined,
-    price: row.price ?? null,
-    quantity: row.quantity ?? null,
-    unit: row.unit ?? undefined,
-    address: row.address ?? undefined,
-    location: row.location ?? undefined,
-    township: row.township ?? null,
-    easy_to_carry: row.easy_to_carry ?? undefined,
-    pound_per_bag: row.pound_per_bag ?? null,
-    paddy_condition: (row.paddy_condition as Post["paddy_condition"]) ?? undefined,
-    badge: (row.badge as Post["badge"]) ?? undefined,
-    latitude: row.latitude,
-    longitude: row.longitude,
-    images: imagesMap.get(row.id) ?? [],
-    reaction_count: row.reaction_count,
-    comment_count: row.comment_count,
-    is_saved: true,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  }));
 }
 
 // ── Delete Post ──────────────────────────────────────────────────────
 
-export async function deletePost(postId: string): Promise<PostActionResult> {
+export async function deletePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
+
+    const { data: existing } = await supabase
+      .from("posts")
+      .select("author_id")
+      .eq("id", postId)
+      .maybeSingle();
+
+    if (!existing || existing.author_id !== user.id) {
+      return { success: false, error: "You can only delete your own posts." };
+    }
+
+    // Fetch image URLs before deleting rows so we can clean up storage
+    const { data: imageRows } = await supabase
+      .from("post_images")
+      .select("url")
+      .eq("post_id", postId);
+
+    // Delete image rows first
+    await supabase.from("post_images").delete().eq("post_id", postId);
+
+    // Delete the post itself
+    const { error } = await supabase.from("posts").delete().eq("id", postId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // Invalidate feed and saved caches
+    revalidatePath("/feed");
+    revalidatePath("/saved");
+    revalidateTag("posts", "default");
+
+    // Clean up storage blobs
+    if (imageRows && imageRows.length > 0) {
+      const paths = (imageRows as { url: string }[])
+        .map((img) => {
+          const parts = img.url.split("/post-images/");
+          return parts.length === 2 ? parts[1] : null;
+        })
+        .filter(Boolean) as string[];
+
+      if (paths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from("post-images")
+          .remove(paths);
+        if (storageError) {
+          console.error("Failed to clean up post image storage:", storageError.message);
+        }
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to delete post.",
+    };
+  }
+}
+
+// ── Report Post ─────────────────────────────────────────────────────
+
+const REPORT_THRESHOLD = 10;
+
+export async function reportPost(postId: string, reason?: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
+
+    const parsed = reportPostSchema.safeParse({ post_id: postId, reason });
+    if (!parsed.success) {
+      return { success: false, error: "Invalid post ID." };
+    }
+
+    // Check if post exists
+    const { data: existing } = await supabase
+      .from("posts")
+      .select("id, is_active")
+      .eq("id", postId)
+      .maybeSingle();
+
+    if (!existing) {
+      return { success: false, error: "Post not found." };
+    }
+
+    if (!existing.is_active) {
+      return { success: false, error: "This post has already been removed." };
+    }
+
+    // Insert report (UNIQUE constraint prevents duplicates)
+    const { error: insertError } = await supabase
+      .from("post_reports")
+      .insert({
+        post_id: postId,
+        reporter_id: user.id,
+        reason: reason || null,
+      });
+
+    if (insertError) {
+      // Unique violation = already reported
+      if (insertError.code === "23505") {
+        return { success: false, error: "You have already reported this post." };
+      }
+      return { success: false, error: insertError.message };
+    }
+
+    // Count reports for this post
+    const { count } = await supabase
+      .from("post_reports")
+      .select("id", { count: "exact", head: true })
+      .eq("post_id", postId);
+
+    // Auto-hide post if threshold reached
+    if (count && count >= REPORT_THRESHOLD) {
+      await supabase
+        .from("posts")
+        .update({ is_active: false })
+        .eq("id", postId);
+    }
+
+    revalidatePath("/feed");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to report post.",
+    };
+  }
+}
+
+// ── Trending Topics ───────────────────────────────────────────────
+
+export interface TrendingTopic {
+  label: string;
+  emoji: string;
+  value: string;
+  count: number;
+}
+
+export async function getTrendingTopics(limit = 6): Promise<TrendingTopic[]> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { success: false, error: "Not authenticated." };
-  }
 
-  const { data: existing } = await supabase
+  // Fetch active posts from the last 30 days
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: posts, error } = await supabase
     .from("posts")
-    .select("author_id")
-    .eq("id", postId)
-    .maybeSingle();
+    .select("rice_type, region")
+    .eq("is_active", true)
+    .gte("created_at", thirtyDaysAgo);
 
-  if (!existing || existing.author_id !== user.id) {
-    return { success: false, error: "You can only delete your own posts." };
+  if (error || !posts || posts.length === 0) {
+    return [];
   }
 
-  // Fix #3: fetch image URLs before deleting rows so we can clean up storage
-  const { data: imageRows } = await supabase
-    .from("post_images")
-    .select("url")
-    .eq("post_id", postId);
+  // Count occurrences of rice_type and region
+  const counts = new Map<string, { count: number; type: "rice" | "region" }>();
 
-  // Delete image rows first
-  await supabase.from("post_images").delete().eq("post_id", postId);
-
-  // Delete the post itself
-  const { error } = await supabase.from("posts").delete().eq("id", postId);
-
-  if (error) {
-    return { success: false, error: error.message };
-  }
-
-  // Clean up storage blobs
-  if (imageRows && imageRows.length > 0) {
-    const paths = (imageRows as { url: string }[])
-      .map((img) => {
-        const parts = img.url.split("/post-images/");
-        return parts.length === 2 ? parts[1] : null;
-      })
-      .filter(Boolean) as string[];
-
-    if (paths.length > 0) {
-      const { error: storageError } = await supabase.storage
-        .from("post-images")
-        .remove(paths);
-      if (storageError) {
-        console.error("Failed to clean up post image storage:", storageError.message);
+  for (const post of posts) {
+    if (post.rice_type) {
+      const key = post.rice_type;
+      const existing = counts.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        counts.set(key, { count: 1, type: "rice" });
+      }
+    }
+    if (post.region) {
+      const key = post.region;
+      const existing = counts.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        counts.set(key, { count: 1, type: "region" });
       }
     }
   }
 
-  return { success: true };
+  // Sort by count descending and take top N
+  const sorted = Array.from(counts.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, limit);
+
+  // Map to TrendingTopic with emojis
+  return sorted.map(([value, { count, type }]) => ({
+    label: value,
+    emoji: type === "rice" ? "🌾" : "📍",
+    value,
+    count,
+  }));
 }

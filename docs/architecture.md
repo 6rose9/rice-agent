@@ -108,7 +108,7 @@ One row per registered user. Extends `auth.users` (Supabase-managed credentials 
 | `about` | `text` | nullable, max 500 chars | Bio or business description |
 | `township_id` | `int` | FK → `townships.id`, NOT NULL | User's base township |
 | `avatar_url` | `text` | nullable | Supabase Storage public URL for profile photo |
-| `status` | `text` | nullable, CHECK IN (`'Looking for Buyers'`, `'Looking for Suppliers'`, `'Buying Rice'`, `'Selling Rice'`, `'Available as Agent'`, `'Open for Partnership'`) | Current market-status badge |
+| `status` | `text` | nullable, CHECK IN (`'Buying Rice'`, `'Selling Rice'`, `'Available as Agent'`, `'Open for Partnership'`) | Current market-status badge |
 | `created_at` | `timestamptz` | NOT NULL, DEFAULT `now()` | |
 | `updated_at` | `timestamptz` | NOT NULL, DEFAULT `now()` | |
 

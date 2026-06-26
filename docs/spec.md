@@ -16,7 +16,7 @@ A farmer may have rice available for sale but struggle to find reliable buyers. 
 
 စပါးအောင်သွယ် provides a dedicated platform where industry participants can create professional profiles, publish market opportunities, indicate their current business status, and build trusted networks within the rice ecosystem.
 
-For example, a farmer can set a status of "Looking for Buyers" in their profile and publish a selling post. A trader searching for suppliers can discover the farmer through filters, follow their profile, and initiate a business relationship.
+For example, a farmer can set a status of "Selling Rice" in their profile and publish a selling post. A trader searching for buyers can discover the farmer through filters, follow their profile, and initiate a business relationship.
 
 ---
 
@@ -185,8 +185,6 @@ Features:
 
 Examples:
 
-* Looking for Buyers
-* Looking for Suppliers
 * Buying Rice
 * Selling Rice
 * Available as Agent
