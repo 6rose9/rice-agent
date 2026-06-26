@@ -201,10 +201,10 @@ export default function PrivacyPage() {
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   For questions about this Privacy Policy, contact us at{" "}
                   <a
-                    href="mailto:zinzinthinzaw@gmail.com"
+                    href="mailto:riceagent.support@gmail.com"
                     className="text-primary hover:underline"
                   >
-                    zinzinthinzaw@gmail.com
+                    riceagent.support@gmail.com
                   </a>
                   .
                 </p>

@@ -82,7 +82,7 @@ const faqs = [
   {
     question: "How do I report inappropriate content?",
     answer:
-      'If you see a post or user that violates our community guidelines, please contact us at zinzinthinzaw@gmail.com with details. We take all reports seriously and will investigate promptly.',
+      'If you see a post or user that violates our community guidelines, please contact us at riceagent.support@gmail.com with details. We take all reports seriously and will investigate promptly.',
   },
 ];
 
@@ -145,10 +145,10 @@ export default function HelpPage() {
               <p className="text-sm text-muted-foreground">
                 Contact our support team at{" "}
                 <a
-                  href="mailto:zinzinthinzaw@gmail.com"
+                  href="mailto:riceagent.support@gmail.com"
                   className="text-primary hover:underline"
                 >
-                  zinzinthinzaw@gmail.com
+                  riceagent.support@gmail.com
                 </a>
               </p>
             </CardContent>

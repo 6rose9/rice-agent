@@ -174,10 +174,10 @@ export default function AboutPage() {
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">Email:</span>
                 <a
-                  href="mailto:zinzinthinzaw@gmail.com"
+                  href="mailto:riceagent.support@gmail.com"
                   className="text-primary hover:underline"
                 >
-                  zinzinthinzaw@gmail.com
+                  riceagent.support@gmail.com
                 </a>
               </div>
             </CardContent>
