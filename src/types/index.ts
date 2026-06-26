@@ -85,14 +85,13 @@ export interface Post extends Omit<PostRow, 'type' | 'address' | 'badge' | 'easy
 /** Post image (same as database row) */
 export type PostImage = PostImageRow;
 
-/** Comment (not in database yet - for future use) */
-export interface Comment {
-  id: string;
-  post_id: string;
-  author_id: string;
+/** Comment row types */
+export type CommentRow = Tables<'comments'>
+export type CommentInsert = TablesInsert<'comments'>
+
+/** Comment with joined author profile */
+export interface Comment extends Omit<CommentRow, 'author_id'> {
   author: Profile;
-  content: string;
-  created_at: string;
 }
 
 // ── Form types ────────────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PostActions } from "@/components/feed/post-actions";
+import { CommentSection } from "@/components/post/comment-section";
 import {
   Dialog,
   DialogClose,
@@ -58,6 +59,7 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
   const [reporting, setReporting] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
   const [reportError, setReportError] = useState("");
+  const [showComments, setShowComments] = useState(false);
   const { labels: marketStatusLabels } = useMarketStatuses();
 
   const typeInfo = TYPE_CONFIG[type] || TYPE_CONFIG.general;
@@ -260,8 +262,12 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
             isLiked={post.is_liked}
             isSaved={post.is_saved}
             isAuthenticated={isAuthenticated}
+            onComment={() => setShowComments((prev) => !prev)}
           />
         </div>
+
+        {/* Comments section */}
+        {showComments && <CommentSection postId={post.id} />}
       </CardContent>
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
