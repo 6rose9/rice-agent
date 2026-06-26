@@ -5,6 +5,7 @@ import { postSchema } from "@/lib/validations/post";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Post, PostImage, Profile } from "@/types";
 import { ActionResult, extractFirstFieldError, requireAuth } from "@/lib/actions";
+import { reportPostSchema } from "@/lib/validations/post";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -120,12 +121,31 @@ async function fetchImagesMap(
   return map;
 }
 
+/** Fetch the set of post IDs that the current user has liked */
+async function fetchLikedPostIds(
+  supabase: SupabaseClient,
+  postIds: string[],
+): Promise<Set<string>> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return new Set();
+
+  const { data } = await supabase
+    .from("post_reactions")
+    .select("post_id")
+    .eq("user_id", user.id)
+    .in("post_id", postIds);
+
+  return new Set((data ?? []).map((r) => r.post_id));
+}
+
 /** Convert a raw PostRow into an application Post object */
 function assemblePost(
   row: PostRow,
   author: Profile,
   images: PostImage[],
-  extra?: Partial<Pick<Post, "is_saved">>,
+  extra?: Partial<Pick<Post, "is_saved" | "is_liked">>,
 ): Post {
   return {
     id: row.id,
@@ -173,16 +193,19 @@ export async function getPost(postId: string): Promise<Post | null> {
 
   const row = postRow as unknown as PostRow;
 
-  const [{ data: profileData }, imagesMap] = await Promise.all([
+  const [{ data: profileData }, imagesMap, likedIds] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", row.author_id).maybeSingle(),
     fetchImagesMap(supabase, [row.id]),
+    fetchLikedPostIds(supabase, [row.id]),
   ]);
 
   const author: Profile = profileData
     ? (profileData as unknown as Profile)
     : { ...UNKNOWN_PROFILE, id: row.author_id };
 
-  return assemblePost(row, author, imagesMap.get(row.id) ?? []);
+  return assemblePost(row, author, imagesMap.get(row.id) ?? [], {
+    is_liked: likedIds.has(row.id),
+  });
 }
 
 // ── Create Post ──────────────────────────────────────────────────────
@@ -335,6 +358,7 @@ export async function getPosts(
   let query = supabase
     .from("posts")
     .select("*")
+    .eq("is_active", true)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(pageSize + 1); // fetch one extra to detect if there are more
@@ -370,9 +394,10 @@ export async function getPosts(
   const authorIds = [...new Set(posts.map((p) => p.author_id))];
   const postIds = posts.map((p) => p.id);
 
-  const [profileMap, imagesMap] = await Promise.all([
+  const [profileMap, imagesMap, likedIds] = await Promise.all([
     fetchProfilesMap(supabase, authorIds),
     fetchImagesMap(supabase, postIds),
+    fetchLikedPostIds(supabase, postIds),
   ]);
 
   return {
@@ -381,6 +406,7 @@ export async function getPosts(
         row,
         profileMap.get(row.author_id) ?? { ...UNKNOWN_PROFILE, id: row.author_id },
         imagesMap.get(row.id) ?? [],
+        { is_liked: likedIds.has(row.id) },
       ),
     ),
     nextCursor,
@@ -399,6 +425,7 @@ export async function getPostsByAuthor(
     .from("posts")
     .select("*")
     .eq("author_id", authorId)
+    .eq("is_active", true)
     .order("created_at", { ascending: false });
 
   if (postError || !postRows) {
@@ -414,9 +441,10 @@ export async function getPostsByAuthor(
     ? Promise.resolve({ data: authorProfile as unknown as Record<string, unknown> })
     : supabase.from("profiles").select("*").eq("id", authorId).maybeSingle();
 
-  const [{ data: profileData }, imagesMap] = await Promise.all([
+  const [{ data: profileData }, imagesMap, likedIds] = await Promise.all([
     profilePromise,
     fetchImagesMap(supabase, postIds),
+    fetchLikedPostIds(supabase, postIds),
   ]);
 
   const resolvedProfile: Profile = profileData
@@ -424,7 +452,9 @@ export async function getPostsByAuthor(
     : { ...UNKNOWN_PROFILE, id: authorId };
 
   return posts.map((row) =>
-    assemblePost(row, resolvedProfile, imagesMap.get(row.id) ?? []),
+    assemblePost(row, resolvedProfile, imagesMap.get(row.id) ?? [], {
+      is_liked: likedIds.has(row.id),
+    }),
   );
 }
 
@@ -629,7 +659,8 @@ export async function getSavedPosts(): Promise<Post[]> {
   const { data: postRows, error: postError } = await supabase
     .from("posts")
     .select("*")
-    .in("id", postIds);
+    .in("id", postIds)
+    .eq("is_active", true);
 
   if (postError || !postRows) {
     return [];
@@ -655,6 +686,62 @@ export async function getSavedPosts(): Promise<Post[]> {
       { is_saved: true },
     ),
   );
+}
+
+// ── Like / Unlike Post ──────────────────────────────────────────────
+
+export async function likePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
+
+    const { error } = await supabase
+      .from("post_reactions")
+      .insert({ post_id: postId, user_id: user.id });
+
+    if (error) {
+      // Unique violation = already liked
+      if (error.code === "23505") {
+        return { success: true }; // already liked, no-op
+      }
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/feed");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to like post.",
+    };
+  }
+}
+
+export async function unlikePost(postId: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
+
+    const { error } = await supabase
+      .from("post_reactions")
+      .delete()
+      .eq("post_id", postId)
+      .eq("user_id", user.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/feed");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to unlike post.",
+    };
+  }
 }
 
 // ── Delete Post ──────────────────────────────────────────────────────
@@ -720,6 +807,77 @@ export async function deletePost(postId: string): Promise<ActionResult> {
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to delete post.",
+    };
+  }
+}
+
+// ── Report Post ─────────────────────────────────────────────────────
+
+const REPORT_THRESHOLD = 10;
+
+export async function reportPost(postId: string, reason?: string): Promise<ActionResult> {
+  try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+    const { user, supabase } = auth;
+
+    const parsed = reportPostSchema.safeParse({ post_id: postId, reason });
+    if (!parsed.success) {
+      return { success: false, error: "Invalid post ID." };
+    }
+
+    // Check if post exists
+    const { data: existing } = await supabase
+      .from("posts")
+      .select("id, is_active")
+      .eq("id", postId)
+      .maybeSingle();
+
+    if (!existing) {
+      return { success: false, error: "Post not found." };
+    }
+
+    if (!existing.is_active) {
+      return { success: false, error: "This post has already been removed." };
+    }
+
+    // Insert report (UNIQUE constraint prevents duplicates)
+    const { error: insertError } = await supabase
+      .from("post_reports")
+      .insert({
+        post_id: postId,
+        reporter_id: user.id,
+        reason: reason || null,
+      });
+
+    if (insertError) {
+      // Unique violation = already reported
+      if (insertError.code === "23505") {
+        return { success: false, error: "You have already reported this post." };
+      }
+      return { success: false, error: insertError.message };
+    }
+
+    // Count reports for this post
+    const { count } = await supabase
+      .from("post_reports")
+      .select("id", { count: "exact", head: true })
+      .eq("post_id", postId);
+
+    // Auto-hide post if threshold reached
+    if (count && count >= REPORT_THRESHOLD) {
+      await supabase
+        .from("posts")
+        .update({ is_active: false })
+        .eq("id", postId);
+    }
+
+    revalidatePath("/feed");
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to report post.",
     };
   }
 }

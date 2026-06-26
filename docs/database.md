@@ -2,7 +2,7 @@
 
 ## Overview
 
-Six tables on Supabase PostgreSQL plus two storage buckets. Three reference tables (`market_status`, `regions`, `townships`) seeded by migration and read-only at runtime. Three application tables (`profiles`, `posts`, `post_images`, `saved_posts`) with full Row-Level Security.
+Ten tables on Supabase PostgreSQL plus two storage buckets. Three reference tables (`market_status`, `regions`, `townships`) seeded by migration and read-only at runtime. Six application tables (`profiles`, `posts`, `post_images`, `saved_posts`, `post_reports`, `post_reactions`) with full Row-Level Security.
 
 `profiles` extends `auth.users` (Supabase-managed identity) via a 1:1 FK relationship. All policies reference `auth.uid()` for row-level access control.
 
@@ -16,12 +16,12 @@ Six tables on Supabase PostgreSQL plus two storage buckets. Three reference tabl
 │  (15 rows)│       │ (~200 rows)│       │ (0...*)  │
 └──────────┘       └──────────┘       └──────────┘
                                              │
-                         ┌───────────────────┼───────────────────┐
-                   1:many│             1:many│                   │
-                    ┌──────────┐       ┌─────────────┐    ┌────────────┐
-                    │  posts   │       │market_status │    │saved_posts │
-                    │ (0...*)  │       │  (4 rows)    │    │ (0...*)    │
-                    └──────────┘       └─────────────┘    └────────────┘
+                         ┌───────────────────┼───────────────────┬───────────────────┬───────────────────┐
+                   1:many│             1:many│                   │                   │                   │
+                    ┌──────────┐       ┌─────────────┐    ┌────────────┐    ┌──────────────┐    ┌─────────────────┐
+                    │  posts   │       │market_status │    │saved_posts │    │ post_reports  │    │ post_reactions   │
+                    │ (0...*)  │       │  (4 rows)    │    │ (0...*)    │    │   (0...*)     │    │    (0...*)       │
+                    └──────────┘       └─────────────┘    └────────────┘    └──────────────┘    └─────────────────┘
                          │
                    1:many│
                     ┌──────────┐
@@ -586,6 +586,146 @@ create policy "Users can unsave posts"
 
 ---
 
+## Table 8: `post_reports`
+
+**Purpose:** Community moderation — users report posts that are not related to the rice industry.
+**Key design:** One report per user per post (enforced by UNIQUE constraint). When a post reaches 5 reports, it is automatically hidden (`is_active = false`).
+
+### DDL
+
+```sql
+create table post_reports (
+    id          uuid        primary key default gen_random_uuid(),
+    post_id     uuid        not null references posts(id) on delete cascade,
+    reporter_id uuid        not null references profiles(id) on delete cascade,
+    reason      text,           -- optional: user explains why
+    created_at  timestamptz not null default now(),
+    unique (post_id, reporter_id)
+);
+```
+
+### Constraints
+
+| Constraint | Type | Column | Detail |
+|---|---|---|---|
+| `post_reports_pkey` | PK | `id` | UUID v4 |
+| `post_reports_post_id_fkey` | FK | `post_id` | → `posts(id)` ON DELETE CASCADE |
+| `post_reports_reporter_id_fkey` | FK | `reporter_id` | → `profiles(id)` ON DELETE CASCADE |
+| `post_reports_post_id_reporter_id_key` | UNIQUE | `(post_id, reporter_id)` | One report per user per post |
+
+### Indexes
+
+| Index | Columns | Type | Rationale |
+|---|---|---|---|
+| `idx_post_reports_post_id` | `post_id` | BTREE | Count reports per post |
+
+### RLS
+
+```sql
+alter table post_reports enable row level security;
+
+-- Users can see reports they created
+create policy "post_reports_select_own"
+    on post_reports for select
+    to authenticated
+    using ((select auth.uid()) = reporter_id);
+
+-- Authenticated users can report posts
+create policy "post_reports_insert_own"
+    on post_reports for insert
+    to authenticated
+    with check ((select auth.uid()) = reporter_id);
+
+-- Users can delete their own reports (undo)
+create policy "post_reports_delete_own"
+    on post_reports for delete
+    to authenticated
+    using ((select auth.uid()) = reporter_id);
+```
+
+---
+
+## Table 9: `post_reactions`
+
+**Purpose:** Likes on posts — one like per user per post.
+**Key design:** Trigger auto-updates `posts.reaction_count` on insert/delete.
+
+### DDL
+
+```sql
+create table post_reactions (
+    id          uuid        primary key default gen_random_uuid(),
+    post_id     uuid        not null references posts(id) on delete cascade,
+    user_id     uuid        not null references profiles(id) on delete cascade,
+    created_at  timestamptz not null default now(),
+    unique (post_id, user_id)
+);
+```
+
+### Constraints
+
+| Constraint | Type | Column | Detail |
+|---|---|---|---|
+| `post_reactions_pkey` | PK | `id` | UUID v4 |
+| `post_reactions_post_id_fkey` | FK | `post_id` | → `posts(id)` ON DELETE CASCADE |
+| `post_reactions_user_id_fkey` | FK | `user_id` | → `profiles(id)` ON DELETE CASCADE |
+| `post_reactions_post_id_user_id_key` | UNIQUE | `(post_id, user_id)` | One like per user per post |
+
+### Indexes
+
+| Index | Columns | Type | Rationale |
+|---|---|---|---|
+| `idx_post_reactions_post_id` | `post_id` | BTREE | Count reactions per post |
+
+### Trigger
+
+```sql
+-- Auto-update reaction_count on posts
+create or replace function public.update_post_reaction_count()
+returns trigger as $$
+begin
+  if (TG_OP = 'INSERT') then
+    update public.posts set reaction_count = reaction_count + 1 where id = NEW.post_id;
+    return NEW;
+  elsif (TG_OP = 'DELETE') then
+    update public.posts set reaction_count = reaction_count - 1 where id = OLD.post_id;
+    return OLD;
+  end if;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_reaction_change
+  after insert or delete on public.post_reactions
+  for each row
+  execute function public.update_post_reaction_count();
+```
+
+### RLS
+
+```sql
+alter table post_reactions enable row level security;
+
+-- Anyone authenticated can read reactions
+create policy "post_reactions_select_all"
+    on post_reactions for select
+    to authenticated
+    using (true);
+
+-- Users can insert their own reactions
+create policy "post_reactions_insert_own"
+    on post_reactions for insert
+    to authenticated
+    with check ((select auth.uid()) = user_id);
+
+-- Users can delete their own reactions
+create policy "post_reactions_delete_own"
+    on post_reactions for delete
+    to authenticated
+    using ((select auth.uid()) = user_id);
+```
+
+---
+
 ## Storage Buckets (Supabase)
 
 ### `profiles` bucket
@@ -638,8 +778,10 @@ post-images/
 | `post_images` | `idx_post_images_post_id` | `(post_id, sort_order)` | Load images for a post |
 | `saved_posts` | `idx_saved_posts_user_created` | `(user_id, created_at DESC)` | User's saved posts feed |
 | `saved_posts` | `idx_saved_posts_post_id` | `post_id` | Count saves per post |
+| `post_reports` | `idx_post_reports_post_id` | `post_id` | Count reports per post |
+| `post_reactions` | `idx_post_reactions_post_id` | `post_id` | Count reactions per post |
 
-**Total: 10 indexes on 7 tables.**
+**Total: 12 indexes on 9 tables.**
 
 ---
 
@@ -770,6 +912,71 @@ Mutual/accepted connections. Created when a connection request is accepted. Uses
 
 ---
 
+## Table: `comments`
+
+**Purpose:** User comments on posts. Supports threaded discussions on any post type.
+**Key design:** `comment_count` on `posts` is maintained automatically via trigger.
+
+### DDL
+
+```sql
+create table comments (
+    id          uuid        primary key default gen_random_uuid(),
+    post_id     uuid        not null references posts(id) on delete cascade,
+    author_id   uuid        not null references profiles(id) on delete cascade,
+    content     text        not null check (char_length(content) between 1 and 1000),
+    created_at  timestamptz not null default now(),
+    updated_at  timestamptz not null default now()
+);
+```
+
+### Indexes
+
+| Index | Columns | Type | Rationale |
+|---|---|---|---|
+| `idx_comments_post_id` | `(post_id, created_at)` | BTREE | Fetch comments for a post in chronological order |
+| `idx_comments_author_id` | `author_id` | BTREE | Fetch comments by a specific user |
+
+### Triggers
+
+```sql
+-- Auto-update updated_at on edit
+create trigger update_comments_updated_at
+    before update on comments
+    for each row
+    execute function update_updated_at_column();
+
+-- Increment/decrement comment_count on posts
+create or replace function update_post_comment_count()
+returns trigger as $$
+begin
+    if (tg_op = 'INSERT') then
+        update posts set comment_count = comment_count + 1 where id = new.post_id;
+        return new;
+    elsif (tg_op = 'DELETE') then
+        update posts set comment_count = comment_count - 1 where id = old.post_id;
+        return old;
+    end if;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_comment_change
+    after insert or delete on comments
+    for each row
+    execute function update_post_comment_count();
+```
+
+### RLS
+
+| Policy | Operation | Rule |
+|---|---|---|
+| `Comments are readable by authenticated users` | SELECT | Authenticated users can read all comments |
+| `Users can create their own comments` | INSERT | `auth.uid() = author_id` |
+| `Users can update their own comments` | UPDATE | `auth.uid() = author_id` |
+| `Users can delete their own comments` | DELETE | `auth.uid() = author_id` |
+
+---
+
 ## Schema Migration Structure
 
 ```
@@ -783,7 +990,10 @@ supabase/
     ├── 20260619000001_user_soft_delete.sql      — idempotent soft-delete migration (deleted_at column, soft_delete_account function, updated RLS)
     ├── 20260625000000_create_follows.sql        — follows table (social graph junction)
     ├── 20260625000001_create_connection_requests.sql — connection_requests table (request lifecycle)
-    └── 20260625000002_create_connections.sql    — connections table (accepted mutual connections)
+    ├── 20260625000002_create_connections.sql    — connections table (accepted mutual connections)
+    ├── 20260626000000_create_post_reports.sql   — post_reports table (community moderation)
+    ├── 20260626000001_create_post_reactions.sql — post_reactions table (likes) + reaction_count trigger
+    └── 20260626000000_create_comments.sql       — comments table + comment_count trigger
 ```
 
 ---

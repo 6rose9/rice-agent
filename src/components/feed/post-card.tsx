@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PostActions } from "@/components/feed/post-actions";
+import { CommentSection } from "@/components/post/comment-section";
 import {
   Dialog,
   DialogClose,
@@ -21,6 +22,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -29,8 +31,8 @@ import type { Post } from "@/types";
 import { formatRelativeTime, formatPrice, formatQuantity } from "@/lib/utils/format";
 import { ROLE_LABELS } from "@/lib/constants";
 import { useMarketStatuses } from "@/hooks/use-market-statuses";
-import { deletePost } from "@/lib/posts/actions";
-import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation } from "lucide-react";
+import { deletePost, reportPost } from "@/lib/posts/actions";
+import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation, Flag } from "lucide-react";
 
 interface PostCardProps {
   post: Post;
@@ -51,7 +53,13 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
   const [displayTime, setDisplayTime] = useState(post.created_at);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showMapDialog, setShowMapDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportError, setReportError] = useState("");
+  const [showComments, setShowComments] = useState(false);
   const { labels: marketStatusLabels } = useMarketStatuses();
 
   const typeInfo = TYPE_CONFIG[type] || TYPE_CONFIG.general;
@@ -103,7 +111,7 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
             </p>
           </div>
 
-          {isAuthor && (
+          {isAuthenticated && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 className={cn(
@@ -114,16 +122,25 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
                 <MoreHorizontal className="h-4 w-4" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}/edit`)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => setShowDeleteDialog(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                {isAuthor && (
+                  <>
+                    <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}/edit`)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
+                  <Flag className="h-4 w-4 mr-2" />
+                  Report
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -245,8 +262,12 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
             isLiked={post.is_liked}
             isSaved={post.is_saved}
             isAuthenticated={isAuthenticated}
+            onComment={() => setShowComments((prev) => !prev)}
           />
         </div>
+
+        {/* Comments section */}
+        {showComments && <CommentSection postId={post.id} />}
       </CardContent>
 
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -258,8 +279,8 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <DialogClose>
-              <Button variant="outline">Cancel</Button>
+            <DialogClose render={<Button variant="outline" />}>
+              Cancel
             </DialogClose>
             <Button
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -302,6 +323,68 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
           <div className="mt-3 flex justify-end">
             <Button variant="outline" size="sm" onClick={() => setShowMapDialog(false)}>Close</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report dialog */}
+      <Dialog
+        open={showReportDialog}
+        onOpenChange={(open) => {
+          setShowReportDialog(open);
+          if (!open) {
+            setReportReason("");
+            setReportSuccess(false);
+            setReportError("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report Post</DialogTitle>
+            <DialogDescription>
+              Why are you reporting this post? Reports help keep the community focused on the rice industry.
+            </DialogDescription>
+          </DialogHeader>
+          {reportSuccess ? (
+            <div className="py-4 text-center">
+              <p className="text-sm text-muted-foreground">Thank you. Your report has been submitted.</p>
+            </div>
+          ) : (
+            <>
+              <textarea
+                className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="Optional: tell us why (e.g. not rice-related, spam, inappropriate)"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                maxLength={500}
+              />
+              {reportError && (
+                <p className="text-sm text-destructive">{reportError}</p>
+              )}
+              <DialogFooter>
+                <DialogClose render={<Button variant="outline" />}>
+                  Cancel
+                </DialogClose>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    setReporting(true);
+                    setReportError("");
+                    const result = await reportPost(post.id, reportReason || undefined);
+                    if (result.success) {
+                      setReportSuccess(true);
+                    } else {
+                      setReportError(result.error);
+                    }
+                    setReporting(false);
+                  }}
+                  disabled={reporting}
+                >
+                  {reporting ? "Reporting..." : "Report"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </Card>
