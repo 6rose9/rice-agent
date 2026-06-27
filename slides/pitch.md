@@ -42,4 +42,4 @@ Auth, profiles, feed, and post creation are fully dynamic — real data flowing 
 # Done checklist
 - [✅] repo public
 - [✅] MCP + skill + agent used
-- [] report.md in team repo
+- [✅] report.md in team repo
