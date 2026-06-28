@@ -99,9 +99,9 @@ function NetworkContent() {
     following: 0,
   });
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"invitations" | "pending" | "suggestions">(
-    "suggestions",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "invitations" | "pending" | "suggestions"
+  >("suggestions");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -157,7 +157,10 @@ function NetworkContent() {
     setInvitations((prev) => prev.filter((r) => r.id !== requestId));
   }
 
-  function handleSuggestionStatusChange(profileId: string, newStatus: ConnectionStatus) {
+  function handleSuggestionStatusChange(
+    profileId: string,
+    newStatus: ConnectionStatus,
+  ) {
     setSuggestions((prev) => {
       if (newStatus === "connected") {
         // Remove connected users from suggestions
@@ -196,35 +199,6 @@ function NetworkContent() {
         <div className="px-4 py-4 sm:px-6 sm:py-5">
           <h1 className="text-xl font-bold">My Network</h1>
         </div>
-
-        {/* Invitations summary under header */}
-        {!loading && (
-          <div className="px-4 pb-4 sm:px-6">
-            {invitations.length === 0 ? (
-              <div className="text-center py-12 px-4 hidden md:block">
-                <UserPlus className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm font-medium">No pending invitations</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  All caught up! Connection requests you receive will appear
-                  here.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y rounded-lg border">
-                {invitations.slice(0, 3).map((inv) => (
-                  <InvitationCard
-                    key={inv.id}
-                    requestId={inv.id}
-                    sender={inv.sender}
-                    created_at={inv.created_at}
-                    onAccepted={() => handleInvitationAccepted(inv.id)}
-                    onDeclined={() => handleInvitationDeclined(inv.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Stats links (mobile only - right sidebar shows this on desktop) */}
         <div className="lg:hidden px-4 pb-4 sm:px-6 flex items-center gap-3">
@@ -447,7 +421,9 @@ function NetworkContent() {
                     colors={colors}
                     getLocationLabel={getLocationLabel}
                     connectionStatus={item.connectionStatus}
-                    onStatusChange={(status) => handleSuggestionStatusChange(item.profile.id, status)}
+                    onStatusChange={(status) =>
+                      handleSuggestionStatusChange(item.profile.id, status)
+                    }
                   />
                 ))}
           </div>
@@ -506,7 +482,11 @@ function SuggestionCard({
         <div className="h-10 sm:h-14 bg-gradient-to-r from-emerald-100 to-green-50 dark:from-emerald-900 dark:to-green-950">
           {profile.cover_url && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.cover_url} alt="" className="h-full w-full object-cover" />
+            <img
+              src={profile.cover_url}
+              alt=""
+              className="h-full w-full object-cover"
+            />
           )}
         </div>
         <CardContent className="p-3 sm:p-4 pt-0">

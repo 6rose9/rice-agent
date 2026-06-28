@@ -14,8 +14,10 @@ export const phoneSchema = z
 
 export const passwordSchema = z
   .string()
-  .min(6, "Password must be at least 6 characters")
-  .max(128, "Password must be less than 128 characters");
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password must be less than 128 characters")
+  .regex(/[0-9]/, "Password must contain at least one number")
+  .regex(/[^a-zA-Z0-9]/, "Password must contain at least one special character");
 
 // ── Login ────────────────────────────────────────────────────────────
 export const loginSchema = z.object({
@@ -98,12 +100,33 @@ export const visibilityEnum = z.enum(
   { message: "Please select a visibility option" }
 );
 
+export const connectionVisibilityEnum = z.enum(
+  ["public", "connections", "private"],
+  { message: "Please select a visibility option" }
+);
+
 export const privacySettingsSchema = z.object({
   phone_visibility: visibilityEnum,
   email_visibility: visibilityEnum,
+  connections_visibility: connectionVisibilityEnum,
 });
 
 export type PrivacySettingsInput = z.infer<typeof privacySettingsSchema>;
+
+// ── OTP ────────────────────────────────────────────────────────────────
+export const otpSchema = z
+  .string()
+  .length(6, "OTP must be exactly 6 digits")
+  .regex(/^\d{6}$/, "OTP must contain only digits");
+
+export const sendOtpSchema = z.object({
+  phone: phoneSchema,
+});
+
+export const verifyOtpSchema = z.object({
+  phone: phoneSchema,
+  code: otpSchema,
+});
 
 // ── Form state types for useActionState ───────────────────────────────
 export interface AuthFormState {
@@ -120,6 +143,7 @@ export interface AuthFormState {
     market_status_id?: string[];
     phone_visibility?: string[];
     email_visibility?: string[];
+    connections_visibility?: string[];
   };
   message?: string;
 }

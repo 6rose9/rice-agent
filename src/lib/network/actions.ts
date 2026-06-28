@@ -57,7 +57,8 @@ export async function followUser(targetUserId: string): Promise<ActionResult> {
     if (error.code === "23505") {
       return { success: true };
     }
-    return { success: false, error: error.message };
+    console.error("Follow user error:", error.message);
+    return { success: false, error: "Failed to follow user. Please try again." };
   }
 
   revalidatePath("/mynetwork");
@@ -76,7 +77,8 @@ export async function unfollowUser(targetUserId: string): Promise<ActionResult> 
     .eq("following_id", targetUserId);
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Unfollow user error:", error.message);
+    return { success: false, error: "Failed to unfollow user. Please try again." };
   }
 
   revalidatePath("/mynetwork");
@@ -210,7 +212,8 @@ export async function sendConnectionRequest(targetUserId: string): Promise<Actio
       .eq("id", existingRequest.id);
 
     if (error) {
-      return { success: false, error: error.message };
+      console.error("Resend connection request error:", error.message);
+      return { success: false, error: "Failed to send request. Please try again." };
     }
     revalidatePath("/mynetwork");
     revalidatePath(`/profile`);
@@ -222,7 +225,8 @@ export async function sendConnectionRequest(targetUserId: string): Promise<Actio
     .insert({ sender_id: user.id, receiver_id: targetUserId });
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Send connection request error:", error.message);
+    return { success: false, error: "Failed to send request. Please try again." };
   }
 
   revalidatePath("/mynetwork");
@@ -265,7 +269,8 @@ export async function acceptConnectionRequest(requestId: string): Promise<Action
   if (connError) {
     // Ignore duplicate (already connected)
     if (connError.code !== "23505") {
-      return { success: false, error: connError.message };
+      console.error("Accept connection error:", connError.message);
+      return { success: false, error: "Failed to accept request. Please try again." };
     }
   }
 
@@ -302,7 +307,8 @@ export async function declineConnectionRequest(requestId: string): Promise<Actio
   const { error } = await supabase.from("connection_requests").delete().eq("id", requestId);
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Decline connection request error:", error.message);
+    return { success: false, error: "Failed to decline request. Please try again." };
   }
 
   revalidatePath("/mynetwork");
@@ -541,7 +547,8 @@ export async function removeConnection(targetUserId: string): Promise<ActionResu
     .eq("user2_id", u2);
 
   if (error) {
-    return { success: false, error: error.message };
+    console.error("Remove connection error:", error.message);
+    return { success: false, error: "Failed to remove connection. Please try again." };
   }
 
   revalidatePath("/mynetwork");

@@ -167,6 +167,7 @@ export type Database = {
           phone_verified: boolean
           phone_visibility: string
           email_visibility: string
+          connections_visibility: string
           region_id: number
           role: string
           township_id: number
@@ -186,6 +187,7 @@ export type Database = {
           phone_verified?: boolean
           phone_visibility?: string
           email_visibility?: string
+          connections_visibility?: string
           region_id: number
           role?: string
           township_id: number

@@ -26,12 +26,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { register as registerAction, updateAvatar } from "@/lib/auth/actions";
+import { register as registerAction, updateAvatar, sendOtp, verifyOtp } from "@/lib/auth/actions";
 import { registerSchema, type RegisterInput } from "@/lib/validations/auth";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_LABELS } from "@/lib/constants";
 import { useRegions } from "@/hooks/use-regions";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
 
 function RegisterFormInner() {
   const searchParams = useSearchParams();
@@ -43,6 +44,11 @@ function RegisterFormInner() {
   const [serverError, setServerError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
   const { regions, getTownshipsForRegion } = useRegions();
   const profileImageInputRef = useRef<HTMLInputElement>(null);
 
@@ -117,6 +123,10 @@ function RegisterFormInner() {
     if (step === 1) {
       const valid = await trigger(["full_name", "phone", "email", "region_id", "township_id"]);
       if (!valid) return;
+      if (!otpVerified) {
+        setServerError("Please verify your phone number with OTP first.");
+        return;
+      }
       clearErrors();
       setStep(2);
       return;
@@ -135,6 +145,45 @@ function RegisterFormInner() {
     setServerError("");
     clearErrors();
     setStep((s) => Math.max(1, s - 1));
+  }
+
+  async function handleSendOtp() {
+    setOtpError("");
+    setServerError("");
+    const phone = getValues("phone");
+    if (!phone) {
+      setOtpError("Please enter your phone number first.");
+      return;
+    }
+    setOtpLoading(true);
+    const result = await sendOtp(phone);
+    setOtpLoading(false);
+    if (!result.success) {
+      setOtpError(result.error || "Failed to send OTP.");
+      return;
+    }
+    setOtpSent(true);
+    setOtpCode("");
+    setOtpVerified(false);
+    // Testing: show OTP in alert
+    alert(`Your OTP code is: ${result.code}`);
+  }
+
+  async function handleVerifyOtp() {
+    setOtpError("");
+    const phone = getValues("phone");
+    if (!phone || otpCode.length !== 6) {
+      setOtpError("Please enter the 6-digit OTP code.");
+      return;
+    }
+    setOtpLoading(true);
+    const result = await verifyOtp(phone, otpCode);
+    setOtpLoading(false);
+    if (!result.success) {
+      setOtpError(result.error || "OTP verification failed.");
+      return;
+    }
+    setOtpVerified(true);
   }
 
   async function handleCreateAccount() {
@@ -329,6 +378,75 @@ function RegisterFormInner() {
                     <p className="text-sm text-destructive">{errors.email.message}</p>
                   )}
                 </div>
+
+                {/* OTP Verification */}
+                <div className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">
+                      <ShieldCheck className="h-4 w-4 inline mr-1" />
+                      Phone Verification
+                    </Label>
+                    {otpVerified && (
+                      <span className="text-xs text-green-600 font-medium">✓ Verified</span>
+                    )}
+                  </div>
+                  {!otpSent ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleSendOtp}
+                      disabled={otpLoading}
+                    >
+                      {otpLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Send OTP
+                    </Button>
+                  ) : !otpVerified ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-center">
+                        <InputOTP
+                          maxLength={6}
+                          value={otpCode}
+                          onChange={setOtpCode}
+                        >
+                          <InputOTPGroup>
+                            <InputOTPSlot index={0} />
+                            <InputOTPSlot index={1} />
+                            <InputOTPSlot index={2} />
+                            <InputOTPSlot index={3} />
+                            <InputOTPSlot index={4} />
+                            <InputOTPSlot index={5} />
+                          </InputOTPGroup>
+                        </InputOTP>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="flex-1"
+                          onClick={handleVerifyOtp}
+                          disabled={otpLoading || otpCode.length !== 6}
+                        >
+                          {otpLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                          Verify
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleSendOtp}
+                          disabled={otpLoading}
+                        >
+                          Resend
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {otpError && (
+                    <p className="text-sm text-destructive">{otpError}</p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -423,7 +541,7 @@ function RegisterFormInner() {
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="Min 6 characters"
+                      placeholder="Min 8 chars, 1 number, 1 special char"
                       {...register("password")}
                       className="pr-9"
                     />
@@ -496,7 +614,7 @@ function RegisterFormInner() {
               </div>
               <div className="flex items-center gap-2">
                 {step < 3 ? (
-                  <Button type="button" onClick={handleNext}>
+                  <Button type="button" onClick={handleNext} disabled={step === 1 && !otpVerified}>
                     Next
                   </Button>
                 ) : (

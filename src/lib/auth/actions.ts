@@ -1,17 +1,30 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 import {
   loginSchema,
   registerSchema,
   profileUpdateSchema,
   privacySettingsSchema,
+  sendOtpSchema,
+  verifyOtpSchema,
 } from "@/lib/validations/auth";
 import {
   ActionResult,
   extractFirstFieldError,
   requireAuth,
+  sanitizeRedirect,
 } from "@/lib/actions";
+
+/** Create a Supabase admin client with service role key (for password resets) */
+function createAdminClient() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { cookies: { getAll: () => [], setAll: () => {} } },
+  );
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -54,6 +67,93 @@ async function generateUsername(
 
   // Fallback: use timestamp suffix to guarantee uniqueness
   return `${base}_${Date.now().toString(36)}`;
+}
+
+// ── OTP Store (in-memory, for testing) ────────────────────────────────
+const otpStore = new Map<string, { code: string; expiresAt: number }>();
+const OTP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export async function sendOtp(phone: string): Promise<ActionResult & { code?: string }> {
+  const parsed = sendOtpSchema.safeParse({ phone });
+  if (!parsed.success) {
+    return { success: false, error: "Please enter a valid Myanmar phone number." };
+  }
+
+  const normalized = normalizePhone(parsed.data.phone);
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  otpStore.set(normalized, { code, expiresAt: Date.now() + OTP_TTL_MS });
+
+  // In testing: return the code so the client can show it in alert()
+  return { success: true, code };
+}
+
+export async function verifyOtp(phone: string, code: string): Promise<ActionResult> {
+  const parsed = verifyOtpSchema.safeParse({ phone, code });
+  if (!parsed.success) {
+    return { success: false, error: "Please enter a valid 6-digit OTP." };
+  }
+
+  const normalized = normalizePhone(parsed.data.phone);
+  const entry = otpStore.get(normalized);
+
+  if (!entry) {
+    return { success: false, error: "OTP not found. Please request a new one." };
+  }
+
+  if (Date.now() > entry.expiresAt) {
+    otpStore.delete(normalized);
+    return { success: false, error: "OTP has expired. Please request a new one." };
+  }
+
+  if (entry.code !== parsed.data.code) {
+    return { success: false, error: "Invalid OTP. Please try again." };
+  }
+
+  otpStore.delete(normalized);
+  return { success: true };
+}
+
+export async function resetPassword(
+  phone: string,
+  newPassword: string,
+): Promise<ActionResult> {
+  if (!phone || !newPassword) {
+    return { success: false, error: "Phone and new password are required." };
+  }
+
+  const supabase = await createClient();
+  const normalized = normalizePhone(phone);
+
+  // Find the user ID by phone
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("phone", normalized)
+    .maybeSingle();
+
+  if (!profile) {
+    return { success: false, error: "No account found with this phone number." };
+  }
+
+  try {
+    // Use admin API to update password without requiring current auth session
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.updateUserById(profile.id, {
+      password: newPassword,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("Reset password error:", err);
+    return {
+      success: false,
+      error: "An unexpected error occurred. Please try again.",
+    };
+  }
 }
 
 // ── Server Actions ────────────────────────────────────────────────────
@@ -120,11 +220,12 @@ export async function login(
       };
     }
 
-    return { success: true, redirect: formData.get("redirect") as string || "/feed" };
+    return { success: true, redirect: sanitizeRedirect(formData.get("redirect") as string | null) };
   } catch (err) {
+    console.error("Login error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Login failed. Please try again.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -191,11 +292,12 @@ export async function register(
       return { success: false, error: error.message };
     }
 
-    return { success: true, redirect: formData.get("redirect") as string || "/feed" };
+    return { success: true, redirect: sanitizeRedirect(formData.get("redirect") as string | null) };
   } catch (err) {
+    console.error("Registration error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Registration failed. Please try again.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -209,9 +311,10 @@ export async function logout(): Promise<ActionResult> {
     }
     return { success: true };
   } catch (err) {
+    console.error("Logout error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Logout failed. Please try again.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -268,9 +371,10 @@ export async function updateProfile(
 
     return { success: true };
   } catch (err) {
+    console.error("Update profile error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update profile.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -284,6 +388,7 @@ export async function updatePrivacySettings(
   const rawData = {
     phone_visibility: formData.get("phone_visibility") as string,
     email_visibility: formData.get("email_visibility") as string,
+    connections_visibility: formData.get("connections_visibility") as string,
   };
 
   // Validate
@@ -291,7 +396,7 @@ export async function updatePrivacySettings(
   if (!parsed.success) {
     const fe = parsed.error.flatten().fieldErrors;
     const msg =
-      extractFirstFieldError(fe, "phone_visibility", "email_visibility") ||
+      extractFirstFieldError(fe, "phone_visibility", "email_visibility", "connections_visibility") ||
       "Invalid input.";
     return { success: false, error: msg };
   }
@@ -307,6 +412,7 @@ export async function updatePrivacySettings(
       .update({
         phone_visibility: parsed.data.phone_visibility,
         email_visibility: parsed.data.email_visibility,
+        connections_visibility: parsed.data.connections_visibility,
       })
       .eq("id", user.id);
 
@@ -316,9 +422,10 @@ export async function updatePrivacySettings(
 
     return { success: true };
   } catch (err) {
+    console.error("Update privacy settings error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update privacy settings.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -344,9 +451,10 @@ export async function updateAvatar(
 
     return { success: true };
   } catch (err) {
+    console.error("Update avatar error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update avatar.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -371,25 +479,10 @@ export async function deleteAccount(): Promise<ActionResult> {
 
     return { success: true, redirect: "/feed" };
   } catch (err) {
+    console.error("Delete account error:", err);
     return {
       success: false,
-      error:
-        err instanceof Error ? err.message : "Failed to delete account.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
-}
-
-// ── Check if account is deleted (used by login flow) ───────────────────
-
-export async function checkAccountDeleted(
-  phone: string,
-): Promise<boolean> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("deleted_at")
-    .eq("phone", phone)
-    .maybeSingle();
-
-  return data?.deleted_at != null;
 }

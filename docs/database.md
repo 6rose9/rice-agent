@@ -2,7 +2,7 @@
 
 ## Overview
 
-Ten tables on Supabase PostgreSQL plus two storage buckets. Three reference tables (`market_status`, `regions`, `townships`) seeded by migration and read-only at runtime. Six application tables (`profiles`, `posts`, `post_images`, `saved_posts`, `post_reports`, `post_reactions`) with full Row-Level Security.
+Thirteen tables on Supabase PostgreSQL plus two storage buckets and one view. Three reference tables (`market_status`, `regions`, `townships`) seeded by migration and read-only at runtime. Ten application tables (`profiles`, `posts`, `post_images`, `saved_posts`, `post_reports`, `post_reactions`, `follows`, `connections`, `connection_requests`, `comments`) with full Row-Level Security. One privacy-enforcing view (`public_profiles`) that masks phone/email based on visibility settings.
 
 `profiles` extends `auth.users` (Supabase-managed identity) via a 1:1 FK relationship. All policies reference `auth.uid()` for row-level access control.
 
@@ -210,7 +210,10 @@ create policy "Market status viewable by everyone"
 - `market_status_id` is nullable — NULL by default at signup. Users set their status later from the `market_status` reference table.
 - `phone_verified` defaults to false; set true after verification.
 - `deleted_at` for soft deletion; non-null means the account is deactivated.
-- `phone_visibility` and `email_visibility` control who can see contact info: `'public'` (everyone), `'followers'` (followers only — requires future follows table), `'private'` (owner only). Defaults to `'private'`.
+- `phone_visibility` and `email_visibility` control who can see contact info: `'public'` (everyone), `'followers'` (followers only), `'private'` (owner only). Defaults to `'private'`.
+- `connections_visibility` controls who can see the user's connection list: `'public'` (everyone), `'connections'` (connected users only), `'private'` (owner only). Defaults to `'public'`.
+- `subscription_tier` controls post permissions: `'free'` (general posts only), `'pro'`/`'pro_plus'` (can create buying/selling posts). Defaults to `'free'`.
+- A `public_profiles` view masks phone/email based on visibility settings and the requesting user's relationship (follower vs stranger).
 
 ### DDL
 
@@ -234,6 +237,10 @@ create table profiles (
                    check (phone_visibility in ('public', 'followers', 'private')),
     email_visibility text        not null default 'private'
                    check (email_visibility in ('public', 'followers', 'private')),
+    connections_visibility text   not null default 'public'
+                   check (connections_visibility in ('public', 'connections', 'private')),
+    subscription_tier text        not null default 'free'
+                       check (subscription_tier in ('free', 'pro', 'pro_plus')),
     deleted_at       timestamptz,
     created_at       timestamptz not null default now(),
     updated_at       timestamptz not null default now()
@@ -250,9 +257,11 @@ create table profiles (
 | `profiles_role_check` | CHECK | `role` | `role in ('farmer', 'trader', 'agent', 'general_user')` |
 | `profiles_phone_visibility_check` | CHECK | `phone_visibility` | `phone_visibility in ('public', 'followers', 'private')` |
 | `profiles_email_visibility_check` | CHECK | `email_visibility` | `email_visibility in ('public', 'followers', 'private')` |
+| `profiles_connections_visibility_check` | CHECK | `connections_visibility` | `connections_visibility in ('public', 'connections', 'private')` |
 | `profiles_region_id_fkey` | FK | `region_id` | → `regions(id)`. No cascade — reference data |
 | `profiles_township_id_fkey` | FK | `township_id` | → `townships(id)`. No cascade — reference data |
 | `profiles_market_status_id_fkey` | FK | `market_status_id` | → `market_status(id)`. Nullable — user sets later |
+| `profiles_subscription_tier_check` | CHECK | `subscription_tier` | `subscription_tier in ('free', 'pro', 'pro_plus')` |
 
 ### Indexes
 
@@ -907,7 +916,7 @@ Mutual/accepted connections. Created when a connection request is accepted. Uses
 | Policy | Operation | Rule |
 |---|---|---|
 | `connections_select_all` | SELECT | Public — anyone can see connections |
-| `connections_insert_auth` | INSERT | Authenticated users can insert |
+| `connections_insert_auth` | INSERT | Authenticated users can insert only where they are one of the two parties |
 | `connections_delete_own` | DELETE | Either user in the connection can delete |
 
 ---

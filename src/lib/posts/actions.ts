@@ -61,7 +61,7 @@ function decodeCursor(cursor: string): [string, string] {
 
 /** Fallback profile for missing/soft-deleted authors */
 const UNKNOWN_PROFILE: Profile = {
-  id: "",
+  id: "unknown",
   phone: "",
   email: null,
   username: "unknown",
@@ -76,6 +76,7 @@ const UNKNOWN_PROFILE: Profile = {
   phone_verified: false,
   phone_visibility: "private",
   email_visibility: "private",
+  connections_visibility: "private",
   created_at: "",
   updated_at: "",
 };
@@ -221,10 +222,17 @@ export async function createPost(
   const postType = formData.get("type") as string;
 
   // Subscription gate: buying/selling posts require pro tier
-  // Client sends tier as a hidden field; server validates.
-  // (For demo/localStorage subscription — not cryptographically secure)
   if (postType === "buying" || postType === "selling") {
-    const tier = formData.get("subscription_tier") as string;
+    const auth = await requireAuth();
+    if (!auth.ok) return auth;
+
+    const { data: profile } = await auth.supabase
+      .from("profiles")
+      .select("subscription_tier")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+
+    const tier = profile?.subscription_tier;
     if (tier !== "pro" && tier !== "pro_plus") {
       return {
         success: false,
@@ -269,11 +277,13 @@ export async function createPost(
   if (!auth.ok) return auth;
   const { user } = auth;
 
-  // Image URLs (comma-separated string from form)
+  // Image URLs (comma-separated string from form) — validate against storage domain
+  const allowedPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`;
   const imageUrls = (formData.get("images") as string)
     ?.split(",")
     .map((u) => u.trim())
-    .filter(Boolean) ?? [];
+    .filter(Boolean)
+    .filter((url) => url.startsWith(allowedPrefix)) ?? [];
 
   try {
     // Build the insert payload from validated data
@@ -310,9 +320,10 @@ export async function createPost(
       .single();
 
     if (insertError || !post) {
+      console.error("Failed to create post:", insertError?.message);
       return {
         success: false,
-        error: insertError?.message || "Failed to create post.",
+        error: "Failed to create post. Please try again.",
       };
     }
 
@@ -341,9 +352,10 @@ export async function createPost(
 
     return { success: true, redirect: "/feed" };
   } catch (err) {
+    console.error("Create post error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to create post.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -545,7 +557,8 @@ export async function updatePost(
       .eq("id", postId);
 
     if (updateError) {
-      return { success: false, error: updateError.message };
+      console.error("Failed to update post:", updateError.message);
+      return { success: false, error: "Failed to update post. Please try again." };
     }
 
     // Invalidate feed and profile caches
@@ -553,11 +566,13 @@ export async function updatePost(
     revalidatePath("/saved");
     revalidateTag("posts", "default");
 
-    // Handle images: remove old, insert new
+    // Handle images: remove old, insert new — validate URLs
+    const allowedPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`;
     const imageUrls = (formData.get("images") as string)
       ?.split(",")
       .map((u) => u.trim())
-      .filter(Boolean) ?? [];
+      .filter(Boolean)
+      .filter((url) => url.startsWith(allowedPrefix)) ?? [];
 
     await supabase.from("post_images").delete().eq("post_id", postId);
 
@@ -572,9 +587,10 @@ export async function updatePost(
 
     return { success: true };
   } catch (err) {
+    console.error("Update post error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update post.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -600,9 +616,10 @@ export async function savePost(postId: string): Promise<ActionResult> {
     revalidateTag("posts", "default");
     return { success: true };
   } catch (err) {
+    console.error("Save post error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to save post.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -628,9 +645,10 @@ export async function unsavePost(postId: string): Promise<ActionResult> {
     revalidateTag("posts", "default");
     return { success: true };
   } catch (err) {
+    console.error("Unsave post error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to unsave post.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -748,6 +766,35 @@ export async function unlikePost(postId: string): Promise<ActionResult> {
   }
 }
 
+// ── Fetch Post Likers ───────────────────────────────────────────────
+
+export interface PostLiker {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+}
+
+export async function fetchPostLikers(postId: string): Promise<PostLiker[]> {
+  const supabase = await createClient();
+  const { data: reactions } = await supabase
+    .from("post_reactions")
+    .select("user_id")
+    .eq("post_id", postId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (!reactions || reactions.length === 0) return [];
+
+  const userIds = reactions.map((r) => r.user_id);
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name, username, avatar_url")
+    .in("id", userIds);
+
+  return (profiles ?? []) as PostLiker[];
+}
+
 // ── Delete Post ──────────────────────────────────────────────────────
 
 export async function deletePost(postId: string): Promise<ActionResult> {
@@ -808,9 +855,10 @@ export async function deletePost(postId: string): Promise<ActionResult> {
 
     return { success: true };
   } catch (err) {
+    console.error("Delete post error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to delete post.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }

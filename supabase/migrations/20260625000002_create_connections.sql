@@ -19,11 +19,13 @@ CREATE POLICY "connections_select_all"
   ON connections FOR SELECT
   USING (true);
 
--- System inserts on accept (via server action with auth check)
+-- Users can only insert connections where they are one of the two parties
 CREATE POLICY "connections_insert_auth"
   ON connections FOR INSERT
   TO authenticated
-  WITH CHECK (true);
+  WITH CHECK (
+    (select auth.uid()) = user1_id OR (select auth.uid()) = user2_id
+  );
 
 -- Users can delete connections (unconnect)
 CREATE POLICY "connections_delete_own"

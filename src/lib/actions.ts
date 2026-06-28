@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
 // ── Shared Types ─────────────────────────────────────────────────────
@@ -32,6 +33,18 @@ type AuthFailure = {
   error: string;
   redirect?: string;
 };
+
+// ── Shared Validation ────────────────────────────────────────────────
+
+/** UUID schema for validating path/action parameters */
+export const uuidSchema = z.string().uuid("Invalid ID format.");
+
+/** Sanitize a redirect path — only allow relative paths starting with / */
+export function sanitizeRedirect(raw: string | null | undefined): string {
+  if (!raw || typeof raw !== "string") return "/feed";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/feed";
+  return raw;
+}
 
 /** Get the authenticated user or return an ActionResult error */
 export async function requireAuth(): Promise<AuthSuccess | AuthFailure> {
