@@ -34,6 +34,7 @@ const UNKNOWN_PROFILE: Profile = {
   phone_verified: false,
   phone_visibility: "private",
   email_visibility: "private",
+  connections_visibility: "private",
   created_at: "",
   updated_at: "",
 };

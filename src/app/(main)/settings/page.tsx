@@ -41,6 +41,7 @@ import {
   Shield,
   Phone,
   Mail,
+  Users,
   CheckCircle2,
 } from "lucide-react";
 
@@ -55,6 +56,7 @@ export default function SettingsPage() {
   // Privacy settings state
   const [phoneVisibility, setPhoneVisibility] = useState("private");
   const [emailVisibility, setEmailVisibility] = useState("private");
+  const [connectionsVisibility, setConnectionsVisibility] = useState("public");
   const [isPending, startTransition] = useTransition();
   const [privacySaved, setPrivacySaved] = useState(false);
   const [privacyError, setPrivacyError] = useState("");
@@ -65,6 +67,7 @@ export default function SettingsPage() {
       const p = user.profile as Record<string, unknown>;
       setPhoneVisibility((p.phone_visibility as string) || "private");
       setEmailVisibility((p.email_visibility as string) || "private");
+      setConnectionsVisibility((p.connections_visibility as string) || "public");
     }
   }, [user?.profile]);
 
@@ -118,6 +121,7 @@ export default function SettingsPage() {
     const formData = new FormData();
     formData.set("phone_visibility", phoneVisibility);
     formData.set("email_visibility", emailVisibility);
+    formData.set("connections_visibility", connectionsVisibility);
 
     startTransition(async () => {
       const result = await updatePrivacySettings(null, formData);
@@ -134,6 +138,12 @@ export default function SettingsPage() {
   const VISIBILITY_OPTIONS = [
     { value: "public", label: "Everyone", description: "Visible to all users" },
     { value: "followers", label: "Followers Only", description: "Only your followers can see" },
+    { value: "private", label: "Only Me", description: "Hidden from everyone else" },
+  ];
+
+  const CONNECTION_VISIBILITY_OPTIONS = [
+    { value: "public", label: "Everyone", description: "Anyone can see your connections" },
+    { value: "connections", label: "Connections Only", description: "Only your connections can see" },
     { value: "private", label: "Only Me", description: "Hidden from everyone else" },
   ];
 
@@ -288,6 +298,32 @@ export default function SettingsPage() {
               </SelectTrigger>
               <SelectContent>
                 {VISIBILITY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Connections Visibility */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <label className="text-sm font-medium">Connection List</label>
+            </div>
+            <Select
+              value={connectionsVisibility}
+              onValueChange={(v) => {
+                if (v) setConnectionsVisibility(v);
+                setPrivacySaved(false);
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONNECTION_VISIBILITY_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
                   </SelectItem>

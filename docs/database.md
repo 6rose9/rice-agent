@@ -211,6 +211,7 @@ create policy "Market status viewable by everyone"
 - `phone_verified` defaults to false; set true after verification.
 - `deleted_at` for soft deletion; non-null means the account is deactivated.
 - `phone_visibility` and `email_visibility` control who can see contact info: `'public'` (everyone), `'followers'` (followers only), `'private'` (owner only). Defaults to `'private'`.
+- `connections_visibility` controls who can see the user's connection list: `'public'` (everyone), `'connections'` (connected users only), `'private'` (owner only). Defaults to `'public'`.
 - `subscription_tier` controls post permissions: `'free'` (general posts only), `'pro'`/`'pro_plus'` (can create buying/selling posts). Defaults to `'free'`.
 - A `public_profiles` view masks phone/email based on visibility settings and the requesting user's relationship (follower vs stranger).
 
@@ -236,6 +237,8 @@ create table profiles (
                    check (phone_visibility in ('public', 'followers', 'private')),
     email_visibility text        not null default 'private'
                    check (email_visibility in ('public', 'followers', 'private')),
+    connections_visibility text   not null default 'public'
+                   check (connections_visibility in ('public', 'connections', 'private')),
     subscription_tier text        not null default 'free'
                        check (subscription_tier in ('free', 'pro', 'pro_plus')),
     deleted_at       timestamptz,
@@ -254,6 +257,7 @@ create table profiles (
 | `profiles_role_check` | CHECK | `role` | `role in ('farmer', 'trader', 'agent', 'general_user')` |
 | `profiles_phone_visibility_check` | CHECK | `phone_visibility` | `phone_visibility in ('public', 'followers', 'private')` |
 | `profiles_email_visibility_check` | CHECK | `email_visibility` | `email_visibility in ('public', 'followers', 'private')` |
+| `profiles_connections_visibility_check` | CHECK | `connections_visibility` | `connections_visibility in ('public', 'connections', 'private')` |
 | `profiles_region_id_fkey` | FK | `region_id` | → `regions(id)`. No cascade — reference data |
 | `profiles_township_id_fkey` | FK | `township_id` | → `townships(id)`. No cascade — reference data |
 | `profiles_market_status_id_fkey` | FK | `market_status_id` | → `market_status(id)`. Nullable — user sets later |

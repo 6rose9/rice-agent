@@ -250,10 +250,11 @@ export function RightRail({ variant = "feed", profileStats, networkStats, onSear
                 <span className="font-medium">{profileStats.posts}</span>
                 <span className="text-muted-foreground">Posts</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{profileStats.followers}</span>
-                <span className="text-muted-foreground">Followers</span>
-              </div>
+      <div className="flex items-center gap-2">
+        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="font-medium">{profileStats.followers}</span>
+        <span className="text-muted-foreground">Followers</span>
+      </div>
               {profileStats.topCategory && (
                 <div className="flex items-center gap-2">
                   <span>🏷️</span>

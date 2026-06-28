@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { savePost, unsavePost, likePost, unlikePost } from "@/lib/posts/actions";
+import { PostLikers } from "./post-likers";
 
 interface PostActionsProps {
   postId: string;
@@ -114,19 +115,21 @@ export function PostActions({
 
   return (
     <div className="flex items-center gap-1 pt-1">
-      <Button
-        variant="ghost"
-        size="sm"
-        className={cn(
-          "gap-1.5 h-8 px-2 transition-transform hover:scale-110",
-          liked && "text-yellow-500 hover:text-yellow-600"
-        )}
-        onClick={handleLike}
-        disabled={liking}
-      >
-        <Handshake className="h-5 w-5" />
-        {likes > 0 && <span className="text-xs">{likes}</span>}
-      </Button>
+      <PostLikers postId={postId} likeCount={likes} isAuthenticated={isAuthenticated}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "gap-1.5 h-8 px-2 transition-transform hover:scale-110",
+            liked && "text-yellow-500 hover:text-yellow-600"
+          )}
+          onClick={handleLike}
+          disabled={liking}
+        >
+          <Handshake className="h-5 w-5" />
+          {likes > 0 && <span className="text-xs">{likes}</span>}
+        </Button>
+      </PostLikers>
 
       <Button
         variant="ghost"

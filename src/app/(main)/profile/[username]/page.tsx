@@ -60,6 +60,17 @@ function ProfileContent() {
     return false;
   }
 
+  /** Check if the current viewer can see the connection list */
+  function canSeeConnections(): boolean {
+    if (isOwnProfile) return true;
+    const vis = (displayProfile as Record<string, unknown>)?.connections_visibility as string | undefined;
+    // If column doesn't exist yet (migration not applied), default to public
+    if (vis === undefined || vis === null) return true;
+    if (vis === "public") return true;
+    if (vis === "connections" && connectionInfo.status === "connected") return true;
+    return false;
+  }
+
   /** Get the display value for a contact field, respecting privacy */
   function getContactDisplay(
     value: string | null | undefined,
@@ -317,38 +328,35 @@ function ProfileContent() {
 
   const networkPanel = (
     <div className="p-4 space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Manage your network — view connections, invitations, and find people you
-        may know.
-      </p>
       <div className="space-y-2">
-        <Link
-          href="/mynetwork/connections"
-          className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
-        >
-          <span className="text-sm font-medium">View All Connections</span>
-          <span className="text-sm font-semibold text-muted-foreground">{connectionInfo.connectionCount}</span>
-        </Link>
-        <Link
-          href="/mynetwork/invitations"
-          className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
-        >
-          <span className="text-sm font-medium">Pending Invitations</span>
-          <span className="text-sm font-semibold text-muted-foreground">
-            <Mail className="h-4 w-4" />
-          </span>
-        </Link>
+        <div className="flex items-center justify-between p-3 rounded-lg border">
+          <span className="text-sm font-medium">Connections</span>
+          {canSeeConnections() ? (
+            <span className="text-sm font-semibold text-muted-foreground">{connectionInfo.connectionCount}</span>
+          ) : (
+            <Lock className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+        {canSeeConnections() && (
+          <Link
+            href={isOwnProfile ? "/mynetwork/connections" : "#"}
+            className={`flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border ${!isOwnProfile ? "pointer-events-none" : ""}`}
+          >
+            <span className="text-sm font-medium">View All Connections</span>
+          </Link>
+        )}
+        {isOwnProfile && (
+          <Link
+            href="/mynetwork/invitations"
+            className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
+          >
+            <span className="text-sm font-medium">Pending Invitations</span>
+            <span className="text-sm font-semibold text-muted-foreground">
+              <Mail className="h-4 w-4" />
+            </span>
+          </Link>
+        )}
       </div>
-      <Link href="/mynetwork">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-        >
-          <Users className="h-4 w-4 mr-1.5" />
-          Open Full Network
-        </Button>
-      </Link>
     </div>
   );
 

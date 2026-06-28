@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -60,6 +60,19 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
   const [reportSuccess, setReportSuccess] = useState(false);
   const [reportError, setReportError] = useState("");
   const [showComments, setShowComments] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [isClamped, setIsClamped] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const checkClamped = useCallback(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    setIsClamped(!expanded && el.scrollHeight > el.clientHeight + 2);
+  }, [expanded]);
+
+  useEffect(() => {
+    checkClamped();
+  }, [content, checkClamped]);
   const { labels: marketStatusLabels } = useMarketStatuses();
 
   const typeInfo = TYPE_CONFIG[type] || TYPE_CONFIG.general;
@@ -148,8 +161,37 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
         </div>
 
         {/* Content */}
-        <div className="post-content text-sm whitespace-pre-line mb-3">
-          {content}
+        <div className="relative mb-3">
+          <div
+            ref={contentRef}
+            className={`text-sm whitespace-pre-line ${!expanded ? "line-clamp-5 pr-16" : ""}`}
+          >
+            {content}
+          </div>
+          {isClamped && (
+            <span className="absolute bottom-0 right-0 bg-gradient-to-l from-card from-70% via-card/80 to-transparent pl-8">
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={() => setExpanded(true)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpanded(true); }}
+                className="text-sm text-primary hover:underline cursor-pointer"
+              >
+                See more...
+              </span>
+            </span>
+          )}
+          {expanded && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={() => setExpanded(false)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpanded(false); }}
+              className="text-sm text-primary hover:underline cursor-pointer"
+            >
+              See less
+            </span>
+          )}
         </div>
 
         {/* Images grid */}

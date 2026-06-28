@@ -100,6 +100,12 @@ function LoginFormInner() {
               {errors.password && (
                 <p className="text-sm text-destructive">{errors.password.message}</p>
               )}
+              <Link
+                href="/forgot-password"
+                className="text-xs text-primary hover:underline block text-right"
+              >
+                Forgot password?
+              </Link>
             </div>
             {errors.root && (
               <p className="text-sm text-destructive">{errors.root.message}</p>

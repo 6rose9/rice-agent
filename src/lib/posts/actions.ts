@@ -76,6 +76,7 @@ const UNKNOWN_PROFILE: Profile = {
   phone_verified: false,
   phone_visibility: "private",
   email_visibility: "private",
+  connections_visibility: "private",
   created_at: "",
   updated_at: "",
 };
@@ -763,6 +764,35 @@ export async function unlikePost(postId: string): Promise<ActionResult> {
       error: err instanceof Error ? err.message : "Failed to unlike post.",
     };
   }
+}
+
+// ── Fetch Post Likers ───────────────────────────────────────────────
+
+export interface PostLiker {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+}
+
+export async function fetchPostLikers(postId: string): Promise<PostLiker[]> {
+  const supabase = await createClient();
+  const { data: reactions } = await supabase
+    .from("post_reactions")
+    .select("user_id")
+    .eq("post_id", postId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (!reactions || reactions.length === 0) return [];
+
+  const userIds = reactions.map((r) => r.user_id);
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name, username, avatar_url")
+    .in("id", userIds);
+
+  return (profiles ?? []) as PostLiker[];
 }
 
 // ── Delete Post ──────────────────────────────────────────────────────
