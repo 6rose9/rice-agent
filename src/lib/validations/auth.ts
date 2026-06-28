@@ -14,8 +14,9 @@ export const phoneSchema = z
 
 export const passwordSchema = z
   .string()
-  .min(6, "Password must be at least 6 characters")
-  .max(128, "Password must be less than 128 characters");
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password must be less than 128 characters")
+  .regex(/[0-9]/, "Password must contain at least one number");
 
 // ── Login ────────────────────────────────────────────────────────────
 export const loginSchema = z.object({

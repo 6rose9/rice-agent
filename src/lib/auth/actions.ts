@@ -11,6 +11,7 @@ import {
   ActionResult,
   extractFirstFieldError,
   requireAuth,
+  sanitizeRedirect,
 } from "@/lib/actions";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -120,11 +121,12 @@ export async function login(
       };
     }
 
-    return { success: true, redirect: formData.get("redirect") as string || "/feed" };
+    return { success: true, redirect: sanitizeRedirect(formData.get("redirect") as string | null) };
   } catch (err) {
+    console.error("Login error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Login failed. Please try again.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -191,11 +193,12 @@ export async function register(
       return { success: false, error: error.message };
     }
 
-    return { success: true, redirect: formData.get("redirect") as string || "/feed" };
+    return { success: true, redirect: sanitizeRedirect(formData.get("redirect") as string | null) };
   } catch (err) {
+    console.error("Registration error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Registration failed. Please try again.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -209,9 +212,10 @@ export async function logout(): Promise<ActionResult> {
     }
     return { success: true };
   } catch (err) {
+    console.error("Logout error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Logout failed. Please try again.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -268,9 +272,10 @@ export async function updateProfile(
 
     return { success: true };
   } catch (err) {
+    console.error("Update profile error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update profile.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -316,9 +321,10 @@ export async function updatePrivacySettings(
 
     return { success: true };
   } catch (err) {
+    console.error("Update privacy settings error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update privacy settings.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -344,9 +350,10 @@ export async function updateAvatar(
 
     return { success: true };
   } catch (err) {
+    console.error("Update avatar error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update avatar.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -371,25 +378,10 @@ export async function deleteAccount(): Promise<ActionResult> {
 
     return { success: true, redirect: "/feed" };
   } catch (err) {
+    console.error("Delete account error:", err);
     return {
       success: false,
-      error:
-        err instanceof Error ? err.message : "Failed to delete account.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
-}
-
-// ── Check if account is deleted (used by login flow) ───────────────────
-
-export async function checkAccountDeleted(
-  phone: string,
-): Promise<boolean> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("deleted_at")
-    .eq("phone", phone)
-    .maybeSingle();
-
-  return data?.deleted_at != null;
 }

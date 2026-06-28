@@ -19,7 +19,7 @@ interface CommentRow {
 
 /** Fallback profile for missing/soft-deleted authors */
 const UNKNOWN_PROFILE: Profile = {
-  id: "",
+  id: "unknown",
   phone: "",
   email: null,
   username: "unknown",
@@ -62,6 +62,14 @@ export async function getComments(
 
   if (error || !rows) {
     console.error("Failed to fetch comments:", error?.message);
+    return { comments: [], nextCursor: null };
+  }
+
+  // If unauthenticated, return empty (comments require auth per RLS)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
     return { comments: [], nextCursor: null };
   }
 
@@ -130,9 +138,10 @@ export async function createComment(
       .single();
 
     if (insertError || !row) {
+      console.error("Failed to create comment:", insertError?.message);
       return {
         success: false,
-        error: insertError?.message || "Failed to create comment.",
+        error: "Failed to create comment. Please try again.",
       };
     }
 
@@ -158,9 +167,10 @@ export async function createComment(
     revalidatePath("/feed");
     return { success: true, data: comment };
   } catch (err) {
+    console.error("Create comment error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to create comment.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -196,9 +206,10 @@ export async function deleteComment(commentId: string): Promise<ActionResult> {
     revalidatePath("/feed");
     return { success: true };
   } catch (err) {
+    console.error("Delete comment error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to delete comment.",
+      error: "An unexpected error occurred. Please try again.",
     };
   }
 }
