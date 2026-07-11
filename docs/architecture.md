@@ -155,7 +155,7 @@ Buying and selling listings created by users. Core marketplace content.
 - `township_id` — join performance
 
 **RLS:**
-- **SELECT:** All authenticated users can read active posts; inactive only visible to owner
+- **SELECT:** All users can read active posts; inactive only visible to owner
 - **INSERT:** Authenticated user can create posts with themselves as author
 - **UPDATE:** Owner can update their own posts
 - **DELETE:** Owner can delete their own posts (soft: set `is_active = false`)
@@ -179,7 +179,7 @@ Multi-image support per post. One post can have zero or more images.
 **Indexes:** `(post_id)`.
 
 **RLS:**
-- **SELECT:** All authenticated users can read images for posts they can see
+- **SELECT:** All users can read images for posts they can see
 - **INSERT:** Post owner can add images to their own posts
 - **DELETE:** Post owner can remove images from their own posts
 
