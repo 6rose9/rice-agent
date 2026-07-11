@@ -59,7 +59,7 @@ section.lead h1 { border-bottom:none; }
 
 - **Problem:** Myanmar rice trading relies on fragmented Facebook groups, phone calls, and personal contacts — discovery is slow, trust is hard to build
 - **Who it's for:** Farmers, traders, agents, and general users in Myanmar's rice supply chain
-- **What it does:** LinkedIn-style profiles + marketplace posts — build professional identity, publish buy/sell opportunities, grow your network
+- **What it does:** Profiles + marketplace posts — build professional identity, publish buy/sell opportunities, grow your network
 
 ---
 
@@ -76,22 +76,40 @@ Stack: **Next.js 16 · React 19 · TypeScript · Tailwind CSS · shadcn/ui · Su
 
 <!-- _class: lead -->
 
-# Demo
-
-![w:880](../public/assets/demo/d1.png)
-
 ## Screenshots
-| Home Feed | Selling Post | Buying Post |
-|-----------|--------------|-------------|
-| ![Home Feed](public/assets/demo/d1.png) | ![Selling Post](public/assets/demo/d2.png) | ![Buying Post](public/assets/demo/d3.png) |
 
-| Create Post | Create Selling and Buying Post |
-|-------------|-------------------------------|
-| ![Create Post](public/assets/demo/d4.png) | ![Create Selling and Buying Post](public/assets/demo/d5.png) | 
+### Home Feed
+![w:900](../public/assets/demo/d1.png)
 
-| Network | Profile |
-|---------|---------|
-| ![Network](public/assets/demo/d6.png) | ![Profile](public/assets/demo/d7.png) |
+---
+
+### Selling Post
+![w:900](../public/assets/demo/d2.png)
+
+---
+
+### Buying Post
+![w:900](../public/assets/demo/d3.png)
+
+---
+
+### Create Post
+![w:900](../public/assets/demo/d4.png)
+
+---
+
+### Selling & Buying Post
+![w:900](../public/assets/demo/d5.png)
+
+---
+
+### Network
+![w:900](../public/assets/demo/d6.png)
+
+---
+
+### Profile
+![w:900](../public/assets/demo/d7.png)
 
 ---
 
