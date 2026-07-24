@@ -1,9 +1,3 @@
-<!--
-  Marp template — "terminal-dark"
-  Copy this file into your repo (e.g. slides/intro.md) and replace the content.
-  Render:  marp slides/intro.md -o slides.html      (or .pdf / .png)
-  Theme is self-contained in the <style> block below — no external CSS needed.
--->
 ---
 marp: true
 paginate: true
@@ -49,7 +43,7 @@ section.lead h1 { border-bottom:none; }
 
 ## Myanmar's Rice Industry — Professional Networking & Marketplace
 
-**Crystal** . @6rose9
+**Zin Zin Thin Zaw** . @6rose9
 
 <span class="tags">`#built-with-claude` `#vibecode.tours`</span>
 
@@ -59,7 +53,7 @@ section.lead h1 { border-bottom:none; }
 
 - **Problem:** Myanmar rice trading relies on fragmented Facebook groups, phone calls, and personal contacts — discovery is slow, trust is hard to build
 - **Who it's for:** Farmers, traders, agents, and general users in Myanmar's rice supply chain
-- **What it does:** Profiles + marketplace posts — build professional identity, publish buy/sell opportunities, grow your network
+- **What it does:** Build professional identity, publish buy/sell opportunities, grow your network
 
 ---
 
@@ -79,37 +73,52 @@ Stack: **Next.js 16 · React 19 · TypeScript · Tailwind CSS · shadcn/ui · Su
 ## Screenshots
 
 ### Home Feed
-![w:900](../public/assets/demo/d1.png)
+![w:900](../public/assets/demo/01_home.png)
 
 ---
 
-### Selling Post
-![w:900](../public/assets/demo/d2.png)
+### Filter Posts
+![w:900](../public/assets/demo/02_home.png)
 
 ---
 
-### Buying Post
-![w:900](../public/assets/demo/d3.png)
+### Create General Posts
+![w:900](../public/assets/demo/03_create_general_post.png)
 
 ---
 
-### Create Post
-![w:900](../public/assets/demo/d4.png)
-
----
-
-### Selling & Buying Post
-![w:900](../public/assets/demo/d5.png)
+### Create Rice Posts
+![w:900](../public/assets/demo/04_create_post.png)
 
 ---
 
 ### Network
-![w:900](../public/assets/demo/d6.png)
+![w:900](../public/assets/demo/05_network.png)
+
+---
+
+### Search
+![w:900](../public/assets/demo/06_search.png)
 
 ---
 
 ### Profile
-![w:900](../public/assets/demo/d7.png)
+![w:900](../public/assets/demo/07_profile_post.png)
+
+---
+
+### Profile
+![w:900](../public/assets/demo/08_profile_network.png)
+
+---
+
+### Pricing
+![w:900](../public/assets/demo/09_pricing.png)
+
+---
+
+### Setting
+![w:900](../public/assets/demo/10_setting.png)
 
 ---
 
