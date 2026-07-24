@@ -8,38 +8,22 @@ A professional networking and marketplace platform for Myanmar's rice industry. 
 
 ## Screenshots
 
-### Home Feed
-![w:900](public/assets/demo/d1.png)
+<div align="center">
 
----
+| | |
+|---|---|
+| **Home Feed** | **Filter Post** |
+| ![Home Feed](public/assets/demo/01_home.png) | ![Home Feed 2](public/assets/demo/02_home.png) |
+| **Create General Post** | **Create Trading Post** |
+| ![Create General Post](public/assets/demo/03_create_general_post.png) | ![Create Post](public/assets/demo/04_create_post.png) |
+| **Network** | **Search** |
+| ![Network](public/assets/demo/05_network.png) | ![Search](public/assets/demo/06_search.png) |
+| **Profile — Posts** | **Profile — Network** |
+| ![Profile Posts](public/assets/demo/07_profile_post.png) | ![Profile Network](public/assets/demo/08_profile_network.png) |
+| **Pricing** | **Settings** |
+| ![Pricing](public/assets/demo/09_pricing.png) | ![Settings](public/assets/demo/10_setting.png) |
 
-### Selling Post
-![w:900](public/assets/demo/d2.png)
-
----
-
-### Buying Post
-![w:900](public/assets/demo/d3.png)
-
----
-
-### Create Post
-![w:900](public/assets/demo/d4.png)
-
----
-
-### Selling & Buying Post
-![w:900](public/assets/demo/d5.png)
-
----
-
-### Network
-![w:900](public/assets/demo/d6.png)
-
----
-
-### Profile
-![w:900](public/assets/demo/d7.png)
+</div>
 
 ---
 
