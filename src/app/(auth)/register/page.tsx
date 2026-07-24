@@ -264,16 +264,16 @@ function RegisterFormInner() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-[480px]">
-        <CardHeader className="text-center">
-          <div className="mb-2 flex justify-center">
-            <Image src="/logo.svg" alt="စပါးအောင်သွယ်" width={64} height={64} />
+      <Card className="w-full max-w-[480px] shadow-sm">
+        <CardHeader className="text-center pb-4">
+          <div className="mb-3 flex justify-center">
+            <Image src="/logo.svg" alt="စပါးအောင်သွယ်" width={56} height={56} className="opacity-90" />
           </div>
-          <CardTitle>Join စပါးအောင်သွယ်</CardTitle>
+          <CardTitle className="text-xl tracking-tight">Join စပါးအောင်သွယ်</CardTitle>
           <CardDescription>
             Connect with Myanmar&apos;s rice community
           </CardDescription>
-          <p className="text-sm mt-2">Step {step} of 3</p>
+          <p className="text-sm mt-3 text-muted-foreground/70">Step {step} of 3</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={(e) => e.preventDefault()} className="space-y-4">

@@ -54,20 +54,20 @@ function LoginFormInner() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-[400px]">
-        <CardHeader className="text-center">
-          <div className="mb-2 flex justify-center">
-            <Image src="/logo.svg" alt="စပါးအောင်သွယ်" width={64} height={64} />
+      <Card className="w-full max-w-[420px] shadow-sm">
+        <CardHeader className="text-center pb-4">
+          <div className="mb-3 flex justify-center">
+            <Image src="/logo.svg" alt="စပါးအောင်သွယ်" width={64} height={64} className="opacity-90" />
           </div>
-          <CardTitle>Welcome back</CardTitle>
+          <CardTitle className="text-xl tracking-tight">Welcome back</CardTitle>
           <CardDescription>
             Sign in to your စပါးအောင်သွယ် account
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone" className="text-sm font-medium">Phone Number</Label>
               <Input
                 id="phone"
                 type="tel"

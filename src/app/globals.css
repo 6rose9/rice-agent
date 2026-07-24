@@ -10,6 +10,7 @@
   --font-sans: var(--font-geist-sans), "Padauk", "Noto Sans Myanmar", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --color-gold: var(--gold);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,70 +50,74 @@
 }
 
 :root {
-  --background: oklch(0.98 0.01 110);
+  --background: oklch(0.985 0.005 90);
   --foreground: oklch(0.2 0.02 100);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.2 0.02 100);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.2 0.02 100);
 
-  /* Green — rice fields */
-  --primary: oklch(0.55 0.14 145);
+  /* Deep leaf green — rice paddies */
+  --primary: oklch(0.5 0.15 150);
   --primary-foreground: oklch(0.99 0 0);
 
-  --secondary: oklch(0.96 0.03 100);
+  /* Paddy gold — trading/accent */
+  --gold: oklch(0.65 0.12 85);
+
+  --secondary: oklch(0.96 0.03 95);
   --secondary-foreground: oklch(0.25 0.03 100);
-  --muted: oklch(0.96 0.01 100);
+  --muted: oklch(0.96 0.01 85);
   --muted-foreground: oklch(0.55 0.02 100);
   --accent: oklch(0.92 0.06 110);
   --accent-foreground: oklch(0.25 0.03 100);
   --destructive: oklch(0.55 0.2 20);
-  --border: oklch(0.9 0.02 105);
-  --input: oklch(0.9 0.02 105);
-  --ring: oklch(0.55 0.14 145);
-  --chart-1: oklch(0.55 0.14 145);
-  --chart-2: oklch(0.65 0.16 90);
-  --chart-3: oklch(0.45 0.12 145);
+  --border: oklch(0.9 0.02 100);
+  --input: oklch(0.9 0.02 100);
+  --ring: oklch(0.5 0.15 150);
+  --chart-1: oklch(0.5 0.15 150);
+  --chart-2: oklch(0.65 0.12 85);
+  --chart-3: oklch(0.45 0.12 150);
   --chart-4: oklch(0.7 0.12 120);
   --chart-5: oklch(0.5 0.1 160);
   --radius: 0.625rem;
-  --sidebar: oklch(0.97 0.01 110);
+  --sidebar: oklch(0.97 0.01 90);
   --sidebar-foreground: oklch(0.2 0.02 100);
-  --sidebar-primary: oklch(0.55 0.14 145);
+  --sidebar-primary: oklch(0.5 0.15 150);
   --sidebar-primary-foreground: oklch(0.99 0 0);
   --sidebar-accent: oklch(0.92 0.06 110);
   --sidebar-accent-foreground: oklch(0.25 0.03 100);
-  --sidebar-border: oklch(0.9 0.02 105);
-  --sidebar-ring: oklch(0.55 0.14 145);
+  --sidebar-border: oklch(0.9 0.02 100);
+  --sidebar-ring: oklch(0.5 0.15 150);
 }
 
 .dark {
-  --background: oklch(0.17 0.01 110);
+  --background: oklch(0.17 0.01 90);
   --foreground: oklch(0.95 0.01 100);
-  --card: oklch(0.22 0.01 110);
+  --card: oklch(0.22 0.01 90);
   --card-foreground: oklch(0.95 0.01 100);
-  --popover: oklch(0.22 0.01 110);
+  --popover: oklch(0.22 0.01 90);
   --popover-foreground: oklch(0.95 0.01 100);
-  --primary: oklch(0.65 0.14 145);
+  --primary: oklch(0.6 0.14 150);
   --primary-foreground: oklch(0.12 0.02 100);
-  --secondary: oklch(0.27 0.01 110);
+  --gold: oklch(0.7 0.1 85);
+  --secondary: oklch(0.27 0.01 90);
   --secondary-foreground: oklch(0.95 0.01 100);
-  --muted: oklch(0.27 0.01 110);
-  --muted-foreground: oklch(0.62 0.01 110);
+  --muted: oklch(0.27 0.01 90);
+  --muted-foreground: oklch(0.62 0.01 90);
   --accent: oklch(0.27 0.03 110);
   --accent-foreground: oklch(0.95 0.01 100);
   --destructive: oklch(0.6 0.2 20);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.65 0.14 145);
-  --sidebar: oklch(0.22 0.01 110);
+  --ring: oklch(0.6 0.14 150);
+  --sidebar: oklch(0.22 0.01 90);
   --sidebar-foreground: oklch(0.95 0.01 100);
-  --sidebar-primary: oklch(0.65 0.14 145);
+  --sidebar-primary: oklch(0.6 0.14 150);
   --sidebar-primary-foreground: oklch(0.12 0.02 100);
   --sidebar-accent: oklch(0.27 0.03 110);
   --sidebar-accent-foreground: oklch(0.95 0.01 100);
   --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.65 0.14 145);
+  --sidebar-ring: oklch(0.6 0.14 150);
 }
 
 @layer base {
@@ -125,6 +130,18 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Data numbers — tabular (monospaced) figures for prices, stats */
+@utility tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Gold accent chip for trading posts/badges */
+@utility badge-gold {
+  background-color: oklch(0.65 0.12 85 / 15%);
+  color: oklch(0.55 0.14 85);
+  border-color: oklch(0.65 0.12 85 / 30%);
 }
 
 /* Feed scroll area — smooth infinite scroll */

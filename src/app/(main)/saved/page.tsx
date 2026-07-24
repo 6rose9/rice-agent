@@ -8,6 +8,7 @@ import { SignInGate } from "@/components/auth/sign-in-gate";
 import { getSavedPosts } from "@/lib/posts/actions";
 import type { Post } from "@/types";
 import { Bookmark } from "lucide-react";
+import { RiceSeedIcon } from "@/components/icons/rice-seed";
 
 export default function SavedPage() {
   const { isAuthenticated } = useAuth();
@@ -64,11 +65,12 @@ export default function SavedPage() {
         </>
       ) : posts.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8 text-center">
-          <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-4">
-            <Bookmark className="h-10 w-10 text-muted-foreground" />
+          <div className="h-20 w-20 rounded-full bg-muted/80 ring-1 ring-border/50 flex items-center justify-center mb-4 relative">
+            <Bookmark className="h-8 w-8 text-muted-foreground" />
+            <RiceSeedIcon size={24} className="text-muted-foreground/20 absolute bottom-2 -right-1" />
           </div>
-          <h2 className="text-lg font-semibold mb-2">No saved posts yet</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-lg font-semibold tracking-tight mb-2">No saved posts yet</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
             Bookmark posts to save them here for later.
           </p>
         </div>

@@ -1,4 +1,4 @@
-import { Sprout } from "lucide-react";
+import { RiceSeedIcon } from "@/components/icons/rice-seed";
 
 interface EmptyCardProps {
   message?: string;
@@ -11,11 +11,11 @@ export function EmptyCard({
 }: EmptyCardProps) {
   return (
     <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-      <div className="bg-muted rounded-full p-4 mb-4">
-        <Sprout className="h-10 w-10 text-muted-foreground" />
+      <div className="bg-muted/80 rounded-full p-4 mb-4 ring-1 ring-border/50">
+        <RiceSeedIcon size={36} className="text-muted-foreground/60" />
       </div>
       <h3 className="text-base font-semibold mb-1">{message}</h3>
-      <p className="text-sm text-muted-foreground max-w-xs">{subtext}</p>
+      <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">{subtext}</p>
     </div>
   );
 }

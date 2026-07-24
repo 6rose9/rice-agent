@@ -37,6 +37,7 @@ import {
   Clock,
   Loader2,
 } from "lucide-react";
+import { RiceSeedIcon } from "@/components/icons/rice-seed";
 
 // ── Skeletons ─────────────────────────────────────────────────────
 
@@ -430,7 +431,9 @@ function NetworkContent() {
 
           {!loading && !error && suggestions.length === 0 && (
             <div className="text-center py-12 px-4">
-              <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <div className="bg-muted/80 rounded-full p-4 w-fit mx-auto mb-3 ring-1 ring-border/50">
+                <RiceSeedIcon size={32} className="text-muted-foreground/50" />
+              </div>
               <p className="text-sm font-medium">No suggestions yet</p>
               <p className="text-xs text-muted-foreground mt-1">
                 As more people join, they will appear here.
@@ -474,12 +477,12 @@ function SuggestionCard({
   onStatusChange?: (status: ConnectionStatus) => void;
 }) {
   return (
-    <Card className="overflow-hidden border hover:shadow-sm transition-shadow h-full pt-0">
+    <Card className="overflow-hidden border border-border/70 hover:shadow-sm transition-shadow h-full pt-0">
       <Link
         href={`/profile/${profile.username}`}
         className="block"
       >
-        <div className="h-10 sm:h-14 bg-gradient-to-r from-emerald-100 to-green-50 dark:from-emerald-900 dark:to-green-950">
+        <div className="h-10 sm:h-14 bg-gradient-to-b from-emerald-300/60 via-green-200/30 to-green-100/10 dark:from-emerald-800/80 dark:via-green-900/40 dark:to-green-950/20">
           {profile.cover_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img

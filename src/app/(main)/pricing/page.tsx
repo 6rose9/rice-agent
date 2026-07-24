@@ -152,7 +152,7 @@ function PricingContent() {
                       </Badge>
                     )}
                     {isPro && !isCurrent && (
-                      <Badge variant="secondary" className="text-xs gap-1">
+                      <Badge variant="outline" className="text-xs gap-1 badge-gold">
                         <Crown className="h-3 w-3" />
                         Popular
                       </Badge>

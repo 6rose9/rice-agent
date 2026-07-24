@@ -65,13 +65,22 @@ export function Sidebar() {
           return (
             <Link key={item.href} href={item.href}>
               <Button
-                variant={isActive ? "secondary" : "ghost"}
+                variant="ghost"
                 className={cn(
                   "w-full justify-start gap-3 h-10",
-                  isActive && "font-semibold"
+                  isActive
+                    ? "font-semibold bg-primary/10 text-primary hover:bg-primary/15"
+                    : "hover:bg-accent/50"
                 )}
               >
-                <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 1.8} />
+                <Icon
+                  className={cn(
+                    "h-5 w-5",
+                    item.href === "/pricing" && !isActive && "text-gold",
+                    item.href === "/pricing" && isActive && "text-gold",
+                  )}
+                  strokeWidth={isActive ? 2.5 : 1.8}
+                />
                 <span>{item.label}</span>
               </Button>
             </Link>
@@ -80,10 +89,12 @@ export function Sidebar() {
         {/* Saved Posts */}
         <Link href="/saved">
           <Button
-            variant={pathname === "/saved" ? "secondary" : "ghost"}
+            variant="ghost"
             className={cn(
               "w-full justify-start gap-3 h-10",
-              pathname === "/saved" && "font-semibold"
+              pathname === "/saved"
+                ? "font-semibold bg-primary/10 text-primary hover:bg-primary/15"
+                : "hover:bg-accent/50"
             )}
           >
             <Bookmark className="h-5 w-5" strokeWidth={pathname === "/saved" ? 2.5 : 1.8} />
@@ -94,10 +105,12 @@ export function Sidebar() {
         {user && (
           <Link href={profileHref}>
             <Button
-              variant={isOwnProfile ? "secondary" : "ghost"}
+              variant="ghost"
               className={cn(
                 "w-full justify-start gap-3 h-10",
-                isOwnProfile && "font-semibold"
+                isOwnProfile
+                  ? "font-semibold bg-primary/10 text-primary hover:bg-primary/15"
+                  : "hover:bg-accent/50"
               )}
             >
               <User className="h-5 w-5" strokeWidth={isOwnProfile ? 2.5 : 1.8} />
@@ -108,10 +121,12 @@ export function Sidebar() {
         {!isLoading && !user && (
           <Link href="/login">
             <Button
-              variant={pathname === "/login" ? "secondary" : "ghost"}
+              variant="ghost"
               className={cn(
                 "w-full justify-start gap-3 h-10",
-                pathname === "/login" && "font-semibold"
+                pathname === "/login"
+                  ? "font-semibold bg-primary/10 text-primary hover:bg-primary/15"
+                  : "hover:bg-accent/50"
               )}
             >
               <LogIn className="h-5 w-5" strokeWidth={pathname === "/login" ? 2.5 : 1.8} />

@@ -94,7 +94,7 @@ export function RightRail({ variant = "feed", profileStats, networkStats, onSear
   }, []);
 
   const baseClasses =
-    "hidden lg:flex flex-col w-[260px] xl:w-[300px] gap-4 sticky top-0 h-screen pt-4 pl-4 pr-2 border-l";
+    "hidden lg:flex flex-col w-[260px] xl:w-[300px] gap-3 sticky top-0 h-screen pt-4 pl-4 pr-2 border-l";
 
   const cardClasses = "border-0 shadow-none bg-transparent px-2";
 
@@ -123,7 +123,7 @@ export function RightRail({ variant = "feed", profileStats, networkStats, onSear
               Suggestions
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0 space-y-3">
+          <CardContent className="p-0 space-y-2.5">
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -159,7 +159,7 @@ export function RightRail({ variant = "feed", profileStats, networkStats, onSear
         <Card className={cardClasses}>
           <CardHeader className="pb-2 pt-0">
             <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-              <TrendingUp className="h-3.5 w-3.5" />
+              <TrendingUp className="h-3.5 w-3.5 text-gold" />
               Trending
             </CardTitle>
           </CardHeader>
@@ -204,7 +204,7 @@ export function RightRail({ variant = "feed", profileStats, networkStats, onSear
               Similar Traders
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0 space-y-3">
+          <CardContent className="p-0 space-y-2.5">
             {loading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -372,7 +372,7 @@ export function RightRail({ variant = "feed", profileStats, networkStats, onSear
         <Card className={cardClasses}>
           <CardHeader className="pb-2 pt-0">
             <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-1.5">
-              <TrendingUp className="h-3.5 w-3.5" />
+              <TrendingUp className="h-3.5 w-3.5 text-gold" />
               Trending Keywords
             </CardTitle>
           </CardHeader>
