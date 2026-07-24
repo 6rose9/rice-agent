@@ -36,11 +36,11 @@ export const MEASURING = [
 // ── Price Slider ────────────────────────────────────────────────────
 export const PRICE_MIN = 500_000; // 5 lakh
 export const PRICE_MAX = 7_500_000; // 75 lakh
-export const PRICE_STEP = 5_000;
+export const PRICE_STEP = 5_0000;
 
 // ── Quantity Slider ─────────────────────────────────────────────────
 export const QTY_MIN = 100;
-export const QTY_MAX = 100_000;
+export const QTY_MAX = 10_000;
 export const QTY_STEP = 50;
 
 // ── Pound per Bag Slider ────────────────────────────────────────────
