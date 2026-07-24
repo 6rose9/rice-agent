@@ -329,32 +329,36 @@ function ProfileContent() {
   const networkPanel = (
     <div className="p-4 space-y-4">
       <div className="space-y-2">
-        <div className="flex items-center justify-between p-3 rounded-lg border">
-          <span className="text-sm font-medium">Connections</span>
-          {canSeeConnections() ? (
-            <span className="text-sm font-semibold text-muted-foreground">{connectionInfo.connectionCount}</span>
-          ) : (
-            <Lock className="h-4 w-4 text-muted-foreground" />
-          )}
-        </div>
-        {canSeeConnections() && (
-          <Link
-            href={isOwnProfile ? "/mynetwork/connections" : "#"}
-            className={`flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border ${!isOwnProfile ? "pointer-events-none" : ""}`}
-          >
-            <span className="text-sm font-medium">View All Connections</span>
-          </Link>
-        )}
-        {isOwnProfile && (
-          <Link
-            href="/mynetwork/invitations"
-            className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
-          >
-            <span className="text-sm font-medium">Pending Invitations</span>
-            <span className="text-sm font-semibold text-muted-foreground">
-              <Mail className="h-4 w-4" />
-            </span>
-          </Link>
+        {canSeeConnections() ? (
+          <>
+            <Link
+              href={isOwnProfile ? "/mynetwork/connections" : `/profile/${username}/connections`}
+              className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
+            >
+              <span className="text-sm font-medium">View All Connections</span>
+            </Link>
+            {isOwnProfile && (
+              <Link
+                href="/mynetwork/invitations"
+                className="flex items-center justify-between p-3 rounded-lg hover:bg-accent transition-colors border"
+              >
+                <span className="text-sm font-medium">Pending Invitations</span>
+                <span className="text-sm font-semibold text-muted-foreground">
+                  <Mail className="h-4 w-4" />
+                </span>
+              </Link>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="rounded-full bg-accent p-3 mb-3">
+              <Users className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-medium">Connections Private</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
+              {displayProfile.full_name.split(" ")[0]} has set connection list to private.
+            </p>
+          </div>
         )}
       </div>
     </div>
