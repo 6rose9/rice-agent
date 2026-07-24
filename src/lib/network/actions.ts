@@ -503,7 +503,34 @@ export async function getConnectionStatusMap(
   return statusMap;
 }
 
-// ── Get Connected Profiles ──────────────────────────────────────────
+// ── Get Connected Profiles for Any User ────────────────────────────
+
+export async function getUserConnectedProfiles(userId: string): Promise<Profile[]> {
+  const supabase = await createClient();
+
+  const { data: connections, error } = await supabase
+    .from("connections")
+    .select("user1_id, user2_id")
+    .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+
+  if (error || !connections || connections.length === 0) {
+    return [];
+  }
+
+  const otherUserIds = connections.map((c) =>
+    c.user1_id === userId ? c.user2_id : c.user1_id,
+  );
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", otherUserIds)
+    .is("deleted_at", null);
+
+  return (profiles ?? []) as unknown as Profile[];
+}
+
+// ── Get Connected Profiles (current user) ──────────────────────────
 
 export async function getConnectedProfiles(): Promise<Profile[]> {
   const auth = await requireAuth();
