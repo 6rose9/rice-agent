@@ -22,6 +22,7 @@ import { useRegions } from "@/hooks/use-regions";
 import { MarketStatusSelector } from "@/components/profile/market-status-selector";
 import type { Profile, Post } from "@/types";
 import { MapPin, Calendar, Sprout, Users, Loader2, Camera, Phone, Mail, Lock } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function ProfileContent() {
   const params = useParams();
@@ -208,11 +209,87 @@ function ProfileContent() {
     fetchProfile();
   }, [username]);
 
-  // Loading state
+  // Loading state — skeleton layout matching the page structure
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex">
+        <div className="flex-1 min-w-0">
+          {/* Cover image skeleton */}
+          <Skeleton className="h-24 sm:h-32 rounded-none" />
+
+          {/* Avatar skeleton — overlaps cover */}
+          <div className="flex justify-center -mt-10 sm:-mt-12 mb-2">
+            <Skeleton className="h-20 w-20 sm:h-28 sm:w-28 rounded-full ring-4 ring-background" />
+          </div>
+
+          {/* Profile info skeletons */}
+          <div className="text-center px-4 space-y-2">
+            <Skeleton className="h-6 w-48 mx-auto" />
+            <Skeleton className="h-4 w-36 mx-auto" />
+            <Skeleton className="h-5 w-24 mx-auto mt-2" />
+
+            {/* Action button skeleton */}
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <Skeleton className="h-9 w-28 rounded-md" />
+              <Skeleton className="h-9 w-28 rounded-md" />
+            </div>
+
+            {/* Stats row skeleton */}
+            <div className="flex justify-center gap-6 mt-4 py-3 border-t border-b">
+              {["Posts", "Connections", "Followers", "Following"].map((label) => (
+                <div key={label} className="text-center space-y-1">
+                  <Skeleton className="h-4 w-8 mx-auto" />
+                  <Skeleton className="h-3 w-16 mx-auto" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tabs skeleton */}
+          <div className="w-full">
+            <div className="grid grid-cols-3 border-b">
+              {["About", "Posts", "Network"].map((tab) => (
+                <div key={tab} className="py-3 px-4">
+                  <Skeleton className="h-4 w-14 mx-auto" />
+                </div>
+              ))}
+            </div>
+
+            {/* Post content skeletons */}
+            <div className="divide-y">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                    <div className="space-y-1.5 flex-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  {i === 0 && <Skeleton className="h-48 w-full rounded-lg" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right rail skeleton */}
+        <aside className="hidden lg:flex flex-col w-[260px] xl:w-[300px] shrink-0 border-l">
+          <div className="p-4 space-y-4">
+            <Skeleton className="h-5 w-28" />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-3.5 w-24" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
       </div>
     );
   }
