@@ -47,3 +47,10 @@ supabase/.temp/
 .mcp.json
 
 .wikirc.yaml
+
+# python cache
+__pycache__/
+*.pyc
+
+# playwright debug artifacts
+.playwright-mcp/
