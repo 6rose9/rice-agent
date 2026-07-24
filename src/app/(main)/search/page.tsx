@@ -15,7 +15,8 @@ import { useRecentSearches } from "@/hooks/use-recent-searches";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { UserRole, Profile } from "@/types";
-import { Search, X, Clock, User, MessageCircle } from "lucide-react";
+import { Search, X, Clock, MessageCircle } from "lucide-react";
+import { RiceSeedIcon } from "@/components/icons/rice-seed";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -114,13 +115,13 @@ function SearchContent() {
         </div>
 
         {/* Quick filters */}
-        <div className="flex gap-1.5 px-4 py-2 overflow-x-auto border-b">
+        <div className="flex gap-1.5 px-4 py-2 overflow-x-auto no-scrollbar border-b bg-background/95">
           {QUICK_FILTERS.map((f) => (
             <Button
               key={f.value}
-              variant={activeFilter === f.value ? "default" : "outline"}
+              variant={activeFilter === f.value ? "default" : "ghost"}
               size="sm"
-              className="rounded-full h-7 text-xs whitespace-nowrap"
+              className="rounded-full h-8 px-3 text-xs font-medium whitespace-nowrap shrink-0"
               onClick={() => setActiveFilter(f.value)}
             >
               {f.label}
@@ -209,7 +210,9 @@ function SearchContent() {
               </div>
             ) : (
               <div className="text-center py-12">
-                <User className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <div className="bg-muted/80 rounded-full p-4 w-fit mx-auto mb-3 ring-1 ring-border/50">
+                  <RiceSeedIcon size={32} className="text-muted-foreground/50" />
+                </div>
                 <p className="text-sm font-medium">No {activeFilter}s found</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Try a different category.
@@ -294,7 +297,9 @@ function SearchContent() {
               ))}
               {results.count === 0 && (
                 <div className="text-center py-16">
-                  <User className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <div className="bg-muted/80 rounded-full p-4 w-fit mx-auto mb-3 ring-1 ring-border/50">
+                    <RiceSeedIcon size={32} className="text-muted-foreground/50" />
+                  </div>
                   <p className="text-sm font-medium">No results for &quot;{query}&quot;</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     Try different keywords or filters.
@@ -387,7 +392,9 @@ function SearchContent() {
 
             {results.count === 0 && (
               <div className="hidden lg:flex flex-col items-center justify-center py-16">
-                <User className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <div className="bg-muted/80 rounded-full p-4 w-fit mx-auto mb-3 ring-1 ring-border/50">
+                  <RiceSeedIcon size={32} className="text-muted-foreground/50" />
+                </div>
                 <p className="text-sm font-medium">No results for &quot;{query}&quot;</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Try different keywords or filters.

@@ -11,8 +11,6 @@ import { ErrorCard } from "@/components/feed/error-card";
 import { useAuth } from "@/components/auth/auth-provider";
 import { getPosts } from "@/lib/posts/actions";
 import type { FeedFilter as FeedFilterType, Post } from "@/types";
-import { Loader2 } from "lucide-react";
-
 function FeedContent() {
   const { isAuthenticated } = useAuth();
   const [filter, setFilter] = useState<FeedFilterType>("all");
@@ -118,17 +116,19 @@ function FeedContent() {
                 isAuthenticated={isAuthenticated}
               />
             ))}
-            {nextCursor && (
+            {loadingMore && (
+              <>
+                <SkeletonCard />
+                <SkeletonCard />
+              </>
+            )}
+            {nextCursor && !loadingMore && (
               <div className="flex justify-center py-4">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleLoadMore}
-                  disabled={loadingMore}
                 >
-                  {loadingMore && (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  )}
                   Load More
                 </Button>
               </div>

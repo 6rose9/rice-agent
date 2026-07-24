@@ -23,7 +23,7 @@ export function FeedFilter({
   isAuthenticated = false,
 }: FeedFilterProps) {
   return (
-    <div className="sticky top-0 md:top-0 z-40 flex gap-1 px-4 py-2 overflow-x-auto no-scrollbar border-b bg-background">
+    <div className="sticky top-0 z-40 flex gap-1 px-4 py-2 overflow-x-auto no-scrollbar border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {filters.map((f) => {
         const isActive = value === f.value;
         return (

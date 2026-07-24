@@ -29,7 +29,7 @@ export function BottomNav() {
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "w-full flex-col gap-0.5 h-auto py-1",
+                  "w-full flex-col gap-0.5 h-auto py-1 relative",
                   isActive && "text-primary",
                   item.highlight && "text-primary hover:text-primary/80"
                 )}
@@ -45,6 +45,9 @@ export function BottomNav() {
                   />
                 )}
                 <span className="text-[10px] leading-tight">{item.label}</span>
+                {isActive && (
+                  <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-primary" />
+                )}
               </Button>
             </Link>
           );

@@ -32,7 +32,7 @@ import { formatRelativeTime, formatPrice, formatQuantity } from "@/lib/utils/for
 import { ROLE_LABELS } from "@/lib/constants";
 import { useMarketStatuses } from "@/hooks/use-market-statuses";
 import { deletePost, reportPost } from "@/lib/posts/actions";
-import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation, Flag } from "lucide-react";
+import { MapPin, Wheat, Banknote, Package, MoreHorizontal, Pencil, Trash2, Navigation, Flag, Home, Truck, Droplets } from "lucide-react";
 
 interface PostCardProps {
   post: Post;
@@ -41,10 +41,10 @@ interface PostCardProps {
   onRefresh?: () => void;
 }
 
-const TYPE_CONFIG = {
-  general: { label: "📝 General", variant: "outline" as const },
-  selling: { label: "🛒 Selling", variant: "default" as const },
-  buying: { label: "💰 Buying", variant: "secondary" as const },
+const TYPE_CONFIG: Record<string, { label: string; variant: "outline" | "default" | "secondary"; gold?: boolean }> = {
+  general: { label: "📝 General", variant: "outline" },
+  selling: { label: "🛒 Selling", variant: "default", gold: true },
+  buying: { label: "💰 Buying", variant: "secondary" },
 };
 
 export function PostCard({ post, isAuthenticated = false, currentUserId, onRefresh }: PostCardProps) {
@@ -84,12 +84,12 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
   }, [post.created_at]);
 
   return (
-    <Card className="border-b border-border/50 rounded-none shadow-none last:border-b-0">
-      <CardContent className="p-4">
+    <Card className="border-b border-border/50 rounded-none shadow-none last:border-b-0 transition-colors duration-200 hover:bg-muted/20">
+      <CardContent className="px-3 py-3 sm:p-4">
         {/* Header — author info */}
         <div className="flex items-start gap-3 mb-3">
           <Link href={`/profile/${author.username}`}>
-            <Avatar className="h-10 w-10">
+            <Avatar className={`h-10 w-10 ${isPremium ? "ring-2 ring-gold/40 ring-offset-2 ring-offset-card" : ""}`}>
               <AvatarImage src={author.avatar_url ?? undefined} />
               <AvatarFallback className="bg-accent text-sm">
                 {author.full_name.charAt(0)}
@@ -107,7 +107,7 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
               {isPremium && (
                 <Badge
                   variant={typeInfo.variant}
-                  className="text-[10px] h-5 px-1.5 font-medium uppercase tracking-wide gap-0.5"
+                  className={`text-[10px] h-5 px-1.5 font-medium uppercase tracking-wide gap-0.5 ${typeInfo.gold ? "badge-gold" : ""}`}
                 >
                   {typeInfo.label}
                 </Badge>
@@ -164,33 +164,27 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
         <div className="relative mb-3">
           <div
             ref={contentRef}
-            className={`text-sm whitespace-pre-line ${!expanded ? "line-clamp-5 pr-16" : ""}`}
+            className={`text-sm whitespace-pre-line leading-relaxed ${!expanded ? "line-clamp-5" : ""}`}
           >
             {content}
           </div>
           {isClamped && (
-            <span className="absolute bottom-0 right-0 bg-gradient-to-l from-card from-70% via-card/80 to-transparent pl-8">
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={() => setExpanded(true)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpanded(true); }}
-                className="text-sm text-primary hover:underline cursor-pointer"
-              >
-                See more...
-              </span>
-            </span>
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="mt-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors cursor-pointer"
+            >
+              See more...
+            </button>
           )}
           {expanded && (
-            <span
-              role="button"
-              tabIndex={0}
+            <button
+              type="button"
               onClick={() => setExpanded(false)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpanded(false); }}
-              className="text-sm text-primary hover:underline cursor-pointer"
+              className="mt-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors cursor-pointer"
             >
               See less
-            </span>
+            </button>
           )}
         </div>
 
@@ -210,14 +204,14 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
             {images.map((img, idx) => (
               <div
                 key={img.id}
-                className={`relative overflow-hidden rounded-md bg-muted ${
+                className={`relative overflow-hidden rounded-lg bg-muted group ${
                   images.length === 3 && idx === 0 ? "row-span-2" : ""
                 }`}
               >
                 <img
                   src={img.url}
                   alt={`Post image ${idx + 1}`}
-                  className="w-full h-full object-cover aspect-[4/3]"
+                  className="w-full h-full object-cover aspect-[4/3] transition-transform duration-300 group-hover:scale-105"
                   loading="lazy"
                 />
               </div>
@@ -227,17 +221,19 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
 
         {/* Meta tags — only for buying/selling */}
         {isPremium && (
-          <div className="rounded-lg bg-muted/50 p-3 mb-3 space-y-2.5">
+          <div className="rounded-lg border-l-4 border-l-gold bg-muted/30 p-3 mb-3 space-y-3 transition-colors">
             {/* Primary info: rice type + price */}
-            <div className="flex flex-wrap items-center gap-2">
-              {rice_type && (
-                <Badge variant="secondary" className="gap-1 font-normal">
-                  <Wheat className="h-3 w-3" />
-                  {rice_type}
-                </Badge>
-              )}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {rice_type && (
+                  <Badge variant="secondary" className="gap-1.5 font-normal px-2.5 py-0.5">
+                    <Wheat className="h-3.5 w-3.5" />
+                    {rice_type}
+                  </Badge>
+                )}
+              </div>
               {price != null && (
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-gold tabular-nums">
                   <Banknote className="h-4 w-4" />
                   {formatPrice(price)}
                   <span className="text-xs font-normal text-muted-foreground">/ 100 baskets</span>
@@ -245,47 +241,53 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
               )}
             </div>
 
+            {/* Divider */}
+            <div className="h-px bg-border/50" />
+
             {/* Secondary info: quantity, location, specs */}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
               {quantity != null && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background/80 border text-muted-foreground">
                   <Package className="h-3 w-3" />
                   {formatQuantity(quantity, "baskets")}
                 </span>
               )}
               {region && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background/80 border text-muted-foreground">
                   <MapPin className="h-3 w-3" />
                   {township ? `${township}, ` : ""}
                   {region}
                 </span>
               )}
               {address && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
-                  🏠 {address}
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background/80 border text-muted-foreground">
+                  <Home className="h-3 w-3" />
+                  {address}
                 </span>
               )}
               {pound_per_bag != null && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background/80 border text-muted-foreground">
                   <Image src="/assets/bag.jpeg" alt="" width={14} height={14} className="rounded-sm" />
                   {pound_per_bag} lb/bag
                 </span>
               )}
               {paddy_condition != null && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border text-muted-foreground">
-                  ☀️ Moisture: {paddy_condition}%
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background/80 border text-muted-foreground">
+                  <Droplets className="h-3 w-3" />
+                  Moisture: {paddy_condition}%
                 </span>
               )}
               {easy_to_carry && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-50 border border-green-200 text-green-700 dark:bg-green-950 dark:border-green-800 dark:text-green-400">
-                  🚚 Easy to carry
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20 text-primary cursor-default">
+                  <Truck className="h-3 w-3" />
+                  Easy to carry
                 </span>
               )}
               {post.latitude != null && post.longitude != null && (
                 <button
                   type="button"
                   onClick={() => setShowMapDialog(true)}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gold/10 text-gold hover:bg-gold/20 transition-colors cursor-pointer"
                 >
                   <Navigation className="h-3 w-3" />
                   Get Directions
@@ -347,7 +349,10 @@ export function PostCard({ post, isAuthenticated = false, currentUserId, onRefre
       <Dialog open={showMapDialog} onOpenChange={setShowMapDialog}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>📍 Post Location</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-gold" />
+              Post Location
+            </DialogTitle>
           </DialogHeader>
           <div className="w-full h-64 rounded-md overflow-hidden border bg-muted">
             {showMapDialog && post.latitude != null && post.longitude != null && (
