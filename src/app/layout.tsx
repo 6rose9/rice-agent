@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth/auth-provider";
 
@@ -55,6 +56,12 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>{children}</AuthProvider>
+        <Script
+          src="//gc.zgo.at/count.js"
+          data-goatcounter={process.env.NEXT_PUBLIC_GOATCOUNTER_URL}
+          strategy="afterInteractive"
+          async
+        />
       </body>
     </html>
   );
