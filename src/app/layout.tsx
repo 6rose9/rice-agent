@@ -42,6 +42,21 @@ export const metadata: Metadata = {
   icons: {
     icon: "/logo.svg",
   },
+  openGraph: {
+    title: "Rice Agent — networking for Myanmar's rice trade",
+    description:
+      "Connects farmers, traders and agents. Built in 8 weeks at Vibe Code Tours.",
+    url: "https://rice-agent.vercel.app/feed",
+    siteName: "Rice Agent",
+    images: [
+      {
+        url: "https://rice-agent.vercel.app/og.jpg",
+        width: 1200,
+        height: 630,
+      },
+    ],
+    type: "website",
+  },
 };
 
 export default function RootLayout({
